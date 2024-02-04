@@ -111,6 +111,17 @@ def test_valid_iso8601_date_time():
     # rejects times alone
     assert not td.valid_iso8601_date_time("02:02:00+01:00")
 
+def test_valid_iso8601_duration():
+    assert td.valid_iso8601_duration("P3W")
+    assert td.valid_iso8601_duration("P1Y2M3DT2H30M40S")
+    # mix of days and weeks supported
+    assert td.valid_iso8601_duration("P3W2D")
+    # negative durations supported
+    assert td.valid_iso8601_duration("-P3M")
+    # invalid durations rejected
+    assert not td.valid_iso8601_duration("abacus") # invalid in several ways ;-)
+    assert not td.valid_iso8601_duration("3W2D") # missing 'P'
+
 
 
 

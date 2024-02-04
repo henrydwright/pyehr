@@ -1,5 +1,6 @@
-from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta, time, timezone
+from typing import Union
+import re
 
 from org.openehr.base.foundation_types import AnyClass
 
@@ -10,8 +11,11 @@ import numpy as np
 # for iso8601_date use datetime.date
 # for iso8601_time use datetime.time
 # for iso8601_timezone use datetime.timezone
-# for iso8601_duration use duration class below
+# for iso8601_duration use datetime.timedelta (generated using Duration below)
 # for iso8601_date_time use datetime.datetime
+
+temporal = Union[date, time, timezone, timedelta]
+"""Abstract ancestor of time-related classes."""
 
 class TimeDefinitions:
     """Definitions for date/time classes. Note that the timezone limits are 
@@ -36,7 +40,7 @@ class TimeDefinitions:
     MAX_DAYS_IN_YEAR : np.int32 = DAYS_IN_LEAP_YEAR
     """Maximum number of days in a year, i.e. accounting for leap years."""
     DAYS_IN_WEEK : np.int32 = np.int32(7)
-    """Number of days in a week."""
+    """Number of days in a week, i.e. 7."""
     MONTHS_IN_YEAR : np.int32 = np.int32(12)
     """Number of months in a year."""
     MIN_TIMEZONE_HOUR : np.int32 = np.int32(12)
@@ -89,6 +93,7 @@ class TimeDefinitions:
         return fs >= 0.0 and fs < 1.0
 
     def valid_iso8601_date(s : str) -> bool:
+        """String is a valid ISO 8601 date,"""
         try:
             d = date.fromisoformat(s)
             return True
@@ -96,6 +101,7 @@ class TimeDefinitions:
             return False
         
     def valid_iso8601_time(s : str) -> bool:
+        """String is a valid ISO 8601 time"""
         try:
             t = time.fromisoformat(s)
             return True
@@ -103,6 +109,7 @@ class TimeDefinitions:
             return False
 
     def valid_iso8601_date_time(s : str) -> bool:
+        """String is a valid ISO 8601 date-time"""
         try:
             dt = datetime.fromisoformat(s)
             return True
@@ -110,9 +117,47 @@ class TimeDefinitions:
             return False
 
     def valid_iso8601_duration(s : str) -> bool:
-        pass
+        """String is a valid ISO 8601 duration"""
+        try:
+            dur = Duration.from_openehr_adjusted_isoformat(s)
+            return True
+        except ValueError:
+            return False
 
 class Duration:
-    def from_openehr_adjusted_isoformat(s : str) -> timedelta:
-        pass
+    # thanks to - https://stackoverflow.com/questions/32044846/regex-for-iso-8601-durations
+    ISO8601_DURATION_REGEX = "^P(?=\\d+[YMWD])(\\d+Y)?(\\d+M)?(\\d+W)?(\\d+D)?(T(?=\\d+[HMS])(\\d+H)?(\\d+M)?(\\d+S)?)?$"
+    
+    def from_openehr_adjusted_isoformat(iso_str : str) -> timedelta:
+        negative = False
+        if iso_str[0] == '-':
+            negative = True
+            iso_str = iso_str[1:]
+        if re.match(Duration.ISO8601_DURATION_REGEX, iso_str) is None:
+            raise ValueError("Provided string was not a valid ISO8601 duration")
+        parts = re.split(Duration.ISO8601_DURATION_REGEX, iso_str)
+        y, mo, w, d, h, mi, s = [0] * 7
+        if parts[1] is not None:
+            y = int(parts[1].replace("Y",""))
+        if parts[2] is not None:
+            mo = int(parts[2].replace("M", ""))
+        if parts[3] is not None:
+            w = int(parts[3].replace("W", ""))
+        if parts[4] is not None:
+            d = int(parts[4].replace("D", ""))
+        if parts[6] is not None:
+            h = int(parts[6].replace("H", ""))
+        if parts[7] is not None:
+            mi = int(parts[7].replace("M", ""))
+        if parts[8] is not None:
+            s = int(parts[8].replace("S", ""))
+
+        delt = timedelta(
+            days = float(d + TimeDefinitions.AVERAGE_DAYS_IN_MONTH * mo + TimeDefinitions.AVERAGE_DAYS_IN_YEAR * y),
+            weeks = w,
+            hours = h,
+            minutes = mi,
+            seconds = s
+        )
+        return -delt if negative else delt
 
