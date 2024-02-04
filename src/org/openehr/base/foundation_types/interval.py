@@ -291,9 +291,12 @@ class Cardinality(AnyClass):
     state that a container acts like a logical list, set or bag."""
 
     interval : MultiplicityInterval
+    """The interval of this cardinality."""
     
     is_ordered : bool = False
+    """True if the members of the container attribute to which this cardinality refers are ordered."""
     is_unique : bool = False
+    """True if the members of the container attribute to which this cardinality refers are unique."""
 
     def __init__(self, ordered : bool, unique : bool, interval : MultiplicityInterval):
         self.is_ordered = ordered
@@ -306,10 +309,16 @@ class Cardinality(AnyClass):
                 self.is_unique == other.is_unique)
 
     def is_bag(self) -> bool:
-        pass
+        """True if the semantics of this cardinality represent a bag, 
+        i.e. unordered, non-unique membership."""
+        return not self.is_ordered and not self.is_unique
 
     def is_list(self) -> bool:
-        pass
+        """True if the semantics of this cardinality represent a list, 
+        i.e. ordered, non-unique membership."""
+        return self.is_ordered and not self.is_unique
 
     def is_set(self) -> bool:
-        pass
+        """True if the semantics of this cardinality represent a set, 
+        i.e. unordered, unique membership."""
+        return self.is_unique and not self.is_ordered
