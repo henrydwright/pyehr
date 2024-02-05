@@ -75,15 +75,17 @@ def test_valid_iso8601_date():
     assert not td.valid_iso8601_date("ababcas")
     assert not td.valid_iso8601_date("2024-02-04T23:59:00")
     # allows partial dates
-    # TODO: Fix partial dates issue
-    #assert td.valid_iso8601_date("2022-02")
-    #assert td.valid_iso8601_date("202202")
-    #assert td.valid_iso8601_date("2022")
+    assert td.valid_iso8601_date("2022-02")
+    assert td.valid_iso8601_date("202202")
+    assert td.valid_iso8601_date("2022")
     
 def test_valid_iso8601_time():
     assert td.valid_iso8601_time("01:02:03")
     assert td.valid_iso8601_time("00:00:00")
     assert td.valid_iso8601_time("23:59:59")
+    # handles partial times
+    assert td.valid_iso8601_time("01:00")
+    assert td.valid_iso8601_time("12")
     # handles compact times
     assert td.valid_iso8601_time("010203")
     assert td.valid_iso8601_time("000000")

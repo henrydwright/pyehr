@@ -1,5 +1,6 @@
+from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta, time, timezone
-from typing import Union
+from typing import Union, Optional
 import re
 
 from org.openehr.base.foundation_types import AnyClass
@@ -91,14 +92,22 @@ class TimeDefinitions:
     def valid_fractional_second(fs: np.float64) -> bool:
         """True if fs >= 0.0 and fs < 1.0 ."""
         return fs >= 0.0 and fs < 1.0
+    
+    ISO8601_DATE_EXTENDED_REGEX = "^(\\d{4}(-\\d\\d(-\\d\\d)?)?)$"
+    ISO8601_DATE_COMPACT_REGEX = "^(\\d{4}(\\d\\d(\\d\\d)?)?)$"
 
     def valid_iso8601_date(s : str) -> bool:
         """String is a valid ISO 8601 date,"""
-        try:
-            d = date.fromisoformat(s)
-            return True
-        except ValueError:
-            return False
+        format_ok = (re.match(TimeDefinitions.ISO8601_DATE_COMPACT_REGEX, s) is not None or
+                re.match(TimeDefinitions.ISO8601_DATE_EXTENDED_REGEX, s) is not None) 
+        compact = s.replace("-", "")
+        parts = re.split(TimeDefinitions.ISO8601_DATE_COMPACT_REGEX, compact)
+        return (format_ok and
+                TimeDefinitions.valid_year(int(parts[1][0:4])) and
+                ((parts[2] is None) or TimeDefinitions.valid_month(int(parts[2][0:2]))) and
+                ((parts[3] is None) or TimeDefinitions.valid_day(int(parts[1][0:4]), int(parts[1][4:6]), int(parts[1][6:8])))
+        )
+
         
     def valid_iso8601_time(s : str) -> bool:
         """String is a valid ISO 8601 time"""
@@ -123,6 +132,76 @@ class TimeDefinitions:
             return True
         except ValueError:
             return False
+
+class ISOType(AnyClass, ABC):
+    """Abstract ancestor type of ISO 8601 types, defining interface 
+    for 'extended' and 'partial' concepts from ISO 8601."""
+
+    _value : str
+    def _get_value(self) -> str:
+        return self._value
+    
+    value : str = property(
+        fget=_get_value
+    )
+    """ISO 8601 string representation of the type"""
+
+    def __init__(self, iso8601_string : str):
+        self._value = iso8601_string
+
+    def __str__(self) -> str:
+        return self.value
+
+    def is_equal(self, other) -> bool:
+        return (type(self) == type(other) and
+            self.value == other.value)
+
+    @abstractmethod
+    def is_partial(self) -> bool:
+        """True if this date time is partial, i.e. if trailing end 
+        (right hand) value(s) is/are missing."""
+        pass
+
+    @abstractmethod
+    def is_extended(self) -> bool:
+        """True if this ISO8601 string is in the 'extended' form, 
+        i.e. uses '-' and / or ':' separators. 
+        This is the preferred format."""
+        pass
+
+class ISODate(ISOType):
+    """Represents an ISO 8601 date, including partial and extended forms. Value may be:
+    * YYYY-MM-DD (extended, preferred)
+    * YYYYMMDD (compact)
+    * a partial invariant.
+
+    See TimeDefinitions.valid_iso8601_date() for validity."""
+
+    _year : Optional[np.int32]
+    _month : Optional[np.int32]
+    _day : Optional[np.int32]
+
+    def __init__(self, iso8601_string: str):
+        if not TimeDefinitions.valid_iso8601_date(iso8601_string):
+            raise ValueError("Not a valid ISO 8601 date.")
+        
+        compact = iso8601_string.replace("-", "")
+        parts = re.split(TimeDefinitions.ISO8601_DATE_COMPACT_REGEX, compact)
+        self._year = parts[1][0:4]
+        if parts[2] is not None:
+            self._month = parts[2][0:2]
+        if parts[3] is not None:
+            self._day = parts[3][0:2]
+
+        super().__init__(iso8601_string)
+
+    def is_extended(self) -> bool:
+        return "-" in self.value
+    
+    def is_partial(self) -> bool:
+        return self._month is None or self._day is None
+
+
 
 class Duration:
     # thanks to - https://stackoverflow.com/questions/32044846/regex-for-iso-8601-durations
@@ -160,4 +239,6 @@ class Duration:
             seconds = s
         )
         return -delt if negative else delt
-
+    
+d = ISODate("2022-01-22")
+print(d)

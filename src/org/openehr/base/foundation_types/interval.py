@@ -5,7 +5,7 @@ import numpy as np
 from pydantic import ValidationError, field_validator
 
 from org.openehr.base.foundation_types import AnyClass
-from org.openehr.base.foundation_types.primitive_types import ordered, integer_type
+from org.openehr.base.foundation_types.primitive_types import ordered
 
 class Interval[T : ordered](AnyClass):
     """Interval abstraction, featuring upper and lower limits that may be open or closed, 

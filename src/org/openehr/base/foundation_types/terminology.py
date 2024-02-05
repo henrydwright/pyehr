@@ -28,6 +28,9 @@ class TerminologyCode(AnyClass):
                (self.terminology_version == other.terminology_version) and
                (self.code_string == other.code_string) and
                (self.uri == other.uri))
+    
+    def __str__(self) -> str:
+        return self.terminology_id + ": " + self.code_string
 
 
 class TerminologyTerm(AnyClass):
