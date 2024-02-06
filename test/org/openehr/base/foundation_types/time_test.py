@@ -226,3 +226,25 @@ def test_iso_duration_is_decimal_sign_comma():
     du = ISODuration("P1Y")
     assert not du.is_decimal_sign_comma()
 
+def test_iso_duration_add_correct():
+    du1 = ISODuration("P1D")
+    du2 = ISODuration("PT24H")
+    assert str(du1 + du2) == "P2D"
+    du1 = ISODuration("P1D")
+    du2 = ISODuration("P3W2D")
+    assert str(du1 + du2) == "P24D"
+
+def test_iso_duration_multiply_correct():
+    du1 = ISODuration("PT50S")
+    assert str(du1 * 10) == "PT500S"
+    # handles reals
+    du1 = ISODuration("P2D")
+    assert str(du1 * 0.5) == "P1D"
+
+def test_iso_duration_divide_correct():
+    du1 = ISODuration("P2D")
+    assert str(du1 / 2.0) == "P1D"
+
+def test_iso_duration_negative_correct():
+    du1 = ISODuration("P1Y2M")
+    assert str(-du1) == "-P1Y2M"

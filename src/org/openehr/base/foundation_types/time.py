@@ -401,8 +401,12 @@ class ISODuration(ISOType):
         
         if td.days != 0:
             iso_str += str(abs(td.days)) + "D"
-        if td.seconds != 0:
-            iso_str += "T" + str(abs(td.seconds)) + "S"
+        if td.seconds != 0 or td.microseconds != 0:
+            total_secs = float(td.seconds)
+            if td.microseconds != 0:
+                total_secs += td.microseconds / 1000000.0
+                print(td.microseconds)
+            iso_str += f"T{abs(total_secs):g}S"
         
         return ISODuration(iso_str)
 
@@ -481,4 +485,52 @@ class ISODuration(ISOType):
     def as_string(self) -> str:
         return self.value
     
-    # TODO: add, subtract, multiply, divide, negative
+    def add(self, a_val : 'ISODuration') -> 'ISODuration':
+        """Arithmetic addition of a duration to a duration, via conversion 
+        to seconds, using TimeDefinitions.Average_days_in_year and 
+        TimeDefinitions.Average_days_in_month
+        
+        Result string will be in days and seconds"""
+        return ISODuration.fromtimedelta(self.to_python_timedelta() + a_val.to_python_timedelta())
+    
+    def __add__(self, value : 'ISODuration') -> 'ISODuration':
+        return self.add(value)
+    
+    def subtract(self, a_val : 'ISODuration') -> 'ISODuration':
+        """Arithmetic subtraction of a duration from a duration, via conversion 
+        to seconds, using Time_definitions.Average_days_in_year and 
+        Time_definitions.Average_days_in_month
+        
+        Result string will be in days and seconds"""
+        return ISODuration.fromtimedelta(self.to_python_timedelta() - a_val.to_python_timedelta())
+    
+    def __sub__(self, value : 'ISODuration') -> 'ISODuration':
+        return self.subtract(value)
+    
+    def multiply(self, a_val : np.float32) -> 'ISODuration':
+        """Arithmetic multiplication a duration by a number.
+        
+        Result string will be in days and seconds"""
+        return ISODuration.fromtimedelta(self.to_python_timedelta() * a_val)
+    
+    def __mul__(self, value: np.float32) -> 'ISODuration':
+        return self.multiply(value)
+    
+    def divide(self, a_val : np.float32) -> 'ISODuration':
+        """Arithmetic division of a duration by a number.
+        
+        Result string will be in days and seconds"""
+        return ISODuration.fromtimedelta(self.to_python_timedelta() / a_val)   
+
+    def __truediv__(self, value: np.float32) -> 'ISODuration':
+        return self.divide(value)  
+
+    def negative(self) -> 'ISODuration':
+        """Generate negative of current duration value."""
+        if self._negative:
+            return ISODuration(self.value[1:])
+        else:
+            return ISODuration("-" + self.value)
+    
+    def __neg__(self) -> 'ISODuration':
+        return self.negative()
