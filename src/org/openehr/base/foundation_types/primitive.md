@@ -3,7 +3,7 @@
 openEHR BASE specification demands a number of primitive types, from which other types can be built.
 
 ## Any
-All non-primitive sub-classes should inherit from the `org.openehr.base.foundation_types.Any`.
+All non-primitive sub-classes should inherit from the `org.openehr.base.foundation_types.AnyClass`.
 
 ### Boolean
 Use built-in type `bool`

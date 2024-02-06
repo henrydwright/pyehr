@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 
 from org.openehr.base.foundation_types.time import TimeDefinitions as td
+from org.openehr.base.foundation_types.time import ISODate, ISODuration
 
 def test_valid_year():
     # True if y >= 0
@@ -120,12 +121,108 @@ def test_valid_iso8601_duration():
     assert td.valid_iso8601_duration("P3W2D")
     # negative durations supported
     assert td.valid_iso8601_duration("-P3M")
+    # fractional seconds supported
+    assert td.valid_iso8601_duration("PT2.509S")
+    assert td.valid_iso8601_duration("PT2,509S")
     # invalid durations rejected
     assert not td.valid_iso8601_duration("abacus") # invalid in several ways ;-)
     assert not td.valid_iso8601_duration("3W2D") # missing 'P'
 
+def test_iso_date_is_partial():
+    d = ISODate("2022-02")
+    assert d.is_partial()
+    d = ISODate("2022")
+    assert d.is_partial()
+    d = ISODate("2024-02-05")
+    assert not d.is_partial()
 
+def test_iso_date_is_extended():
+    d = ISODate("2022-02")
+    assert d.is_extended()
+    d = ISODate("202202")
+    assert not d.is_extended()
+    d = ISODate("2022")
+    assert d.is_extended()
 
+def test_iso_date_as_string():
+    d = ISODate("20240205")
+    assert str(d) == "2024-02-05"
+    d = ISODate("202405")
+    assert d.as_string() == "2024-05"
+    d = ISODate("2025")
+    assert d.as_string() == "2025"
 
+def test_iso_date_add_throws_type_error_when_partial():
+    du = ISODuration("P1Y2M3DT2H30M")
+    d = ISODate("2023-01")
+    with pytest.raises(ValueError):
+        nd = d + du
 
+def test_iso_date_add_correct():
+    du = ISODuration("P30D")
+    d = ISODate("2022-01-01")
+    nd = d + du
+    assert str(nd) == "2022-01-31"
+    du = ISODuration("P1Y2D")
+    nd = d + du
+    assert str(nd) == "2023-01-03"
+
+def test_iso_date_subtract_correct():
+    du = ISODuration("P30D")
+    d = ISODate("2022-01-31")
+    nd = d - du
+    assert str(nd) == "2022-01-01"
+    d = ISODate("2023-01-03")
+    du = ISODuration("P1Y2D")
+    nd = d - du
+    assert str(nd) == "2022-01-01"
+
+def test_iso_date_diff_correct():
+    d1 = ISODate("2022-01-31")
+    d2 = ISODate("2022-01-01")
+    du = d1 - d2
+    assert str(du) == "P30D"
+    du = d2 - d1
+    assert str(du) == "-P30D"
+    d1 = ISODate("2023-01-03")
+    du = d1 - d2
+    assert str(du) == "P367D"
+
+# def test_iso_date_add_nominal_correct():
+#     # handles partial year additions
+#     d1 = ISODate("2023")
+#     du = ISODuration("P2Y")
+#     d2 = d1.add_nominal(du)
+#     assert str(d2) == "2025"
+#     # handles partial month additions
+#     d1 = ISODate("2023-02")
+#     du = ISODuration("P1Y1M")
+#     d2 = d1.add_nominal(du)
+#     assert str(d2) == "2024-03"
+#     du = ISODuration("P13M")
+#     d2 = d1.add_nominal(du)
+#     assert str(d2) == "2024-03"
+    
+# def test_iso_date_add_nominal_raises_value_error_if_relevant_parts_unknown():
+#     d1 = ISODate("2023")
+#     du = ISODuration("P2Y1M")
+#     with pytest.raises(ValueError):
+#         d2 = d1.add_nominal(du)
+#     d1 = ISODate("2024-02")
+#     du = ISODuration("P2Y1M1D")
+#     with pytest.raises(ValueError):
+#         d2 = d1.add_nominal(du)
+
+def test_iso_duration_secs_and_fracsecs_correct():
+    du = ISODuration("PT1.25S")
+    assert du.seconds() == 1
+    assert du.fractional_seconds() == 0.25
+
+def test_iso_duration_is_decimal_sign_comma():
+    du = ISODuration("PT1,25S")
+    assert du.is_decimal_sign_comma()
+    du = ISODuration("PT5.125S")
+    assert not du.is_decimal_sign_comma()
+    du = ISODuration("P1Y")
+    assert not du.is_decimal_sign_comma()
 
