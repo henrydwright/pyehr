@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 
 from org.openehr.base.foundation_types.time import TimeDefinitions as td
-from org.openehr.base.foundation_types.time import ISODate, ISODuration
+from org.openehr.base.foundation_types.time import ISODate, ISODuration, ISOTimeZone
 
 def test_valid_year():
     # True if y >= 0
@@ -188,31 +188,6 @@ def test_iso_date_diff_correct():
     du = d1 - d2
     assert str(du) == "P367D"
 
-# def test_iso_date_add_nominal_correct():
-#     # handles partial year additions
-#     d1 = ISODate("2023")
-#     du = ISODuration("P2Y")
-#     d2 = d1.add_nominal(du)
-#     assert str(d2) == "2025"
-#     # handles partial month additions
-#     d1 = ISODate("2023-02")
-#     du = ISODuration("P1Y1M")
-#     d2 = d1.add_nominal(du)
-#     assert str(d2) == "2024-03"
-#     du = ISODuration("P13M")
-#     d2 = d1.add_nominal(du)
-#     assert str(d2) == "2024-03"
-    
-# def test_iso_date_add_nominal_raises_value_error_if_relevant_parts_unknown():
-#     d1 = ISODate("2023")
-#     du = ISODuration("P2Y1M")
-#     with pytest.raises(ValueError):
-#         d2 = d1.add_nominal(du)
-#     d1 = ISODate("2024-02")
-#     du = ISODuration("P2Y1M1D")
-#     with pytest.raises(ValueError):
-#         d2 = d1.add_nominal(du)
-
 def test_iso_duration_secs_and_fracsecs_correct():
     du = ISODuration("PT1.25S")
     assert du.seconds() == 1
@@ -248,3 +223,56 @@ def test_iso_duration_divide_correct():
 def test_iso_duration_negative_correct():
     du1 = ISODuration("P1Y2M")
     assert str(-du1) == "-P1Y2M"
+
+def test_iso_timezone_valid():
+    with pytest.raises(ValueError):
+        tz = ISOTimeZone("1200")
+    tz = ISOTimeZone("+13")
+    assert tz.hour() == 13
+    assert tz.minute_unknown()
+    assert not tz.is_gmt()
+    assert tz.is_partial()
+    assert tz.is_extended()
+    tz = ISOTimeZone("Z")
+    assert tz.hour() == 0
+    assert tz.minute() == 0
+    assert tz.sign() == 1
+    assert tz.is_gmt()
+    assert not tz.is_partial()
+    assert tz.is_extended()
+    tz = ISOTimeZone("-12:00")
+    assert tz.hour() == 12
+    assert tz.minute() == 0
+    assert tz.sign() == -1
+    assert not tz.is_gmt()
+    assert not tz.is_partial()
+    assert tz.is_extended()
+
+def test_iso_timezone_invariants():
+    # min_hour_valid: hour <= 12 if sign == -1
+    tz = ISOTimeZone("-12:59")
+    assert tz.sign() == -1
+    with pytest.raises(ValueError):
+        tz = ISOTimeZone("-13:00")
+    # max_hour_valid: hour <= 14 if sign == 1
+    tz = ISOTimeZone("+1459")
+    assert tz.sign() == 1
+    with pytest.raises(ValueError):
+        tz = ISOTimeZone("+1500")
+    # minute_valid
+    with pytest.raises(ValueError):
+        tz = ISOTimeZone("+1399")
+    
+def test_iso_timezone_is_partial():
+    tz = ISOTimeZone("-1100")
+    assert not tz.is_extended()
+    tz = ISOTimeZone("+12:30")
+    assert tz.is_extended()
+
+def test_iso_timezone_as_string():
+    tz = ISOTimeZone("Z")
+    assert str(tz) == "Z"
+    tz = ISOTimeZone("+13:00")
+    assert str(tz) == "+13:00"
+    tz = ISOTimeZone("-0130")
+    assert str(tz) == "-01:30"

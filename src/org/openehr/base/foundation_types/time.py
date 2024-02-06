@@ -7,13 +7,10 @@ from org.openehr.base.foundation_types import AnyClass
 
 import numpy as np
 
-# Mapping of openEHR types to Python
-# ==================================
-# for iso8601_date use datetime.date
-# for iso8601_time use datetime.time
-# for iso8601_timezone use datetime.timezone
-# for iso8601_duration use datetime.timedelta (generated using Duration below)
-# for iso8601_date_time use datetime.datetime
+# Most of the logic of the time classes uses native
+#  Python logic from datetime types, wrapped to allow
+#  ISO 8601 string preservation and partial dates and
+#  partial date/times
 
 temporal = Union[date, time, timezone, timedelta]
 """Abstract ancestor of time-related classes."""
@@ -341,12 +338,11 @@ class ISODate(ISOType):
         See add_nominal() for semantics."""
         raise NotImplementedError("ISODate.subtract_nominal() is not yet implemented.")
 
+class ISOTime(ISOType):
+    pass
 
-
-        
-    
-
-
+class ISODateTime(ISOType):
+    pass
 
 class ISODuration(ISOType):
     """Represents an ISO 8601 duration, which may have multiple parts from years down to seconds."""
@@ -534,3 +530,92 @@ class ISODuration(ISOType):
     
     def __neg__(self) -> 'ISODuration':
         return self.negative()
+
+class ISOTimeZone(ISOType):
+    """ISO8601 timezone string, in format:
+    
+    `Z | ±hh[mm]`
+    
+    where:
+    * `hh` is "00" - "23" (0-filled to two digits)
+    * `mm` is "00" - "59" (0-filled to two digits)
+    * `Z` is a literal meaning UTC (modern replacement for GMT), i.e. timezone `+0000`"""
+
+    ISO8601_TIMEZONE_REGEX = "^[Z]|([+-])(\\d\\d)(\\:?\\d\\d)?$"
+
+    _hour : np.int32 = 0
+    _minute : np.int32 = 0
+    _sign : np.int32 = 1
+
+    _is_extended : bool = True
+    _is_partial : bool = True
+
+    def __init__(self, iso8601_string: str):
+        if re.match(ISOTimeZone.ISO8601_TIMEZONE_REGEX, iso8601_string) is None:
+            raise ValueError("Given string was not a valid ISO 8601 Timezone")
+        s = iso8601_string
+        if s == "Z":
+            self._is_partial = False
+            # other defaults are OK
+        else:
+            s = s.replace(":", "")
+            parts = re.split(ISOTimeZone.ISO8601_TIMEZONE_REGEX, s)
+            self._sign = -1 if parts[1] == "-" else 1
+            self._hour = int(parts[2])
+
+            # ensure hour is valid
+            if ((self._sign == -1 and self._hour > TimeDefinitions.MIN_TIMEZONE_HOUR) or
+                (self._sign == 1 and self._hour > TimeDefinitions.MAX_TIMEZONE_HOUR)):
+                raise ValueError("Timezone must be between -12:59 and +14:59")
+            
+            # if minutes present, then not partial
+            if parts[3] is not None:
+                self._minute = int(parts[3])
+                if not TimeDefinitions.valid_minute(self._minute):
+                    raise ValueError("Minutes must be strictly between 00 and 59")
+                self._minute_unknown = False
+                self._is_partial = False
+                self._is_extended = ":" in iso8601_string
+
+        super().__init__(iso8601_string)
+
+    def is_partial(self) -> bool:
+        """True if this time zone is partial, i.e. if minutes is missing."""
+        return self._is_partial
+    
+    def is_extended(self) -> bool:
+        """True if this time-zone uses ‘:’ separators."""
+        return self._is_extended
+    
+    def hour(self) -> np.int32:
+        """Extract the hour part of timezone, as an Integer in the range 00 - 14."""
+        return self._hour
+
+    def minute(self) -> np.int32:
+        """Extract the hour part of timezone, as an Integer, usually either 0 or 30."""
+        return self._minute
+
+    def sign(self) -> np.int32:
+        """Direction of timezone expresssed as +1 or -1."""
+        return self._sign
+
+    def minute_unknown(self) -> bool:
+        """Indicates whether minute part known."""
+        return self.is_partial()
+
+    def is_gmt(self) -> bool:
+        """True if timezone is UTC, i.e. +0000."""
+        return self.value == "Z" or (self._hour == 0 and self._minute == 0)
+
+    def as_string(self) -> str:
+        """Return timezone string in extended format."""
+        if self._is_extended:
+            return self.value
+        elif self._sign == 1:
+            return f"+{self._hour:02d}:{self._minute:02d}"
+        else:
+            return f"-{self._hour:02d}:{self._minute:02d}"
+
+    def __str__(self) -> str:
+        return self.as_string()
+    
