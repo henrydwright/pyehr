@@ -2,6 +2,7 @@ import numpy as np
 
 from org.openehr.base.foundation_types.primitive_types import Uri
 from org.openehr.base.foundation_types.interval import PointInterval
+from org.openehr.base.foundation_types.time import ISOTimeZone
 
 refA : Uri = Uri("http://google.com")
 refB : Uri = Uri("http://google.coms")
@@ -19,3 +20,7 @@ print(d[9])
 
 i = PointInterval(np.int32(0))
 i.lower = np.int32(29)
+
+tz = ISOTimeZone("-12:00")
+print(tz)
+print(tz.to_python_timezone())

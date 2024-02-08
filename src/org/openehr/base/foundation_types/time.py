@@ -98,16 +98,12 @@ class TimeDefinitions:
     ISO8601_DATE_COMPACT_REGEX = "^(\\d{4}(\\d\\d(\\d\\d)?)?)$"
 
     def valid_iso8601_date(s : str) -> bool:
-        """String is a valid ISO 8601 date,"""
-        format_ok = (re.match(TimeDefinitions.ISO8601_DATE_COMPACT_REGEX, s) is not None or
-                re.match(TimeDefinitions.ISO8601_DATE_EXTENDED_REGEX, s) is not None) 
-        compact = s.replace("-", "")
-        parts = re.split(TimeDefinitions.ISO8601_DATE_COMPACT_REGEX, compact)
-        return (format_ok and
-                TimeDefinitions.valid_year(int(parts[1][0:4])) and
-                ((parts[2] is None) or TimeDefinitions.valid_month(int(parts[2][0:2]))) and
-                ((parts[3] is None) or TimeDefinitions.valid_day(int(parts[1][0:4]), int(parts[1][4:6]), int(parts[1][6:8])))
-        )
+        """String is a valid ISO 8601 date"""
+        try:
+            d = ISODate(s)
+            return True
+        except ValueError:
+            return False
 
         
     def valid_iso8601_time(s : str) -> bool:
@@ -573,18 +569,21 @@ class ISOTimeZone(ISOType):
                 self._minute = int(parts[3])
                 if not TimeDefinitions.valid_minute(self._minute):
                     raise ValueError("Minutes must be strictly between 00 and 59")
-                self._minute_unknown = False
                 self._is_partial = False
                 self._is_extended = ":" in iso8601_string
 
         super().__init__(iso8601_string)
+
+    def to_python_timezone(self) -> timezone:
+        """Converts this to a Python `timezone` object"""
+        return timezone(self.sign() * timedelta(hours=self._hour, minutes=self._minute))
 
     def is_partial(self) -> bool:
         """True if this time zone is partial, i.e. if minutes is missing."""
         return self._is_partial
     
     def is_extended(self) -> bool:
-        """True if this time-zone uses ‘:’ separators."""
+        """True if this time-zone uses ':' separators."""
         return self._is_extended
     
     def hour(self) -> np.int32:
