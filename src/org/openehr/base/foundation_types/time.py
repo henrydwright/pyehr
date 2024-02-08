@@ -335,7 +335,123 @@ class ISODate(ISOType):
         raise NotImplementedError("ISODate.subtract_nominal() is not yet implemented.")
 
 class ISOTime(ISOType):
-    pass
+    """Represents an ISO 8601 time, including partial and extended forms. Value may be:
+    * hh:mm:ss[(,|.)sss][Z|±hh[:mm]] (extended, preferred) or
+    * hhmmss[(,|.)sss][Z|±hh[mm]] (compact)
+    * or a partial invariant.
+    
+    See `TimeDefinitions.valid_iso8601_time()` for validity."""
+
+    ISO8601_TIME_REGEX= "^(\\d\\d(\\d\\d(\\d\\d(.\\d\\d?\\d?\\d?\\d?\\d?)?)?)?)?([Z]|([+-])(\\d\\d)(\\d\\d)?)?$"
+
+    _time : time
+    _minute_unknown : bool = True
+    _second_unknown : bool = True
+    _has_fractional_second : bool = False
+    _timezone : Optional['ISOTimeZone'] = None
+
+    def __init__(self, iso8601_string: str):
+        self._time = time.fromisoformat(iso8601_string)
+        s = iso8601_string.replace(":", "").replace(",", ".")
+        parts = re.split(ISOTime.ISO8601_TIME_REGEX, s)
+        if parts[2] is not None:
+            self._minute_unknown = False
+        if parts[3] is not None:
+            self._second_unknown = False
+        if parts[4] is not None:
+            self._has_fractional_second = True
+        if parts[5] is not None:
+            tz_index = iso8601_string.index(parts[5][0:1])
+            self._timezone = ISOTimeZone(iso8601_string[tz_index:])
+        super().__init__(iso8601_string)
+
+    def to_python_time(self) -> time:
+        """Return the Python `time` repesentation of this object"""
+        return self._time
+
+    def hour(self) -> np.int32:
+        """Extract the hour part of the date/time as an Integer."""
+        return np.int32(self._time.hour)
+    
+    def minute(self) -> np.int32:
+        """Extract the minute part of the time as an Integer, or return 0 if not present."""
+        return np.int32(self._time.minute)
+
+    def second(self) -> np.int32:
+        """Extract the integral seconds part of the time (i.e. prior to any decimal sign) as an Integer, or return 0 if not present."""
+        return np.int32(self._time.second)
+
+    def fractional_second(self) -> np.float32:
+        """Extract the fractional seconds part of the time (i.e. following to any decimal sign) as a Real, or return 0.0 if not present."""
+        return np.float32(self._time.microsecond / 1000000.0)
+
+    def timezone(self) -> Optional['ISOTimeZone']:
+        """Timezone; may be Void."""
+        return self._timezone
+
+    def minute_unknown(self) -> bool:
+        """Indicates whether minute is unknown. If so, the time is of the form “hh”."""
+        return self._minute_unknown
+
+    def second_unknown(self) -> bool:
+        """Indicates whether second is unknown. If so and month is known, the time is of the form "hh:mm" or "hhmm"."""
+        return self._second_unknown
+
+    def is_decimal_sign_comma(self) -> bool:
+        """True if this time has a decimal part indicated by ',' (comma) rather than '.' (period)."""
+        return "," in self.value
+
+    def is_partial(self) -> bool:
+        """True if this time is partial, i.e. if seconds or more is missing."""
+        return (self._minute_unknown or self._second_unknown)
+    
+    def is_extended(self) -> bool:
+        """True if this time uses '-', ':' separators."""
+        return ":" in self.value
+    
+    def has_fractional_second(self) -> bool:
+        """True if the fractional_second part is significant (i.e. even if = 0.0)."""
+        return self._has_fractional_second
+
+    def as_string(self) -> str:
+        """Return string value in extended format."""
+        if self.is_extended():
+            return self.value
+        else:
+            return self._time.isoformat()
+
+    def __str__(self) -> str:
+        return self.as_string()
+    
+    def add(self, a_diff : 'ISODuration') -> 'ISOTime':
+        """Arithmetic addition of a duration to a time"""
+        t = datetime(2000,1,1,self.hour(), self.minute(), self.second(), self._time.microsecond) + a_diff.to_python_timedelta()
+        tstr = (t.time().isoformat() + str(self.timezone())) if self.timezone() is not None else t.time().isoformat()
+        return ISOTime(tstr)
+
+    def __add__(self, value: 'ISODuration') -> 'ISOTime':
+        return self.add(value)
+    
+    def subtract(self, a_diff: 'ISODuration') -> 'ISOTime':
+        """Arithmetic subtraction of a duration from a time."""
+        t = datetime(2000,1,1,self.hour(), self.minute(), self.second(), self._time.microsecond) - a_diff.to_python_timedelta()
+        tstr = (t.time().isoformat() + str(self.timezone())) if self.timezone() is not None else t.time().isoformat()
+        return ISOTime(tstr)
+
+    def diff(self, a_time: 'ISOTime') -> 'ISODuration':
+        """Difference of two times."""
+        t1 = datetime(2000,1,1,self._time.hour, self._time.minute, self._time.second, self._time.microsecond)
+        t2 = datetime(2000,1,1,a_time._time.hour, a_time._time.minute, a_time._time.second, a_time._time.microsecond)
+        t = t1 - t2
+        return ISODuration.fromtimedelta(t)
+
+    def __sub__(self, value : Union['ISODuration', 'ISOTime']) -> Union['ISOTime', 'ISODuration']:
+        if isinstance(value, ISOTime):
+            return self.diff(value)
+        else:
+            return self.subtract(value)
+
+
 
 class ISODateTime(ISOType):
     pass
@@ -389,6 +505,7 @@ class ISODuration(ISOType):
         iso_str = ""
         if td.total_seconds() < 0.0:
             iso_str += "-"
+            td = -td # makes negative timedeltas appear correctly
         iso_str += "P"
         
         if td.days != 0:

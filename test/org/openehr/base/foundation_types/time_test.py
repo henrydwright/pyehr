@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 
 from org.openehr.base.foundation_types.time import TimeDefinitions as td
-from org.openehr.base.foundation_types.time import ISODate, ISODuration, ISOTimeZone
+from org.openehr.base.foundation_types.time import ISODate, ISODuration, ISOTimeZone, ISOTime
 
 def test_valid_year():
     # True if y >= 0
@@ -276,3 +276,53 @@ def test_iso_timezone_as_string():
     assert str(tz) == "+13:00"
     tz = ISOTimeZone("-0130")
     assert str(tz) == "-01:30"
+
+def test_iso_time_is_decimal_sign_comma():
+    t = ISOTime("12:20:33.599Z")
+    assert not t.is_decimal_sign_comma()
+    t = ISOTime("12:20:33,599Z")
+    assert t.is_decimal_sign_comma()
+
+def test_iso_time_simple_functions():
+    t = ISOTime("12:30:45.125+01:30")
+    assert t.hour() == 12
+    assert t.minute() == 30
+    assert t.second() == 45
+    assert t.has_fractional_second()
+    assert t.fractional_second() == 0.125
+    assert t.timezone().value == "+01:30"
+    assert t.is_extended()
+    assert not t.is_partial()
+    t = ISOTime("1445-0200")
+    assert t.hour() == 14
+    assert t.minute() == 45
+    assert t.second() == 0
+    assert not t.has_fractional_second()
+    assert t.fractional_second() == 0.0
+    assert t.timezone().value == "-0200"
+    assert not t.is_extended()
+    assert t.is_partial()
+
+def test_iso_time_add():
+    t1 = ISOTime("12:30:30")
+    du = ISODuration("PT2H")
+    t2 = t1 + du
+    assert str(t2) == "14:30:30"
+    t1 = ISOTime("002000.125+0200")
+    du = ISODuration("P1DT2H")
+    t2 = t1 + du
+    assert str(t2) == "02:20:00.125000+02:00"
+
+def test_iso_time_diff():
+    t1 = ISOTime("13:00:00")
+    t2 = ISOTime("12:01:00")
+    du = t1 - t2
+    assert str(du) == "PT3540S"
+    du = t2 - t1
+    assert str(du) == "-PT3540S"
+
+def test_iso_time_sub():
+    t1 = ISOTime("12:30:30Z")
+    du = ISODuration("PT2H")
+    t2 = t1 - du
+    assert str(t2) == "10:30:30Z"
