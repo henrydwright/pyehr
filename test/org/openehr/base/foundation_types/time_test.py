@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 
 from org.openehr.base.foundation_types.time import TimeDefinitions as td
-from org.openehr.base.foundation_types.time import ISODate, ISODuration, ISOTimeZone, ISOTime
+from org.openehr.base.foundation_types.time import ISODate, ISODuration, ISOTimeZone, ISOTime, ISODateTime
 
 def test_valid_year():
     # True if y >= 0
@@ -108,6 +108,14 @@ def test_valid_iso8601_time():
 def test_valid_iso8601_date_time():
     assert td.valid_iso8601_date_time("2024-02-04T00:01:02.293+01:00")
     assert td.valid_iso8601_date_time("20240204T000102.293+0100")
+    # allows partial date times
+    assert td.valid_iso8601_date_time("2024")
+    assert td.valid_iso8601_date_time("2024-02")
+    assert td.valid_iso8601_date_time("2024-02-04")
+    assert td.valid_iso8601_date_time("2024-02-04T00+01:00")
+    assert td.valid_iso8601_date_time("2024-02-04T00:01+01:00")
+    assert td.valid_iso8601_date_time("2024-02-04T00:01:02+01:00")
+    assert td.valid_iso8601_date_time("2024-02-04T00:01:02.293+01:00")
     # rejects wrong times
     assert not td.valid_iso8601_date_time("2024-02-04T24:00:00")
     assert not td.valid_iso8601_date_time("abacus")
@@ -321,8 +329,35 @@ def test_iso_time_diff():
     du = t2 - t1
     assert str(du) == "-PT3540S"
 
-def test_iso_time_sub():
+def test_iso_time_subtract():
     t1 = ISOTime("12:30:30Z")
     du = ISODuration("PT2H")
     t2 = t1 - du
     assert str(t2) == "10:30:30Z"
+
+def test_iso_date_time_add():
+    td1 = ISODateTime("2024-02-04T00:01:02.293+01:00")
+    du = ISODuration("PT2H")
+    td2 = td1 + du
+    assert str(td2) == "2024-02-04T02:01:02.293000+01:00"
+
+def test_iso_date_time_subtract():
+    du = ISODuration("P30D")
+    d = ISODateTime("2022-01-31T01:00:00+01:00")
+    nd = d - du
+    assert str(nd) == "2022-01-01T01:00:00+01:00"
+    d = ISODateTime("2023-01-03T00:00:00.000")
+    du = ISODuration("P367D")
+    nd = d - du
+    assert str(nd) == "2022-01-01T00:00:00"
+
+def test_iso_date_time_diff():
+    d1 = ISODateTime("2022-01-31T01:00")
+    d2 = ISODateTime("2022-01-01T00:00")
+    du = d1 - d2
+    assert str(du) == "P30DT3600S"
+    du = d2 - d1
+    assert str(du) == "-P30DT3600S"
+    d1 = ISODateTime("2023-01-03")
+    du = d1 - d2
+    assert str(du) == "P367D"

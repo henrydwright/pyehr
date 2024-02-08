@@ -109,7 +109,7 @@ class TimeDefinitions:
     def valid_iso8601_time(s : str) -> bool:
         """String is a valid ISO 8601 time"""
         try:
-            t = time.fromisoformat(s)
+            t = ISOTime(s)
             return True
         except ValueError:
             return False
@@ -117,7 +117,7 @@ class TimeDefinitions:
     def valid_iso8601_date_time(s : str) -> bool:
         """String is a valid ISO 8601 date-time"""
         try:
-            dt = datetime.fromisoformat(s)
+            dt = ISODateTime(s)
             return True
         except ValueError:
             return False
@@ -451,10 +451,152 @@ class ISOTime(ISOType):
         else:
             return self.subtract(value)
 
-
-
 class ISODateTime(ISOType):
-    pass
+    """Represents an ISO 8601 date/time, including partial and extended forms. Value may be:
+    * YYYY-MM-DDThh:mm:ss[(,|.)sss][Z | ±hh[:mm]] (extended, preferred) or
+    * YYYYMMDDThhmmss[(,|.)sss][Z | ±hh[mm]] (compact)
+    * or a partial variant.
+    
+    See `TimeDefinitions.valid_iso8601_date_time()` for validity.
+
+    Note that this class includes 2 deviations from ISO 8601:2004:
+    * for partial date/times, any part of the date/time up to the month may be missing, not just seconds and minutes as in the standard;
+    * the time 24:00:00 is not allowed, since it would mean the date was really on the next day."""
+
+    _date : ISODate
+    _time : Optional[ISOTime] = None
+
+    _python_datetime : Optional[datetime] = None
+
+    def __init__(self, iso8601_string: str):
+        s = iso8601_string
+        if "T" in s:
+            date_str = s[:s.index("T")]
+            time_str = s[s.index("T") + 1:]
+            self._date = ISODate(date_str)
+            if self._date.is_partial():
+                raise ValueError("Cannot have time with partial date")
+            self._time = ISOTime(time_str)
+            if ((self._date.is_extended() and not self._time.is_extended()) or 
+            (self._time.is_extended() and not self._date.is_extended())):
+                raise ValueError("Both date and time must use extended form, or compact form, not a combination")
+            self._python_datetime = datetime.fromisoformat(iso8601_string)
+        else:
+            self._date = ISODate(s)
+            if not self._date.is_partial():
+                self._python_datetime = datetime.fromisoformat(iso8601_string)
+        super().__init__(iso8601_string)
+
+    def is_partial(self) -> bool:
+        """True if this date time is partial, i.e. if seconds or more is missing."""
+        return (self._date.is_partial() or self._time.is_partial())
+    
+    def is_extended(self) -> bool:
+        """True if this date/time uses '-', ':' separators."""
+        return self._date.is_extended()
+    
+    # date methods
+    def year(self) -> np.int32:
+        """Extract the year part of the date as an Integer."""
+        return self._date.year()
+    
+    def month(self) -> np.int32:
+        """Extract the month part of the date/time as an Integer, or return 0 if not present."""
+        return self._date.month()
+    
+    def day(self) -> np.int32:
+        """Extract the day part of the date/time as an Integer, or return 0 if not present."""
+        return self._date.day()
+    
+    def month_unknown(self) -> bool:
+        """Indicates whether month in year is unknown."""
+        return self._date.month_unknown()
+    
+    def day_unknown(self) -> bool:
+        """Indicates whether day in month is unknown."""
+        return self._date.day_unknown()
+    
+    # time methods
+    def hour(self) -> np.int32:
+        """Extract the hour part of the date/time as an Integer, or return 0 if not present."""
+        return self._time.hour()
+    
+    def minute(self) -> np.int32:
+        """Extract the minute part of the date/time as an Integer, or return 0 if not present."""
+        return self._time.minute()
+    
+    def second(self) -> np.int32:
+        """Extract the integral seconds part of the date/time (i.e. prior to any decimal sign) as an Integer, or return 0 if not present."""
+        return self._time.second()
+    
+    def fractional_second(self) -> np.float32:
+        """Extract the fractional seconds part of the date/time (i.e. following to any decimal sign) as a Real, or return 0.0 if not present."""
+        return self._time.fractional_second()
+    
+    def timezone(self) -> 'ISOTimeZone':
+        """Timezone; may be Void."""
+        return self._time.timezone()
+    
+    def minute_unknown(self) -> bool:
+        """Indicates whether minute in hour is known."""
+        return self._time.minute_unknown()
+    
+    def second_unknown(self) -> bool:
+        """Indicates whether minute in hour is known."""
+        return self._time.second_unknown()
+    
+    def is_decimal_sign_comma(self) -> bool:
+        """True if this time has a decimal part indicated by ',' (comma) rather than '.' (period)."""
+        return self._time.is_decimal_sign_comma()
+    
+    def has_fractional_second(self) -> bool:
+        """True if the fractional_second part is significant (i.e. even if = 0.0)."""
+        return self._time.has_fractional_second()
+    
+    # date/time specific methods
+
+    def as_string(self) -> str:
+        """Return the string value in extended format."""
+        if self._time is None:
+            return str(self._date)
+        else:
+            return str(self._date) + "T" + str(self._time)
+        
+    def __str__(self):
+        return self.as_string()
+    
+    def add(self, a_diff: 'ISODuration') -> 'ISODateTime':
+        """Arithmetic addition of a duration to a date/time."""
+        if self._date.is_partial():
+            return ISODateTime(str(self._date.add(a_diff)))
+        else:
+            dt = self._python_datetime + a_diff.to_python_timedelta()
+            return ISODateTime(dt.isoformat())
+
+    def __add__(self, value: 'ISODuration') -> 'ISODateTime':
+        return self.add(value)
+    
+    def subtract(self, a_diff: 'ISODuration') -> 'ISODateTime':
+        """Arithmetic subtraction of a duration from a date/time."""
+        if self._date.is_partial():
+            return ISODateTime(str(self._date.subtract(a_diff)))
+        else:
+            dt = self._python_datetime - a_diff.to_python_timedelta()
+            return ISODateTime(dt.isoformat())
+        
+    def diff(self, a_diff: 'ISODateTime') -> 'ISODuration':
+        if self._date.is_partial() or a_diff._date.is_partial():
+            raise ValueError("Difference between a partial date/time and another partial date/time is not defined")
+        else:
+            td = self._python_datetime - a_diff._python_datetime
+            return ISODuration.fromtimedelta(td)
+        
+    def __sub__(self, value : Union['ISODuration', 'ISODateTime']) -> Union['ISODateTime', 'ISODuration']:
+        if isinstance(value, ISODateTime):
+            return self.diff(value)
+        else:
+            return self.subtract(value)
+
 
 class ISODuration(ISOType):
     """Represents an ISO 8601 duration, which may have multiple parts from years down to seconds."""
