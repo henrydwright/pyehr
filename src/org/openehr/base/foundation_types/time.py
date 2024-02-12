@@ -12,9 +12,6 @@ import numpy as np
 #  ISO 8601 string preservation and partial dates and
 #  partial date/times
 
-temporal = Union[date, time, timezone, timedelta]
-"""Abstract ancestor of time-related classes."""
-
 class TimeDefinitions:
     """Definitions for date/time classes. Note that the timezone limits are 
     set by where the international dateline is. Thus, time in New Zealand is quoted using +12:00, not -12:00."""
@@ -877,3 +874,5 @@ class ISOTimeZone(ISOType):
     def __str__(self) -> str:
         return self.as_string()
     
+temporal = type(ISOType)
+"""Abstract ancestor of time-related classes."""

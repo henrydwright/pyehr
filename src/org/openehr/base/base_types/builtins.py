@@ -2,26 +2,27 @@ from datetime import date, time, datetime, timezone
 import locale
 
 from org.openehr.base.foundation_types.terminology import TerminologyCode
+from org.openehr.base.foundation_types.time import ISODate, ISOTime, ISODateTime, ISOTimeZone
 
 class Env():
     """Class representing the real-world environment, providing 
     basic information like current time, date, etc."""
 
-    def current_date() -> date:
+    def current_date() -> ISODate:
         """Return today’s date in the current locale."""
-        return datetime.now().date()
+        return ISODate(datetime.now().date().isoformat())
     
-    def current_time() -> time:
+    def current_time() -> ISOTime:
         """Return current time in the current locale."""
-        return datetime.now().time()
+        return ISOTime(datetime.now().time().isoformat())
     
-    def current_date_time() -> datetime:
+    def current_date_time() -> ISODateTime:
         """Return current date/time in the current locale."""
-        return datetime.now()
+        return ISODateTime(datetime.now().isoformat())
     
-    def current_time_zone() -> timezone:
+    def current_time_zone() -> ISOTimeZone:
         """Return the timezone of the current locale."""
-        return datetime.now().astimezone().tzinfo
+        return ISODateTime(datetime.now().astimezone().isoformat()).timezone()
     
 class Locale():
     """Class representing current Locale."""
@@ -30,8 +31,8 @@ class Locale():
         """Primary language of the current locale."""
         tc = TerminologyCode()
         tc.code_string = locale.getlocale()[0]
-        tc.terminology_id = "RFC-1766"
+        tc.terminology_id = "IETF1766"
         return tc
     
-print(Locale.primary_language())
+
 
