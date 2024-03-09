@@ -258,3 +258,235 @@ class ObjectVersionID(UIDBasedID):
         """True if this version identifier represents a branch."""
         return self._version_tree_id.is_branch()
     
+class ArchetypeID(ObjectID):
+    """Identifier for archetypes. Ideally these would identify globally unique archetypes.
+    
+    Lexical form: `rm_originator '-' rm_name '-' rm_entity '.' concept_name { '-' specialisation }* '.v' number`."""
+    
+    ARCHETYPE_ID_REGEX = "^(([a-zA-Z][a-zA-Z0-9_]*)-([a-zA-Z][a-zA-Z0-9_]*)-([a-zA-Z][a-zA-Z0-9_]*))\\.(([a-zA-Z][a-zA-Z0-9_]*)(-[a-zA-Z][a-zA-Z0-9_]*)?)\\.(v[0-9][0-9]*)$"
+
+    _rm_originator : str
+    _rm_name : str
+    _rm_entity : str
+    _concept_name : str
+    _specialisation : Optional[str] = None
+    _version_id : str
+
+    def __init__(self, value: str, **kwargs):
+        if re.match(ArchetypeID.ARCHETYPE_ID_REGEX, value) is None:
+            raise ValueError("Archetype ID must be of the lexical form `rm_originator '-' rm_name '-' rm_entity '.' concept_name { '-' specialisation }* '.v' number`.")
+        
+        parts = re.split(ArchetypeID.ARCHETYPE_ID_REGEX, value)
+        self._rm_originator = parts[2]
+        self._rm_name = parts[3]
+        self._rm_entity = parts[4]
+        self._concept_name = parts[5]
+        if parts[7] is not None:
+            self._specialisation = parts[7][1:]
+        self._version_id = parts[8][1:]
+        print(parts)
+        super().__init__(value, **kwargs)
+
+    def qualified_rm_entity(self) -> str:
+        """Globally qualified reference model entity, e.g. `openehr-EHR-OBSERVATION`."""
+        return f"{self._rm_originator}-{self._rm_name}-{self._rm_entity}"
+
+    def domain_concept(self) -> str:
+        """Name of the concept represented by this archetype, including specialisation, 
+        e.g. `Biochemistry_result-cholesterol`."""
+        return self._concept_name
+
+    def rm_originator(self) -> str:
+        """Organisation originating the reference model on which this archetype is based, 
+        e.g. openehr, cen, hl7."""
+        return self._rm_originator
+
+    def rm_name(self) -> str:
+        """Name of the reference model, e.g. rim, ehr_rm, en13606."""
+        return self._rm_name
+
+    def rm_entity(self) -> str:
+        """Name of the ontological level within the reference model to which this archetype 
+        is targeted, e.g. for openEHR, folder , composition , section , entry."""
+        return self._rm_entity
+
+    def specialisation(self) -> str:
+        """Name of specialisation of concept, if this archetype is a specialisation of another 
+        archetype, e.g. cholesterol."""
+        if self._specialisation is None:
+            return ""
+        else:
+            return self._specialisation
+
+    def version_id(self) -> str:
+        """Version of this archetype."""
+        return self._version_id
+
+class TemplateID(ObjectID):
+    """Identifier for templates. Lexical form to be determined."""
+    pass
+
+class TerminologyID(ObjectID):
+    """Identifier for terminologies such as accessed via a terminology 
+    query service. In this class, the value attribute identifies the 
+    Terminology in the terminology service, e.g. SNOMED-CT. A terminology 
+    is assumed to be in a particular language, which must be explicitly specified.
+
+    The value if the id attribute is the precise terminology id identifier, including 
+    actual release (i.e. actual version), local modifications etc; e.g. ICPC2.
+
+    Lexical form: `name [ '(' version ')' ]`."""
+
+    TERMINOLOGY_ID_REGEX = "^([a-zA-Z][a-zA-Z0-9_\\-\\/+]*)(\\([a-zA-Z0-9_\\-\\/+]*\\))?$"
+
+    _name : str
+    _version : Optional[str]
+
+    def __init__(self, value: str, **kwargs):
+        if re.match(TerminologyID.TERMINOLOGY_ID_REGEX, value) is None:
+            raise ValueError("Invalid syntax for terminology ID")
+        parts = re.split(TerminologyID.TERMINOLOGY_ID_REGEX, value)
+        self._name = parts[1]
+        if parts[2] is not None:
+            self._version = parts[2].replace("(", "").replace(")", "")
+        super().__init__(value, **kwargs)
+
+    def name(self) -> str:
+        """Return the terminology id (which includes the version in some cases). 
+        Distinct names correspond to distinct (i.e. non-compatible) terminologies. 
+        Thus the names ICD10AM and ICD10 refer to distinct terminologies."""
+        return self._name
+
+    def version_id(self) -> str:
+        """Version of this terminology, if versioning supported, else the empty string."""
+        if self._version is None:
+            return ""
+        else:
+            return self._version
+
+class GenericID(ObjectID):
+    """Generic identifier type for identifiers whose format is otherwise 
+    unknown to openEHR. Includes an attribute for naming the identification 
+    scheme (which may well be local)."""
+
+    _scheme : str
+
+    def _get_scheme(self) -> str:
+        return self._scheme
+    
+    scheme = property(
+        fget=_get_scheme
+    )
+    """Name of the scheme to which this identifier conforms. Ideally this name will 
+    be recognisable globally but realistically it may be a local ad hoc scheme whose 
+    name is not controlled or standardised in any way."""
+
+    def __init__(self, value: str, scheme: str, **kwargs):
+        self._scheme = scheme
+        super().__init__(value, **kwargs)
+
+class ObjectRef(AnyClass):
+    """Class describing a reference to another object, which may exist locally or 
+    be maintained outside the current namespace, e.g. in another service. Services 
+    are usually external, e.g. available in a LAN (including on the same host) or 
+    the internet via Corba, SOAP, or some other distributed protocol. However, in 
+    small systems they may be part of the same executable as the data containing 
+    the Id."""
+
+    NAMESPACE_REGEX = "^[a-zA-Z][a-zA-Z0-9_.:\\/&?=+-]*$"
+
+    _namespace : str
+    _type : str
+    _id : ObjectID
+
+    def _get_namespace(self) -> str:
+        return self._namespace
+    
+    def _get_type(self) -> str:
+        return self._type
+    
+    def _get_id(self) -> ObjectID:
+        return self._id
+    
+    namespace = property(
+        fget=_get_namespace
+    )
+    """Namespace to which this identifier belongs in the local system context (and possibly in any 
+    other openEHR compliant environment) e.g. terminology , demographic. These names are not 
+    yet standardised. Legal values for namespace are:
+    * `"local"`
+    * `"unknown"`
+    * `a string matching the standard regex [a-zA-Z][a-zA-Z0-9_.:\\/&?=+-]*`.
+    
+    Note that the first two are just special values of the regex, and will be matched by it."""
+
+    ref_type = property(
+        fget=_get_type
+    )
+    """Name of the class (concrete or abstract) of object to which this identifier type refers, 
+    e.g. `PARTY`, `PERSON`, `GUIDELINE` etc. These class names are from the relevant reference model. 
+    The type name `ANY` can be used to indicate that any type is accepted (e.g. if the type is 
+    unknown)."""
+
+    id = property(
+        fget=_get_id
+    )
+    """Globally unique id of an object, regardless of where it is stored."""
+
+    def __init__(self, namespace: str, ref_type: str, id: ObjectID, **kwargs):
+        if re.match(ObjectRef.NAMESPACE_REGEX, namespace) is None:
+            raise ValueError("Object reference namespace must conform to regular expression `^[a-zA-Z][a-zA-Z0-9_.:\\/&?=+-]*$`")
+        self._namespace = namespace
+        self._type = ref_type
+        self._id = id
+        super().__init__(**kwargs)
+
+    def is_equal(self, other) -> bool:
+        return (
+            type(self) == type(other) and
+            self._namespace == other._namespace and
+            self._type == other._type and
+            self._id.is_equal(other._id)
+        )
+
+class PartyRef(ObjectRef):
+    """Identifier for parties in a demographic or identity service. There are typically a 
+    number of subtypes of the `PARTY` class, including `PERSON`, `ORGANISATION`, etc. Abstract 
+    supertypes are allowed if the referenced object is of a type not known by the current 
+    implementation of this class (in other words, if the demographic model is changed by 
+    the addition of a new `PARTY` or `ACTOR` subtypes, valid `PARTY_REF`s can still be 
+    constructed to them)."""
+
+    def __init__(self, namespace: str, type: str, id: ObjectID, **kwargs):
+        if type not in {"PERSON", "ORGANISATION", "GROUP", "AGENT", "ROLE", "PARTY", "ACTOR"}:
+            raise ValueError("A party reference must refer to one of the following types: PERSON, ORGANISATION, GROUP, AGENT, ROLE, PARTY, ACTOR")
+        super().__init__(namespace, type, id, **kwargs)
+
+class LocatableRef(ObjectRef):
+    """Purpose Reference to a `LOCATABLE` instance inside the top-level content structure 
+    inside a `VERSION<T>`; the path attribute is applied to the object that `VERSION.data`
+    points to."""
+
+    _path : Optional[str]
+
+    def _get_path(self):
+        return self._path
+    
+    path = property(
+        fget=_get_path
+    )
+    """The path to an instance in question, as an absolute path with respect to the object 
+    found at VERSION.data. An empty path means that the object referred to by id being 
+    specified."""
+
+    def __init__(self, namespace: str, type: str, id: UIDBasedID, path : Optional[str] = None, **kwargs):
+        raise NotImplementedError("Locatable refs are not yet implemented (as I don't understand them!)")
+        self._path = path
+        super().__init__(namespace, type, id, **kwargs)
+
+    def as_uri(self) -> str:
+        """A URI form of the reference, created by concatenating the following:
+        * scheme, e.g. ehr:, derived from namespace
+        * id.value
+        * / + path, where path is non-empty"""
+        raise NotImplementedError("Locatable refs are not yet implemented (as I don't understand them!)")

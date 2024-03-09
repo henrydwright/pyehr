@@ -1,6 +1,6 @@
 import pytest
 
-from org.openehr.base.base_types.identification import UID, ISOOID, UUID, InternetID, UIDBasedID, VersionTreeID, ObjectVersionID
+from org.openehr.base.base_types.identification import *
 
 def test_uid_from_unknown_uid_type():
     x = UID.from_unknown_uid_type("51d52cf1-83c9-4f02-b117-703ecb728b74")
@@ -92,3 +92,73 @@ def test_object_version_id_other_methods():
     assert str(x.creating_system_id()) == "uk.nhs.ehr1"
     assert str(x.version_tree_id()) == "2"
     assert not x.is_branch()
+
+def test_archetype_id_only_valid_allowed():
+    # ID containing all elements
+    a = ArchetypeID("openEHR-EHR-OBSERVATION.bp_measurement.v1")
+    a = ArchetypeID("openEHR-EHR-OBSERVATION.bp_measurement.v021")
+    a = ArchetypeID("openEHR-EHR-OBSERVATION.biochemistry_result-cholesterol.v502")
+    # OTHER ISSUES
+    with pytest.raises(ValueError):
+        # lacks concept
+        a = ArchetypeID("openEHR-EHR-OBSERVATION.v1")
+    with pytest.raises(ValueError):
+        # lacks rm_name
+        a = ArchetypeID("openEHR-EHR.bp_measurement.v1")
+    # VERSION ID ISSUES
+    with pytest.raises(ValueError):
+        # lacks version ID
+        a = ArchetypeID("openEHR-EHR-OBSERVATION.bp_measurement")
+    with pytest.raises(ValueError):
+        # invalid version ID (no number after v)
+        a = ArchetypeID("openEHR-EHR-OBSERVATION.bp_measurement.v")
+    with pytest.raises(ValueError):
+        # invalid version ID (contains .)
+        a = ArchetypeID("openEHR-EHR-OBSERVATION.bp_measurement.v1.3.2")
+
+def test_archetype_id_other_methods_correct():
+    a = ArchetypeID("openEHR-EHR-OBSERVATION.biochemistry_result-cholesterol.v502")
+    assert a.qualified_rm_entity() == "openEHR-EHR-OBSERVATION"
+    assert a.domain_concept() == "biochemistry_result-cholesterol"
+    assert a.rm_originator() == "openEHR"
+    assert a.rm_name() == "EHR"
+    assert a.rm_entity() == "OBSERVATION"
+    assert a.specialisation() == "cholesterol"
+    assert a.version_id() == "502"
+
+def test_terminology_id_only_valid_allowed():
+    t = TerminologyID("SNOMED-CT")
+    # Note: the below is allowed according to 5.3.2.3 but not 5.5
+    #        we have taken 5.3.2.3 to be truthful (i.e. below is allowed)
+    t = TerminologyID("ICD10AM(3rd_ed)")
+    with pytest.raises(ValueError):
+        t = TerminologyID("2ABC") # cannot start with digit
+    with pytest.raises(ValueError):
+        t = TerminologyID("ABC&D") # invalid symbol '&'
+    with pytest.raises(ValueError):
+        t = TerminologyID("ABC(abc)a") # nothing should follow version
+
+def test_terminology_id_other_methods_correct():
+    t = TerminologyID("ICD10AM(3rd_ed)")
+    assert t.name() == "ICD10AM"
+    assert t.version_id() == "3rd_ed"
+
+def test_generic_id_scheme_words():
+    g = GenericID("abacus", "local")
+    assert g.scheme == "local"
+
+def test_object_ref_only_valid_allowed():
+    o = ObjectRef("local", "PARTY", ObjectVersionID("87284370-2D4B-4e3d-A3F3-F303D2F4F34B::uk.nhs.ehr1::2"))
+    with pytest.raises(ValueError):
+        o = ObjectRef("09ehr", "PERSON", UIDBasedID("uk.nhs::test")) # invalid namespace
+
+def test_object_ref_other_methods_correct():
+    o = ObjectRef("local", "PARTY", ObjectVersionID("87284370-2D4B-4e3d-A3F3-F303D2F4F34B::uk.nhs.ehr1::2"))
+    assert o.namespace == "local"
+    assert o.ref_type == "PARTY"
+    assert o.id.is_equal(ObjectVersionID("87284370-2D4B-4e3d-A3F3-F303D2F4F34B::uk.nhs.ehr1::2"))
+
+def test_party_ref_type_validity_enforced():
+    p = PartyRef("local", "PERSON", ObjectVersionID("87284370-2D4B-4e3d-A3F3-F303D2F4F34B::uk.nhs.ehr1::2"))
+    with pytest.raises(ValueError):
+        p = PartyRef("local", "GUIDELINE", ObjectVersionID("87284370-2D4B-4e3d-A3F3-F303D2F4F34B::uk.nhs.ehr1::2")) # doesn't refer to a party
