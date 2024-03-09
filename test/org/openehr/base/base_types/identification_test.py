@@ -162,3 +162,37 @@ def test_party_ref_type_validity_enforced():
     p = PartyRef("local", "PERSON", ObjectVersionID("87284370-2D4B-4e3d-A3F3-F303D2F4F34B::uk.nhs.ehr1::2"))
     with pytest.raises(ValueError):
         p = PartyRef("local", "GUIDELINE", ObjectVersionID("87284370-2D4B-4e3d-A3F3-F303D2F4F34B::uk.nhs.ehr1::2")) # doesn't refer to a party
+
+def test_composite_ids_equivalence_rule():
+    # as per 5.3.2.8 "two identifiers identical apart from 
+    #  case are considered to be identical, and therefore to identify the same thing"
+    x = ObjectID("tremendous")
+    y = ObjectID("TREMENDOUS")
+    assert x.is_equal(y)
+    x = UIDBasedID("51d52cf1-83c9-4f02-b117-703ecb728b74::shazam")
+    y = UIDBasedID("51d52Cf1-83c9-4f02-b117-703ecb728b74::shazam")
+    assert x.is_equal(y)
+    x = ObjectVersionID("87284370-2D4B-4e3d-A3F3-F303D2F4F34B::uk.nhs.ehr1::2")
+    y = ObjectVersionID("87284370-2d4b-4e3d-a3f3-f303d2f4f34b::UK.NHS.EHR1::2")
+    assert x.is_equal(y)
+
+    x = TerminologyID("SNOMED-CT")
+    y = TerminologyID("snomed-ct")
+    assert x.is_equal(y)
+
+    x = GenericID("ABACUS", "local")
+    y = GenericID("abacus", "local")
+    assert x.is_equal(y)
+    # not equal because different schemes
+    x = GenericID("abacus", "LOcAL")
+    y = GenericID("abacus", "local")
+    assert not x.is_equal(y)
+
+    x = ArchetypeID("openEHR-EHR-OBSERVATION.progress_note-naturopathy.v2")
+    y = ArchetypeID("OPENEHR-EHR-OBSERVATION.PROGRESS_NOTE-naTuropathy.v2")
+    assert x.is_equal(y)
+
+    x = TemplateID("templateID2")
+    y = TemplateID("TEMPLATEID2")
+    assert x.is_equal(y)
+

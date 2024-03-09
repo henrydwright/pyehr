@@ -108,7 +108,7 @@ class ObjectID(AnyClass):
     def is_equal(self, other) -> bool:
         return (
             type(self) == type(other) and
-            self.value == other.value
+            self.value.lower() == other.value.lower()
             )
     
 class UIDBasedID(ObjectID):
@@ -384,6 +384,12 @@ class GenericID(ObjectID):
     def __init__(self, value: str, scheme: str, **kwargs):
         self._scheme = scheme
         super().__init__(value, **kwargs)
+
+    def is_equal(self, other) -> bool:
+        return (
+            self._scheme == other._scheme and
+            super().is_equal(other)
+            )
 
 class ObjectRef(AnyClass):
     """Class describing a reference to another object, which may exist locally or 
