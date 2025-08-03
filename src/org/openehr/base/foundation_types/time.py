@@ -289,7 +289,7 @@ class ISODate(ISOType):
             return self.subtract(value)
     
     def add_nominal(self, a_diff: 'ISODuration') -> 'ISODate':
-        """**NOT IMPLEMENTED** Addition of nominal duration represented by a_diff. 
+        """Addition of nominal duration represented by a_diff. 
         For example, a duration of 'P1Y' means advance to the same date next year, 
         with the exception of the date 29 February in a leap year, to which the 
         addition of a nominal year will result in 28 February of the following year. 
@@ -299,37 +299,115 @@ class ISODate(ISOType):
         * one or two days less where the following month is shorter, or;
         * in the case of adding a month to the date 31 Jan, the result will be 28 Feb 
         in a non-leap year (i.e. three less) and 29 Feb in a leap year (i.e. two less)."""
-        raise NotImplementedError("ISODate.add_nominal() is not yet implemented.")
-        # if self.month_unknown():
-        #     if (a_diff.months() == 0 and
-        #         a_diff.days() == 0 and
-        #         a_diff.hours() == 0 and
-        #         a_diff.minutes() == 0 and
-        #         a_diff.seconds() == 0 and
-        #         a_diff.fractional_seconds() == 0.0):
-        #         # we can safely add years
-        #         return ISODate(str(self.year() + a_diff.years()))
-        #     else:
-        #         raise ValueError("Cannot add duration with granularity above years to partial date with only years")
-        # elif self.day_unknown():
-        #     if (a_diff.days() == 0 and
-        #         a_diff.hours() == 0 and
-        #         a_diff.minutes() == 0 and
-        #         a_diff.seconds() == 0 and
-        #         a_diff.fractional_seconds() == 0.0):
-        #         # we can safely add months and years
-        #         new_months = (self.month() + a_diff.months()) % 12
-        #         new_years = (self.year() + a_diff.years()) + (self.month() + a_diff.months()) // 12
-        #         return ISODate(f"{new_years:02d}-{new_months:02d}")
-        #     else:
-        #         raise ValueError("Cannot add duration with granularity above months to partial date with only months and years")
-        # else:
-        #     # full date
+
+        if self.is_partial():
+            if self._day == 0 and a_diff.days() > 0:
+                raise ValueError("Cannot add a nominal period in days to a partial date (year and month only)")
+            elif self._month == 0 and a_diff.months() > 0:
+                raise ValueError("Cannot add a nominal period in months to a partial date (year only)")
+
+        y = self._year
+        m = self._month
+        d = self._day
+
+        years = a_diff.years()
+        months = a_diff.months()
+        days = a_diff.days()
+
+        # Add years and months
+        new_year = y + years
+        new_month = m + months
+
+        # Adjust year and month if month > 12
+        while new_month > 12:
+            new_year += 1
+            new_month -= 12
+
+        if not self.is_partial():
+            # Find max day in new month/year
+            max_day = TimeDefinitions.days_in_month(new_month, new_year)
+
+            # Special case: 29 Feb in leap year + 1Y => 28 Feb next year if not leap
+            if d == 29 and m == 2 and years > 0 and not TimeDefinitions._is_leap_year(np.int32(new_year)):
+                new_day = 28
+            else:
+                new_day = min(d, max_day)
+
+            # Add days
+            try:
+                result_date = date(new_year, new_month, new_day) + timedelta(days=days)
+            except ValueError:
+                # If day is out of range, fallback to last day of month
+                result_date = date(new_year, new_month, max_day) + timedelta(days=days)
+
+            return ISODate(result_date.isoformat())
+        
+        # partial dates
+        if self._month == 0:
+            return ISODate(f"{new_year:04d}")
+        else:
+            return ISODate(f"{new_year:04d}-{new_month:02d}")
+
     
-    def subtract_nominal(a_diff : 'ISODuration') -> 'ISODate':
-        """**NOT IMPLEMENTED** Subtraction of nominal duration represented by a_diff. 
-        See add_nominal() for semantics."""
-        raise NotImplementedError("ISODate.subtract_nominal() is not yet implemented.")
+    def subtract_nominal(self, a_diff : 'ISODuration') -> 'ISODate':
+        """Subtraction of nominal duration represented by a_diff. 
+        For example, a duration of 'P1Y' means go back to the same date last year, 
+        with the exception of the date 29 February in a leap year, to which the 
+        subtraction of a nominal year will result in 28 February of the previous year. 
+        Similarly, 'P1M' is understood here as a nominal month, the subtraction of which 
+        will result in one of:
+        * the same day in the previous month, if it exists, or;
+        * one or two days less where the previous month is shorter, or;
+        * in the case of taking away a month from the date 31 Mar, the result will be 28 Feb 
+        in a non-leap year (i.e. three less) and 29 Feb in a leap year (i.e. two less)."""
+
+        if self.is_partial():
+            if self._day == 0 and a_diff.days() > 0:
+                raise ValueError("Cannot subtract a nominal period in days from a partial date (year and month only)")
+            elif self._month == 0 and a_diff.months() > 0:
+                raise ValueError("Cannot subtract a nominal period in months from a partial date (year only)")
+
+        y = self._year
+        m = self._month
+        d = self._day
+
+        years = a_diff.years()
+        months = a_diff.months()
+        days = a_diff.days()
+
+        # Subtract years and months
+        new_year = y - years
+        new_month = m - months
+
+        # Adjust year and month if month < 0
+        while new_month < 0:
+            new_year -= 1
+            new_month += 12
+
+        if not self.is_partial():
+            # Find max day in new month/year
+            max_day = TimeDefinitions.days_in_month(new_month, new_year)
+
+            # Special case: 29 Feb in leap year - 1Y => 28 Feb previous year if not leap
+            if d == 29 and m == 2 and years > 0 and not TimeDefinitions._is_leap_year(np.int32(new_year)):
+                new_day = 28
+            else:
+                new_day = min(d, max_day)
+
+            # Subtract days
+            try:
+                result_date = date(new_year, new_month, new_day) - timedelta(days=days)
+            except ValueError:
+                # If day is out of range, fallback to last day of month
+                result_date = date(new_year, new_month, max_day) - timedelta(days=days)
+
+            return ISODate(result_date.isoformat())
+        
+        # partial dates
+        if self._month == 0:
+            return ISODate(f"{new_year:04d}")
+        else:
+            return ISODate(f"{new_year:04d}-{new_month:02d}")
 
 class ISOTime(ISOType):
     """Represents an ISO 8601 time, including partial and extended forms. Value may be:

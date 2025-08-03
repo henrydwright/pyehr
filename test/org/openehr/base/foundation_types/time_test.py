@@ -361,3 +361,201 @@ def test_iso_date_time_diff():
     d1 = ISODateTime("2023-01-03")
     du = d1 - d2
     assert str(du) == "P367D"
+
+def test_iso_date_add_nominal_year():
+    # Adding 1 nominal year to a non-leap year date
+    d = ISODate("2021-03-15")
+    du = ISODuration("P1Y")
+    nd = d.add_nominal(du)
+    assert str(nd) == "2022-03-15"
+
+    # Adding 1 nominal year to a leap year date (not Feb 29)
+    d = ISODate("2020-05-10")
+    du = ISODuration("P1Y")
+    nd = d.add_nominal(du)
+    assert str(nd) == "2021-05-10"
+
+    # Adding 1 nominal year to Feb 29 in a leap year should result in Feb 28 next year
+    d = ISODate("2012-02-29")
+    du = ISODuration("P1Y")
+    nd = d.add_nominal(du)
+    assert str(nd) == "2013-02-28"
+
+    # Adding 1 nominal year to Feb 28 in a non-leap year should result in Feb 28 next year
+    d = ISODate("2013-02-28")
+    du = ISODuration("P1Y")
+    nd = d.add_nominal(du)
+    assert str(nd) == "2014-02-28"
+
+def test_iso_date_add_nominal_month():
+    # Adding 1 nominal month to 31 Jan in a non-leap year should result in Feb 28
+    d = ISODate("2021-01-31")
+    du = ISODuration("P1M")
+    nd = d.add_nominal(du)
+    assert str(nd) == "2021-02-28"
+
+    # Adding 1 nominal month to Jan 31 in a leap year should result in Feb 29
+    d = ISODate("2020-01-31")
+    du = ISODuration("P1M")
+    nd = d.add_nominal(du)
+    assert str(nd) == "2020-02-29"
+
+    # Adding 1 nominal month to a date in a month with 30 days, next month has 31 days
+    d = ISODate("2021-04-30")
+    du = ISODuration("P1M")
+    nd = d.add_nominal(du)
+    assert str(nd) == "2021-05-30"
+
+    # Adding 1 nominal month to a date in a month with 31 days, next month has 31 days
+    d = ISODate("2021-07-31")
+    du = ISODuration("P1M")
+    nd = d.add_nominal(du)
+    assert str(nd) == "2021-08-31"
+
+    # Adding 1 nominal month to a date in a month with 31 days, next month has 30 days
+    d = ISODate("2021-03-31")
+    du = ISODuration("P1M")
+    nd = d.add_nominal(du)
+    assert str(nd) == "2021-04-30"
+
+def test_iso_date_add_nominal_partial_year():
+    # Adding 1 nominal year to a partial date (YYYY)
+    d = ISODate("2022")
+    du = ISODuration("P1Y")
+    nd = d.add_nominal(du)
+    assert str(nd) == "2023"
+
+def test_iso_date_add_nominal_partial_month():
+    # Adding 1 nominal month to a partial date (YYYY-MM)
+    d = ISODate("2022-05")
+    du = ISODuration("P1M")
+    nd = d.add_nominal(du)
+    assert str(nd) == "2022-06"
+
+def test_iso_date_add_nominal_invalid_granularity():
+    # Adding days to a partial year-only date should raise ValueError
+    d = ISODate("2022")
+    du = ISODuration("P1D")
+    with pytest.raises(ValueError):
+        d.add_nominal(du)
+
+    # Adding days to a partial year-month date should raise ValueError
+    d = ISODate("2022-05")
+    du = ISODuration("P1D")
+    with pytest.raises(ValueError):
+        d.add_nominal(du)
+
+def test_iso_date_add_nominal_multiple_years_months():
+    # Adding multiple years and months
+    d = ISODate("2020-02-29")
+    du = ISODuration("P2Y3M")
+    nd = d.add_nominal(du)
+    # 2020-02-29 + 2Y = 2022-02-28 (not leap), +3M = 2022-05-28
+    assert str(nd) == "2022-05-28"
+
+def test_iso_date_add_nominal_month_overflow():
+    # Adding months that overflow the year
+    d = ISODate("2021-10-15")
+    du = ISODuration("P5M")
+    nd = d.add_nominal(du)
+    # 2021-10-15 + 5M = 2022-03-15
+    assert str(nd) == "2022-03-15"
+
+def test_iso_date_subtract_nominal_year():
+    # Subtracting 1 nominal year from a non-leap year date
+    d = ISODate("2022-03-15")
+    du = ISODuration("P1Y")
+    nd = ISODate.subtract_nominal(d, du)
+    assert str(nd) == "2021-03-15"
+
+    # Subtracting 1 nominal year from a leap year date (not Feb 29)
+    d = ISODate("2020-05-10")
+    du = ISODuration("P1Y")
+    nd = ISODate.subtract_nominal(d, du)
+    assert str(nd) == "2019-05-10"
+
+    # Subtracting 1 nominal year from Feb 29 in a leap year should result in Feb 28 previous year
+    d = ISODate("2012-02-29")
+    du = ISODuration("P1Y")
+    nd = ISODate.subtract_nominal(d, du)
+    assert str(nd) == "2011-02-28"
+
+    # Subtracting 1 nominal year from Feb 28 in a non-leap year should result in Feb 28 previous year
+    d = ISODate("2013-02-28")
+    du = ISODuration("P1Y")
+    nd = ISODate.subtract_nominal(d, du)
+    assert str(nd) == "2012-02-28"
+
+def test_iso_date_subtract_nominal_month():
+    # Subtracting 1 nominal month from Mar 31 in a non-leap year should result in Feb 28
+    d = ISODate("2021-03-31")
+    du = ISODuration("P1M")
+    nd = ISODate.subtract_nominal(d, du)
+    assert str(nd) == "2021-02-28"
+
+    # Subtracting 1 nominal month from Mar 31 in a leap year should result in Feb 29
+    d = ISODate("2020-03-31")
+    du = ISODuration("P1M")
+    nd = ISODate.subtract_nominal(d, du)
+    assert str(nd) == "2020-02-29"
+
+    # Subtracting 1 nominal month from a date in a month with 30 days, previous month has 31 days
+    d = ISODate("2021-05-30")
+    du = ISODuration("P1M")
+    nd = ISODate.subtract_nominal(d, du)
+    assert str(nd) == "2021-04-30"
+
+    # Subtracting 1 nominal month from a date in a month with 31 days, previous month has 31 days
+    d = ISODate("2021-08-31")
+    du = ISODuration("P1M")
+    nd = ISODate.subtract_nominal(d, du)
+    assert str(nd) == "2021-07-31"
+
+    # Subtracting 1 nominal month from a date in a month with 30 days, previous month has 31 days
+    d = ISODate("2021-04-30")
+    du = ISODuration("P1M")
+    nd = ISODate.subtract_nominal(d, du)
+    assert str(nd) == "2021-03-30"
+
+def test_iso_date_subtract_nominal_partial_year():
+    # Subtracting 1 nominal year from a partial date (YYYY)
+    d = ISODate("2022")
+    du = ISODuration("P1Y")
+    nd = ISODate.subtract_nominal(d, du)
+    assert str(nd) == "2021"
+
+def test_iso_date_subtract_nominal_partial_month():
+    # Subtracting 1 nominal month from a partial date (YYYY-MM)
+    d = ISODate("2022-05")
+    du = ISODuration("P1M")
+    nd = ISODate.subtract_nominal(d, du)
+    assert str(nd) == "2022-04"
+
+def test_iso_date_subtract_nominal_invalid_granularity():
+    # Subtracting days from a partial year-only date should raise ValueError
+    d = ISODate("2022")
+    du = ISODuration("P1D")
+    with pytest.raises(ValueError):
+        ISODate.subtract_nominal(d, du)
+
+    # Subtracting days from a partial year-month date should raise ValueError
+    d = ISODate("2022-05")
+    du = ISODuration("P1D")
+    with pytest.raises(ValueError):
+        ISODate.subtract_nominal(d, du)
+
+def test_iso_date_subtract_nominal_multiple_years_months():
+    # Subtracting multiple years and months
+    d = ISODate("2022-05-28")
+    du = ISODuration("P2Y3M")
+    nd = ISODate.subtract_nominal(d, du)
+    # 2022-05-28 - 2Y = 2020-05-28, -3M = 2020-02-28
+    assert str(nd) == "2020-02-28"
+
+def test_iso_date_subtract_nominal_month_underflow():
+    # Subtracting months that underflow the year
+    d = ISODate("2022-03-15")
+    du = ISODuration("P5M")
+    nd = ISODate.subtract_nominal(d, du)
+    # 2022-03-15 - 5M = 2021-10-15
+    assert str(nd) == "2021-10-15"
