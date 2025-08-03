@@ -2,23 +2,46 @@ from org.openehr.base.foundation_types import AnyClass
 from org.openehr.base.foundation_types.primitive_types import Uri
 from typing import Optional
 
+class TerminologyTerm(AnyClass):
+    """Leaf type representing a standalone term from a terminology, which consists 
+    of the term text and the code, i.e. a concept reference.
+    """
+
+    concept : 'TerminologyCode'
+    """Reference to the terminology concept formally representing this term"""
+    
+    text : str
+    """Text of term"""
+
+    def is_equal(self, other) -> bool:
+        return ((type(self == type(other))) and
+                self.concept.is_equal(other.concept))
+    
+    def __init__(self, concept: 'TerminologyCode', text: str):
+        self.concept = concept
+        self.text = text
+
 class TerminologyCode(AnyClass):
     """Primitive type representing a standalone reference to a terminology concept, 
     in the form of a terminology identifier, optional version, and a code or code string 
     from the terminology.
     """
+
     terminology_id : str
     """The archetype environment namespace identifier used to identify a terminology. 
     Typically a value like "snomed_ct" that is mapped elsewhere to the full URI 
     identifying the terminology."""
-    terminology_version : Optional[str]
+
+    terminology_version : Optional[str] = None
     """Optional string value representing terminology version, typically a date or 
     dotted numeric."""
+
     code_string : str
     """A terminology code or post-coordinated code expression, if supported by the terminology. 
     The code may refer to a single term, a value set consisting of multiple terms, or some other 
     entity representable within the terminology."""
-    uri : Optional[Uri]
+
+    uri : Optional[Uri] = None
     """The URI reference that may be used as a concrete key into a notional terminology service
     for queries that can obtain the term text, definition, and other associated elements."""
 
@@ -31,17 +54,7 @@ class TerminologyCode(AnyClass):
     
     def __str__(self) -> str:
         return self.terminology_id + ": " + self.code_string
-
-
-class TerminologyTerm(AnyClass):
-    """Leaf type representing a standalone term from a terminology, which consists 
-    of the term text and the code, i.e. a concept reference.
-    """
-    text : str
-    """Text of term"""
-    concept : TerminologyCode
-    """Reference to the terminology concept formally representing this term"""
-
-    def is_equal(self, other) -> bool:
-        return ((type(self == type(other))) and
-                self.concept.is_equal(other.concept))
+    
+    def __init__(self, terminology_id: str, code_string: str):
+        self.terminology_id = terminology_id
+        self.code_string = code_string

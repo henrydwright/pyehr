@@ -16,22 +16,15 @@ class TestAuthoredResourceImplementation(AuthoredResource):
     
 def test_languages_available_valid():
     # invariant - Languages_available_valid: languages_available.has (original_language)
-    lang = TerminologyCode()
-    lang.terminology_id = "ISO639-1"
-    lang.code_string = "en"
+    lang = TerminologyCode("ISO639-1", "en")
     res = TestAuthoredResourceImplementation(lang)
 
     assert "en" in res.languages_available()
 
 def test_translations_valid():
     # invariant - Translations_valid: translations /= Void implies (not translations.is_empty and not translations.has (orginal_language.code_string))
-    lang = TerminologyCode()
-    lang.terminology_id = "ISO639-1"
-    lang.code_string = "en"
-
-    lang_de = TerminologyCode()
-    lang_de.terminology_id = "ISO639-1"
-    lang_de.code_string = "de"
+    lang = TerminologyCode("ISO639-1", "en")
+    lang_de =  TerminologyCode("ISO639-1", "de")
 
     res = TestAuthoredResourceImplementation(lang)
 
@@ -39,9 +32,7 @@ def test_translations_valid():
     with pytest.raises(Exception):
         res.add_translation(TranslationDetails(lang_de, {"name": "Herr Beispiel Urheber"}), ResourceDescriptionItem(lang_de, "Testressource zum Testen von Invarianten auf Sprachen"))
 
-    lifecycle = TerminologyCode()
-    lifecycle.terminology_id = "lifecycle"
-    lifecycle.code_string = "DRAFT"
+    lifecycle = TerminologyCode("lifecycle", "DRAFT")
     meta = ResourceDescription({"name", "Mr Test Author"}, lifecycle, res)
     res.set_description(meta)
 
@@ -66,18 +57,12 @@ def test_translations_valid():
 def test_description_valid():
     # invariant - Description_valid: translations /= Void implies (description.details.for_all (d | translations.has_key (d.language.code_string)))
 
-    lang = TerminologyCode()
-    lang.terminology_id = "ISO639-1"
-    lang.code_string = "en"
-    lang_de = TerminologyCode()
-    lang_de.terminology_id = "ISO639-1"
-    lang_de.code_string = "de"
+    lang = TerminologyCode("ISO639-1", "en")
+    lang_de =  TerminologyCode("ISO639-1", "de")
 
     res = TestAuthoredResourceImplementation(lang)
 
-    lifecycle = TerminologyCode()
-    lifecycle.terminology_id = "lifecycle"
-    lifecycle.code_string = "DRAFT"
+    lifecycle = TerminologyCode("lifecycle", "DRAFT")
 
     meta = ResourceDescription({"name", "Mr Test Author"}, lifecycle, res)
     
@@ -97,9 +82,6 @@ def test_description_valid():
     res.set_description(meta3)
     assert res.description == meta3
 
-    lang_de = TerminologyCode()
-    lang_de.terminology_id = "ISO639-1"
-    lang_de.code_string = "de"
     res.add_translation(TranslationDetails(lang_de, {"name": "Herr Beispiel Urheber"}), ResourceDescriptionItem(lang_de, "Testressource zum Testen von Invarianten auf Sprachen"))
 
     # setting details on an object which has a translation (and thus existing details) should fail when the new description doesn't have details
