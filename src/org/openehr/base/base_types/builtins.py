@@ -29,9 +29,7 @@ class Locale():
 
     def primary_language() -> TerminologyCode:
         """Primary language of the current locale."""
-        tc = TerminologyCode()
-        tc.code_string = locale.getlocale()[0]
-        tc.terminology_id = "IETF1766"
+        tc = TerminologyCode("IETF1766", locale.getlocale()[0])
         return tc
     
 
