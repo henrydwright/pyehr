@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
+from org.openehr.base.foundation_types.any import AnyClass
+from org.openehr.base.foundation_types.structure import is_equal_value
 from org.openehr.base.base_types.identification import UUID
 from org.openehr.base.foundation_types.terminology import TerminologyCode
 
-class ResourceDescription:
+class ResourceDescription(AnyClass):
     """Defines the descriptive meta-data of a resource."""
     
     original_author : dict[str, str]
@@ -77,17 +79,46 @@ class ResourceDescription:
         self.original_author = original_author
         self.lifecycle_state = lifecycle_state
         self.parent_resource = parent_resource
+        super().__init__()
+
+    def is_equal(self, other: 'ResourceDescription'):
+        return (
+            type(self) == type(other) and
+            is_equal_value(self.original_author, other.original_author) and
+            is_equal_value(self.original_namespace, other.original_namespace) and
+            is_equal_value(self.original_publisher, other.original_publisher) and
+            is_equal_value(self.other_contributors, other.other_contributors) and
+            is_equal_value(self.lifecycle_state, other.lifecycle_state) and
+            (self.parent_resource == other.parent_resource) and
+            is_equal_value(self.custodian_namespace, other.custodian_namespace) and
+            is_equal_value(self.custodian_organisation, other.custodian_organisation) and
+            is_equal_value(self.copyright, other.copyright) and
+            is_equal_value(self.licence, other.licence) and
+            is_equal_value(self.ip_acknowledgements, other.ip_acknowledgements) and
+            is_equal_value(self.references, other.references) and
+            is_equal_value(self.resource_package_uri, other.resource_package_uri) and
+            is_equal_value(self.conversion_details, other.conversion_details) and
+            is_equal_value(self.other_details, other.other_details) and
+            is_equal_value(self.details, other.details)
+        )
 
 
-class ResourceAnnotations:
+class ResourceAnnotations(AnyClass):
     """Class to store annotations for `AuthoredResource`"""
     
     documentation: dict[str, dict[str, dict[str, str]]]
 
     def __init__(self, documentation: dict[str, dict[str, dict[str, str]]]):
         self.documentation = documentation
+        super().__init__()
 
-class TranslationDetails:
+    def is_equal(self, other: 'ResourceAnnotations'):
+        return (
+            type(self) == type(other) and
+            is_equal_value(self.documentation, other.documentation)
+        )
+
+class TranslationDetails(AnyClass):
     """Class providing details of a natural language translation."""
     
     language : TerminologyCode
@@ -111,9 +142,21 @@ class TranslationDetails:
     def __init__(self, language : TerminologyCode, author : dict[str, str]):
         self.language = language
         self.author = author
+        super().__init__()
+
+    def is_equal(self, other: 'TranslationDetails'):
+        return (
+            type(self) == type(other) and
+            is_equal_value(self.language, other.language) and
+            is_equal_value(self.author, other.author) and
+            is_equal_value(self.accreditation, other.accreditation) and
+            is_equal_value(self.other_details, other.other_details) and
+            is_equal_value(self.version_last_translated, other.version_last_translated) and
+            is_equal_value(self.other_contributors, other.other_contributors)
+        )
 
 
-class AuthoredResource(ABC):
+class AuthoredResource(AnyClass, ABC):
     """Abstract idea of an online resource created by a human author."""
     
     uid : Optional[UUID] = None
@@ -136,6 +179,17 @@ class AuthoredResource(ABC):
 
     def __init__(self, original_language: TerminologyCode):
         self.original_language = original_language
+
+    def is_equal(self, other: 'AuthoredResource'):
+        return (
+            type(self) == type(other) and
+            is_equal_value(self.uid, other.uid) and
+            is_equal_value(self.original_language, other.original_language) and
+            is_equal_value(self._description, other._description) and
+            is_equal_value(self.is_controlled, other.is_controlled) and
+            is_equal_value(self.annotations, other.annotations) and
+            is_equal_value(self._translations, other._translations)
+        )
 
     @abstractmethod
     def current_revision(self) -> str:
@@ -220,7 +274,7 @@ class AuthoredResource(ABC):
                     self._description = resource_description
 
 
-class ResourceDescriptionItem:
+class ResourceDescriptionItem(AnyClass):
     """Language-specific detail of resource description. When a resource is translated for use in another language environment, each `ResourceDescriptionItem` needs to be copied and translated into the new language."""
     
     language : TerminologyCode
@@ -247,4 +301,17 @@ class ResourceDescriptionItem:
     def __init__(self, language: TerminologyCode, purpose: str):
         self.language = language
         self.purpose = purpose
+        super().__init__()
+
+    def is_equal(self, other: 'ResourceDescriptionItem'):
+        return (
+            type(self) == type(other) and
+            is_equal_value(self.language, other.language) and
+            (self.purpose == other.purpose) and
+            is_equal_value(self.keywords, other.keywords) and
+            is_equal_value(self.use, other.use) and
+            is_equal_value(self.misuse, other.misuse) and
+            is_equal_value(self.original_resource_uri, other.original_resource_uri) and
+            is_equal_value(self.other_details, other.other_details)
+        )
 

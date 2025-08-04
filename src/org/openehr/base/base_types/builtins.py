@@ -31,5 +31,3 @@ class Locale():
         """Primary language of the current locale."""
         tc = TerminologyCode("ISO639-1", locale.getlocale()[0][:2])
         return tc
-    
-print(Locale.primary_language())

@@ -5,7 +5,6 @@ from org.openehr.base.resource import AuthoredResource, TranslationDetails, Reso
 from org.openehr.base.foundation_types.terminology import TerminologyCode
 
 class TestAuthoredResourceImplementation(AuthoredResource):
-
     __test__ = False
 
     def __init__(self, original_lanugage : TerminologyCode):
@@ -91,3 +90,69 @@ def test_description_valid():
     # ...or does not contain all the same language codes
     with pytest.raises(ValueError):
         res.set_description(meta2)
+        
+def test_resource_description_is_equal_true():
+    lang = TerminologyCode("ISO639-1", "en")
+    lifecycle = TerminologyCode("lifecycle", "DRAFT")
+    parent = TestAuthoredResourceImplementation(lang)
+    author = {"name": "Mr Test Author"}
+
+    rd1 = ResourceDescription(author, lifecycle, parent)
+    rd2 = ResourceDescription(author, lifecycle, parent)
+
+    # Set all optional fields to same values
+    rd1.original_namespace = rd2.original_namespace = "org.example"
+    rd1.original_publisher = rd2.original_publisher = "Publisher"
+    rd1.other_contributors = rd2.other_contributors = ["Contributor <email>"]
+    rd1.custodian_namespace = rd2.custodian_namespace = "org.custodian"
+    rd1.custodian_organisation = rd2.custodian_organisation = "Custodian Org"
+    rd1.copyright = rd2.copyright = "Copyright"
+    rd1.licence = rd2.licence = "Apache 2.0"
+    rd1.ip_acknowledgements = rd2.ip_acknowledgements = {"loinc": "LOINC IP"}
+    rd1.references = rd2.references = {"ref1": "Reference"}
+    rd1.resource_package_uri = rd2.resource_package_uri = "http://package.uri"
+    rd1.conversion_details = rd2.conversion_details = {"tool": "cem2adl"}
+    rd1.other_details = rd2.other_details = {"extra": "detail"}
+    rd1.details = rd2.details = {"en": ResourceDescriptionItem(lang, "Purpose")}
+
+    assert rd1.is_equal(rd2)
+
+def test_resource_description_is_equal_false_different_author():
+    lang = TerminologyCode("ISO639-1", "en")
+    lifecycle = TerminologyCode("lifecycle", "DRAFT")
+    parent = TestAuthoredResourceImplementation(lang)
+    author1 = {"name": "Mr Test Author"}
+    author2 = {"name": "Ms Other Author"}
+
+    rd1 = ResourceDescription(author1, lifecycle, parent)
+    rd2 = ResourceDescription(author2, lifecycle, parent)
+
+    assert not rd1.is_equal(rd2)
+
+def test_resource_description_is_equal_false_different_details():
+    lang = TerminologyCode("ISO639-1", "en")
+    lifecycle = TerminologyCode("lifecycle", "DRAFT")
+    parent = TestAuthoredResourceImplementation(lang)
+    author = {"name": "Mr Test Author"}
+
+    rd1 = ResourceDescription(author, lifecycle, parent)
+    rd2 = ResourceDescription(author, lifecycle, parent)
+
+    rd1.details = {"en": ResourceDescriptionItem(lang, "Purpose")}
+    rd2.details = {"en": ResourceDescriptionItem(lang, "Different Purpose")}
+
+    assert not rd1.is_equal(rd2)
+
+def test_resource_description_is_equal_false_different_type():
+    lang = TerminologyCode("ISO639-1", "en")
+    lifecycle = TerminologyCode("lifecycle", "DRAFT")
+    parent = TestAuthoredResourceImplementation(lang)
+    author = {"name": "Mr Test Author"}
+
+    rd1 = ResourceDescription(author, lifecycle, parent)
+    # Simulate a different type by subclassing
+    class ResourceDescriptionSub(ResourceDescription):
+        pass
+    rd2 = ResourceDescriptionSub(author, lifecycle, parent)
+
+    assert not rd1.is_equal(rd2)
