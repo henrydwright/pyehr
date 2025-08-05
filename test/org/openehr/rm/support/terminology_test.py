@@ -4,13 +4,13 @@ from src.org.openehr.rm.support.terminology import OpenEHRCodeSetIdentifiers, Op
 
 def test_valid_code_set_id_returns_true_for_valid_ids():
     valid_ids = [
-        OpenEHRCodeSetIdentifiers.CODE_SET_ID_CHARACTER_SETS,
-        OpenEHRCodeSetIdentifiers.CODE_SET_ID_COMPRESSION_ALGORITHMS,
-        OpenEHRCodeSetIdentifiers.CODE_SET_ID_COUNTRIES,
-        OpenEHRCodeSetIdentifiers.CODE_SET_INTEGRITY_CHECK_ALGORITHMS,
-        OpenEHRCodeSetIdentifiers.CODE_SET_ID_LANGUAGES,
-        OpenEHRCodeSetIdentifiers.CODE_SET_ID_MEDIA_TYPES,
-        OpenEHRCodeSetIdentifiers.CODE_SET_ID_NORMAL_STATUSES,
+        "character sets",
+        "compression algorithms",
+        "countries",
+        "integrity check algorithms",
+        "languages",
+        "media types",
+        "normal statuses",
     ]
     for code_set_id in valid_ids:
         assert OpenEHRCodeSetIdentifiers.valid_code_set_id(code_set_id) is True
@@ -34,20 +34,20 @@ def test_valid_code_set_id_returns_false_for_invalid_ids():
         
 def test_valid_terminology_group_id_returns_true_for_valid_ids():
     valid_ids = [
-        OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR,
-        OpenEHRTerminologyGroupIdentifiers.GROUP_ID_AUDIT_CHANGE_TYPE,
-        OpenEHRTerminologyGroupIdentifiers.GROUP_ID_ATTESTATION_REASON,
-        OpenEHRTerminologyGroupIdentifiers.GROUP_ID_COMPOSITION_CATEGORY,
-        OpenEHRTerminologyGroupIdentifiers.GROUP_ID_EVENT_MATH_FUNCTION,
-        OpenEHRTerminologyGroupIdentifiers.GROUP_ID_INSTRUCTION_STATES,
-        OpenEHRTerminologyGroupIdentifiers.GROUP_ID_INSTRUCTION_TRANSITIONS,
-        OpenEHRTerminologyGroupIdentifiers.GROUP_ID_NULL_FLAVOURS,
-        OpenEHRTerminologyGroupIdentifiers.GROUP_ID_PROPERTY,
-        OpenEHRTerminologyGroupIdentifiers.GROUP_ID_PARTICIPATION_FUNCTION,
-        OpenEHRTerminologyGroupIdentifiers.GROUP_ID_SETTING,
-        OpenEHRTerminologyGroupIdentifiers.GROUP_ID_TERM_MAPPING_PURPOSE,
-        OpenEHRTerminologyGroupIdentifiers.GROUP_ID_SUBJECT_RELATIONSHIP,
-        OpenEHRTerminologyGroupIdentifiers.GROUP_ID_VERSION_LIFE_CYCLE_STATE,
+        "openehr",
+        "audit change type",
+        "attestation reason",
+        "composition category",
+        "event math function",
+        "instruction states",
+        "instruction transitions",
+        "null flavours",
+        "property",
+        "participation function",
+        "setting",
+        "term mapping purpose",
+        "subject relationship",
+        "version lifecycle state",
     ]
     for group_id in valid_ids:
         assert OpenEHRTerminologyGroupIdentifiers.valid_terminology_group_id(group_id) is True
