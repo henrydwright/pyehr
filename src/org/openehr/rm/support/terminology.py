@@ -128,3 +128,60 @@ class ITerminologyAccess(ABC):
     def rubric_for_code(a_code : str) -> str:
         """Return all rubric of code code' in language lang'."""
         pass
+
+# chose not to inherit from OPENEHR_TERMINOLOGY_GROUP_IDENTIFIERS, OPENEHR_CODE_SET_IDENTIFIERS as
+#  static classes whose constants will always be available
+
+# chose to make this an abstract class which implementations can inherit
+class TerminologyService(ABC):
+    """Defines an object providing proxy access to a terminology service."""
+
+    def __init__(self):
+        super().__init__()
+
+    @abstractmethod
+    def terminology(name: str) -> ITerminologyAccess:
+        """Return an interface to the terminology named name. Allowable names include:
+        - openehr,
+        - centc251,
+        - any name from the US NLM UMLS meta-data list at http://www.nlm.nih.gov/research/umls/metaa1.html"""
+        pass
+    
+    @abstractmethod
+    def code_set(name: str) -> ICodeSetAccess:
+        """Return an interface to the code_set identified by the external identifier name (e.g. ISO_639-1)."""
+        pass
+    
+    @abstractmethod
+    def code_set_for_id(name: str) -> ICodeSetAccess:
+        """Return an interface to the code_set identified internally in openEHR by id."""
+        pass
+    
+    @abstractmethod
+    def has_terminology(name: str) -> bool:
+        """True if terminology named name known by this service. Allowable names include:
+        - openehr
+        - centc251
+        - any name from the US NLM UMLS meta-data list at http://www.nlm.nih.gov/research/umls/metaa1.html"""
+        pass
+
+    @abstractmethod
+    def has_code_set(name: str) -> bool:
+        """True if code_set linked to internal name (e.g. languages) is available."""
+        pass
+
+    @abstractmethod
+    def terminology_identifiers() -> list[str]:
+        """Set of all terminology identifiers known in the terminology service. Values from the US NLM UMLS meta-data list at: http://www.nlm.nih.gov/research/umls/metaa1.html"""
+        pass
+
+    @abstractmethod
+    def openehr_code_sets() -> dict[str, str]:
+        """Set of all code set identifiers known in the terminology service."""
+        pass
+
+    @abstractmethod
+    def code_set_identifiers() -> list[str]:
+        """Set of all code sets identifiers for which there is an internal openEHR name; returned as a Map of ids keyed by internal name."""
+        pass
+    
