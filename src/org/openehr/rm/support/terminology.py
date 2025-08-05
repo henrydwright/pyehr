@@ -90,3 +90,41 @@ class ICodeSetAccess(ABC):
     def has_code(a_code: str) -> bool:
         """True if code set knows about 'a_code'."""
         pass
+
+class ITerminologyAccess(ABC):
+    """Defines an object providing proxy access to a terminology."""
+
+    def __init__(self):
+        super().__init__()
+
+    @abstractmethod
+    def id() -> str:
+        """Identification of this Terminology."""
+        pass
+
+    @abstractmethod
+    def all_codes() -> CodePhrase:
+        """Return all codes known in this terminology."""
+        pass
+
+    @abstractmethod
+    def codes_for_group_id(a_group_id : str) -> list[CodePhrase]:
+        """Return all codes under grouper 'a_group_id' from this terminology."""
+        pass
+
+    @abstractmethod
+    def codes_for_group_name(a_lang: str, a_name: str) -> list[CodePhrase]:
+        """Return all codes under grouper whose name in 'a_lang' is 'a_name' from this terminology."""
+        pass
+
+    # TODO: This looks like it's an error in definition so assuming it shuold have an a_code argument. Report to fix https://specifications.openehr.org/releases/RM/Release-1.1.0/support.html#_openehr_code_set_identifiers_class
+    @abstractmethod
+    def has_code_for_group_id(a_code : str) -> bool:
+        """True if a_code' is known in group group_id' in the openEHR terminology."""
+        pass
+
+    # if there's an issue with this later, it looks like it needs a_lang as an argument...
+    @abstractmethod
+    def rubric_for_code(a_code : str) -> str:
+        """Return all rubric of code code' in language lang'."""
+        pass
