@@ -191,6 +191,8 @@ class AuthoredResource(AnyClass, ABC):
             is_equal_value(self._translations, other._translations)
         )
 
+    # it seems this relies on revision_history which is not in the spec any more
+    #  TODO: report issue for tidying on https://specifications.openehr.org/releases/BASE/Release-1.2.0/resource.html
     @abstractmethod
     def current_revision(self) -> str:
         """Most recent revision in revision_history if `is_controlled` else \"(uncontrolled)\".
