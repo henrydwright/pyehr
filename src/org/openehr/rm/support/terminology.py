@@ -1,4 +1,6 @@
+from abc import ABC, abstractmethod
 
+from org.openehr.rm.data_types.text import CodePhrase
 
 class OpenEHRCodeSetIdentifiers:
     """List of identifiers for code sets in the openEHR terminology."""
@@ -62,3 +64,29 @@ class OpenEHRTerminologyGroupIdentifiers:
             (an_id == OpenEHRTerminologyGroupIdentifiers.GROUP_ID_SUBJECT_RELATIONSHIP) or
             (an_id == OpenEHRTerminologyGroupIdentifiers.GROUP_ID_VERSION_LIFE_CYCLE_STATE)
         )
+
+class ICodeSetAccess(ABC):
+    """Defines an object providing proxy access to a code_set."""
+
+    def __init__(self):
+        super().__init__()
+
+    @abstractmethod
+    def id() -> str:
+        """External identifier of this code set."""
+        pass
+
+    @abstractmethod
+    def all_codes() -> list[CodePhrase]:
+        """Return all codes known in this code set."""
+        pass
+
+    @abstractmethod
+    def has_lang(a_lang: str) -> bool:
+        """True if code set knows about 'a_lang'."""
+        pass
+
+    @abstractmethod
+    def has_code(a_code: str) -> bool:
+        """True if code set knows about 'a_code'."""
+        pass
