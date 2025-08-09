@@ -117,7 +117,7 @@ class ITerminologyAccess(ABC):
         """Return all codes under grouper whose name in 'a_lang' is 'a_name' from this terminology."""
         pass
 
-    # TODO: This looks like it's an error in definition so assuming it shuold have an a_code argument. Report to fix https://specifications.openehr.org/releases/RM/Release-1.1.0/support.html#_openehr_code_set_identifiers_class
+    # TODO: This looks like it's an error in definition so assuming it should have an a_code argument. Report to fix https://specifications.openehr.org/releases/RM/Release-1.1.0/support.html#_openehr_code_set_identifiers_class
     @abstractmethod
     def has_code_for_group_id(a_code : str) -> bool:
         """True if a_code' is known in group group_id' in the openEHR terminology."""

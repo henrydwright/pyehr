@@ -37,7 +37,7 @@ class ResourceDescription(AnyClass):
     """Optional copyright statement for the resource as a knowledge resource."""
 
     licence: Optional[str] = None
-    """Licence of current artefact, in format \"short licence name \<URL of licence\>\", e.g. \"Apache 2.0 License <http://www.apache.org/licenses/LICENSE-2.0.html>\""""
+    """Licence of current artefact, in format \"short licence name <URL of licence>\", e.g. \"Apache 2.0 License <http://www.apache.org/licenses/LICENSE-2.0.html>\""""
 
     ip_acknowledgements: Optional[dict[str, str]] = None
     """
