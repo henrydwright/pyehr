@@ -1,6 +1,9 @@
 # script for adding to pythonpath
 path_add.bat
 
+# any included test data for clehr
+src/clehr/data/
+
 # vscode
 .vscode/
 

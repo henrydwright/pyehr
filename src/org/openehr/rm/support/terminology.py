@@ -72,22 +72,22 @@ class ICodeSetAccess(ABC):
         super().__init__()
 
     @abstractmethod
-    def id() -> str:
+    def id(self) -> str:
         """External identifier of this code set."""
         pass
 
     @abstractmethod
-    def all_codes() -> list[CodePhrase]:
+    def all_codes(self) -> list[CodePhrase]:
         """Return all codes known in this code set."""
         pass
 
     @abstractmethod
-    def has_lang(a_lang: str) -> bool:
+    def has_lang(self, a_lang: str) -> bool:
         """True if code set knows about 'a_lang'."""
         pass
 
     @abstractmethod
-    def has_code(a_code: str) -> bool:
+    def has_code(self, a_code: str) -> bool:
         """True if code set knows about 'a_code'."""
         pass
 
@@ -98,34 +98,36 @@ class ITerminologyAccess(ABC):
         super().__init__()
 
     @abstractmethod
-    def id() -> str:
+    def id(self) -> str:
         """Identification of this Terminology."""
         pass
 
+    # TODO: specification says single CodePhrase but should be a list clearly - https://specifications.openehr.org/releases/RM/Release-1.1.0/support.html#_terminology_package
     @abstractmethod
-    def all_codes() -> CodePhrase:
+    def all_codes(self) -> list[CodePhrase]:
         """Return all codes known in this terminology."""
         pass
 
     @abstractmethod
-    def codes_for_group_id(a_group_id : str) -> list[CodePhrase]:
+    def codes_for_group_id(self, a_group_id : str) -> list[CodePhrase]:
         """Return all codes under grouper 'a_group_id' from this terminology."""
         pass
 
+    # TODO: assume this is lacking an argument in spec of a_group_id
     @abstractmethod
-    def codes_for_group_name(a_lang: str, a_name: str) -> list[CodePhrase]:
+    def codes_for_group_name(self, a_group_id: str, a_lang: str, a_name: str) -> list[CodePhrase]:
         """Return all codes under grouper whose name in 'a_lang' is 'a_name' from this terminology."""
         pass
 
-    # TODO: This looks like it's an error in definition so assuming it should have an a_code argument. Report to fix https://specifications.openehr.org/releases/RM/Release-1.1.0/support.html#_openehr_code_set_identifiers_class
+    # TODO: This looks like it's an error in definition so assuming it should have an a_code and group_id argument. Report to fix https://specifications.openehr.org/releases/RM/Release-1.1.0/support.html#_openehr_code_set_identifiers_class
     @abstractmethod
-    def has_code_for_group_id(a_code : str) -> bool:
+    def has_code_for_group_id(self, a_code : str, group_id: str) -> bool:
         """True if a_code' is known in group group_id' in the openEHR terminology."""
         pass
 
-    # if there's an issue with this later, it looks like it needs a_lang as an argument...
+    # TODO: Looks like another error in definition and should have lang as an argument...
     @abstractmethod
-    def rubric_for_code(a_code : str) -> str:
+    def rubric_for_code(self, code : str, lang: str) -> str:
         """Return all rubric of code code' in language lang'."""
         pass
 
@@ -140,7 +142,7 @@ class TerminologyService(ABC):
         super().__init__()
 
     @abstractmethod
-    def terminology(name: str) -> ITerminologyAccess:
+    def terminology(self, name: str) -> ITerminologyAccess:
         """Return an interface to the terminology named name. Allowable names include:
         - openehr,
         - centc251,
@@ -148,17 +150,17 @@ class TerminologyService(ABC):
         pass
     
     @abstractmethod
-    def code_set(name: str) -> ICodeSetAccess:
+    def code_set(self, name: str) -> ICodeSetAccess:
         """Return an interface to the code_set identified by the external identifier name (e.g. ISO_639-1)."""
         pass
     
     @abstractmethod
-    def code_set_for_id(name: str) -> ICodeSetAccess:
+    def code_set_for_id(self, name: str) -> ICodeSetAccess:
         """Return an interface to the code_set identified internally in openEHR by id."""
         pass
     
     @abstractmethod
-    def has_terminology(name: str) -> bool:
+    def has_terminology(self, name: str) -> bool:
         """True if terminology named name known by this service. Allowable names include:
         - openehr
         - centc251
@@ -166,22 +168,23 @@ class TerminologyService(ABC):
         pass
 
     @abstractmethod
-    def has_code_set(name: str) -> bool:
+    def has_code_set(self, name: str) -> bool:
         """True if code_set linked to internal name (e.g. languages) is available."""
         pass
 
     @abstractmethod
-    def terminology_identifiers() -> list[str]:
+    def terminology_identifiers(self) -> list[str]:
         """Set of all terminology identifiers known in the terminology service. Values from the US NLM UMLS meta-data list at: http://www.nlm.nih.gov/research/umls/metaa1.html"""
         pass
 
     @abstractmethod
-    def openehr_code_sets() -> dict[str, str]:
-        """Set of all code set identifiers known in the terminology service."""
+    def openehr_code_sets(self) -> dict[str, str]:
+        """Set of all code sets identifiers for which there is an internal openEHR name; returned as a Map of ids keyed by internal name."""
         pass
 
+    # TODO: Think the description of the methods 'openehr_code_sets' and 'code_set_identifiers' has been reversed in https://specifications.openehr.org/releases/RM/Release-1.1.0/support.html#_terminology_service_class
     @abstractmethod
-    def code_set_identifiers() -> list[str]:
-        """Set of all code sets identifiers for which there is an internal openEHR name; returned as a Map of ids keyed by internal name."""
+    def code_set_identifiers(self) -> list[str]:
+        """Set of all code set identifiers known in the terminology service."""
         pass
     

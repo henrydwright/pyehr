@@ -23,6 +23,9 @@ class CodePhrase(AnyClass):
         self.preferred_term = preferred_term
         super().__init__()
 
+    def __str__(self):
+        return f"{self.code_string}|{self.preferred_term}"
+
     def is_equal(self, other: 'CodePhrase'):
         return (
             (type(self) == type(other)) and
