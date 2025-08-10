@@ -68,8 +68,8 @@ class _CSVTerminologyAccess(ITerminologyAccess):
 
 
 class CSVTerminologyService(TerminologyService):
-    """Defines a basic terminology service which imports a single code set from a CSV file
-    and provides it as an OpenEHR compliant TerminologyService. Does not provide ITerminologyAccess"""
+    """Defines a basic terminology service which imports a single terminology from a CSV file
+    and provides it as an OpenEHR compliant TerminologyService. Does not provide ICodeSetAccess"""
 
     _terminology_id : TerminologyID
     
