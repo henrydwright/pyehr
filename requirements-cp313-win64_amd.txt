@@ -1,0 +1,16 @@
+annotated-types==0.7.0
+colorama==0.4.6
+iniconfig==2.1.0
+numpy==2.3.2
+packaging==25.0
+pluggy==1.6.0
+pydantic==2.11.7
+pydantic_core==2.33.2
+Pygments==2.19.2
+pytest==8.4.1
+ruamel.yaml==0.18.14
+ruamel.yaml.clib==0.2.12
+semver==3.0.4
+typing-inspection==0.4.1
+typing_extensions==4.14.1
+uritools==5.0.0
