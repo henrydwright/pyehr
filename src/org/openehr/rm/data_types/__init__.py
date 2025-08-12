@@ -1,0 +1,12 @@
+from abc import ABC, abstractmethod
+
+from org.openehr.base.foundation_types.any import AnyClass
+from org.openehr.base.base_types.definitions import OpenEHRDefinitions
+
+class DataValue(ABC, OpenEHRDefinitions):
+    
+    @abstractmethod
+    def __init__(self):
+        pass
+
+    
