@@ -33,3 +33,8 @@ class CodePhrase(AnyClass):
             self.code_string == other.code_string and
             self.preferred_term == other.preferred_term
         )
+    
+class DVCodedText():
+    
+    def __init__(self, defining_code: CodePhrase):
+        pass
