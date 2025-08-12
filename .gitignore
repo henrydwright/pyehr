@@ -3,6 +3,8 @@ path_add.bat
 
 # any included test data for clehr
 src/clehr/data/
+# and a scratchpad
+src/scratch.py
 
 # vscode
 .vscode/

@@ -4,7 +4,7 @@ from org.openehr.rm.data_types.text import CodePhrase
 
 print("Welcome to clehr - using pyehr, a Python implemention of OpenEHR")
 
-ts = CSVTerminologyService("openehr(3)", "data/openehr-en2.csv", "en")
+ts = CSVTerminologyService("openehr", "data/openehr-en2.csv", "en")
 ms = NLMMeasurementService()
 
 def print_list_strs(lst):
@@ -17,7 +17,7 @@ while True:
     if user_command_parts[0] == "exit":
         break
     elif user_command_parts[0] == "term":
-        te = ts.terminology("openehr(3)")
+        te = ts.terminology("openehr")
         res = []
         if len(user_command_parts) == 1:
             res = te.all_codes()
@@ -29,6 +29,8 @@ while True:
                     res = [te.rubric_for_code(user_command_parts[2], "en")]
                 except ValueError as ve:
                     res = [str(ve)]
+            elif user_command_parts[1] == "test":
+                res = te.codes_for_group_id("term mapping purpose")
         else:
             res = ["Invalid use of terminology. Expected term, term group <group> or term code <code>"]
         print_list_strs(res)
