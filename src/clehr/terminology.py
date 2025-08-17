@@ -9,21 +9,24 @@ class _CSVTerminologyAccess(ITerminologyAccess):
     _terminology_id : TerminologyID
     _language: str
     _all_codes: dict[str, CodePhrase]
-    _all_groups: dict[str, list[CodePhrase]]
+    _all_group_ids: dict[str, list[CodePhrase]]
+    _all_group_names: dict[str, list[CodePhrase]]
 
     def _import_csv_file(self, csv_path: str):
         self._all_codes = dict()
-        self._all_groups = dict()
+        self._all_group_ids = dict()
+        self._all_group_names = dict()
         with open(csv_path, 'r') as csv_file:
             code_reader = csv.reader(csv_file, dialect='excel')
             for row in code_reader:
-                # code_string, preferred_term, group
+                # code_string, preferred_term, group_name, group_id
                 code = CodePhrase(self._terminology_id, row[0], row[1])
                 self._all_codes[row[0]] = code
-                if row[2] in self._all_groups:
-                    self._all_groups[row[2]].append(code)
+                if row[3] in self._all_group_ids:
+                    self._all_group_ids[row[3]].append(code)
                 else:
-                    self._all_groups[row[2]] = [code]
+                    self._all_group_ids[row[3]] = [code]
+                    self._all_group_names[row[2]] = self._all_group_ids[row[3]]
 
     def __init__(self, terminology_id: TerminologyID, csv_path: str, language: str):
         self._terminology_id = terminology_id
@@ -38,17 +41,17 @@ class _CSVTerminologyAccess(ITerminologyAccess):
         return list(self._all_codes.values())
     
     def codes_for_group_id(self, a_group_id: str) -> list[CodePhrase]:
-        if a_group_id in self._all_groups:
-            return self._all_groups[a_group_id]
+        if a_group_id in self._all_group_ids:
+            return self._all_group_ids[a_group_id]
         else:
             return []
     
-    def codes_for_group_name(self, a_group_id, a_lang, a_name) -> list[CodePhrase]:
-        if a_group_id in self._all_groups and self._language == a_lang:
-            matches = []
-            for potential_match in self.codes_for_group_id(a_group_id):
-                if potential_match.preferred_term == a_name:
-                    matches.append(potential_match)
+    def codes_for_group_name(self, a_lang, a_name) -> list[CodePhrase]:
+        if a_lang != self._language:
+            raise ValueError(f"This terminology does not support language '{a_lang}'. It only supports '{self._language}'")
+        
+        if a_name in self._all_group_names:
+            return self._all_group_names[a_name]
         else:
             return []
         

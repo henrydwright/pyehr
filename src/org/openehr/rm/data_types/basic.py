@@ -15,6 +15,12 @@ class DVBoolean(DataValue):
         self.value = value
         super().__init__()
 
+    def is_equal(self, other: 'DVBoolean'):
+        return (
+            type(self) == type(other) and
+            self.value == other.value
+        )
+
 class DVState(DataValue):
     """For representing state values which obey a defined state machine, such as a variable representing the states of an instruction or care process.
 
@@ -30,6 +36,13 @@ class DVState(DataValue):
         self.value = value
         self.is_terminal = is_terminal
         super().__init__()
+
+    def is_equal(self, other: 'DVState'):
+        return(
+            type(self) == type(other) and
+            self.value == other.value and
+            self.is_terminal == other.is_terminal
+        )
 
 class DVIdentifier(DataValue):
     """Type for representing identifiers of real-world entities. Typical identifiers include drivers licence number, social security number, veterans affairs number, prescription id, order id, and so on.
@@ -59,3 +72,12 @@ class DVIdentifier(DataValue):
         self.assigner = assigner
         self.type = id_type
         super().__init__()
+
+    def is_equal(self, other: 'DVIdentifier'):
+        return (
+            type(self) == type(other) and
+            self.issuer == other.issuer and
+            self.assigner == other.assigner and
+            self.id == other.id and
+            self.type == other.type
+        )

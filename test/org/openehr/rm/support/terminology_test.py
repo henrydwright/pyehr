@@ -35,19 +35,19 @@ def test_valid_code_set_id_returns_false_for_invalid_ids():
 def test_valid_terminology_group_id_returns_true_for_valid_ids():
     valid_ids = [
         "openehr",
-        "audit change type",
-        "attestation reason",
-        "composition category",
-        "event math function",
-        "instruction states",
-        "instruction transitions",
-        "null flavours",
+        "audit_change_type",
+        "attestation_reason",
+        "composition_category",
+        "event_math_function",
+        "instruction_states",
+        "instruction_transitions",
+        "null_flavours",
         "property",
-        "participation function",
+        "participation_function",
         "setting",
-        "term mapping purpose",
-        "subject relationship",
-        "version lifecycle state",
+        "term_mapping_purpose",
+        "subject_relationship",
+        "version_lifecycle_state",
     ]
     for group_id in valid_ids:
         assert OpenEHRTerminologyGroupIdentifiers.valid_terminology_group_id(group_id) is True
@@ -56,7 +56,7 @@ def test_valid_terminology_group_id_returns_false_for_invalid_ids():
     invalid_ids = [
         "",
         "openehr terminology",
-        "audit_change_type",
+        "audit change type",
         "attestation reason ",
         "composition-category",
         "event math",

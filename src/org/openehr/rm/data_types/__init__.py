@@ -1,13 +1,14 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 from org.openehr.base.foundation_types.any import AnyClass
 from org.openehr.base.base_types.definitions import OpenEHRDefinitions
 
-class DataValue(ABC, OpenEHRDefinitions):
+class DataValue(AnyClass, OpenEHRDefinitions):
     """Abstract parent of all DV_ data value types. Serves as a common ancestor of all data value types in openEHR models."""
     
-    @abstractmethod
     def __init__(self):
-        pass
+        super().__init__()
 
-    
+    @abstractmethod
+    def is_equal(self, other):
+        pass

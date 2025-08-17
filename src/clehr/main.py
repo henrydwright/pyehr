@@ -4,7 +4,7 @@ from org.openehr.rm.data_types.text import CodePhrase
 
 print("Welcome to clehr - using pyehr, a Python implemention of OpenEHR")
 
-ts = CSVTerminologyService("openehr(3)", "data/openehr-en2.csv", "en")
+ts = CSVTerminologyService("openehr", "data/openehr-en2.csv", "en")
 ms = NLMMeasurementService()
 
 def print_list_strs(lst):
@@ -17,20 +17,28 @@ while True:
     if user_command_parts[0] == "exit":
         break
     elif user_command_parts[0] == "term":
-        te = ts.terminology("openehr(3)")
+        TERM_ERROR = "Invalid use of term. Expected term, term group_id <group_id>, term code <code> or term group_name <group_name (can have spaces)>"
+        te = ts.terminology("openehr")
         res = []
         if len(user_command_parts) == 1:
             res = te.all_codes()
         elif len(user_command_parts) == 3:
-            if user_command_parts[1] == "group":
+            if user_command_parts[1] == "group_id":
                 res = te.codes_for_group_id(user_command_parts[2])
             elif user_command_parts[1] == "code":
                 try:
                     res = [te.rubric_for_code(user_command_parts[2], "en")]
                 except ValueError as ve:
                     res = [str(ve)]
+            elif user_command_parts[1] == "test":
+                res = te.codes_for_group_id("term mapping purpose")
+        elif len(user_command_parts) >= 4:
+            if user_command_parts[1] == "group_name":
+                res = te.codes_for_group_name("en", " ".join(user_command_parts[2:]))
+            else:
+                res = [TERM_ERROR]
         else:
-            res = ["Invalid use of terminology. Expected term, term group <group> or term code <code>"]
+            res = [TERM_ERROR]
         print_list_strs(res)
     elif user_command_parts[0] == "measure":
         MEASURE_ERROR = "Invalid use of measure. Expected measure valid <unit> or measure equiv <unit1> <unit2>"

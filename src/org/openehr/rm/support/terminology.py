@@ -31,19 +31,21 @@ class OpenEHRTerminologyGroupIdentifiers:
     TERMINOLOGY_ID_OPENEHR = "openehr"
     """Name of openEHR's own terminology."""
 
-    GROUP_ID_AUDIT_CHANGE_TYPE = "audit change type"
-    GROUP_ID_ATTESTATION_REASON = "attestation reason"
-    GROUP_ID_COMPOSITION_CATEGORY = "composition category"
-    GROUP_ID_EVENT_MATH_FUNCTION = "event math function"
-    GROUP_ID_INSTRUCTION_STATES = "instruction states"
-    GROUP_ID_INSTRUCTION_TRANSITIONS = "instruction transitions"
-    GROUP_ID_NULL_FLAVOURS = "null flavours"
+    # TODO: inconsistency between https://specifications.openehr.org/releases/TERM/Release-3.0.0/SupportTerminology.html and https://specifications.openehr.org/releases/RM/Release-1.1.0/support.html
+    #         using the group ID from the TERM module of specification rather than RM module (this module). Needs reporting.
+    GROUP_ID_AUDIT_CHANGE_TYPE = "audit_change_type"
+    GROUP_ID_ATTESTATION_REASON = "attestation_reason"
+    GROUP_ID_COMPOSITION_CATEGORY = "composition_category"
+    GROUP_ID_EVENT_MATH_FUNCTION = "event_math_function"
+    GROUP_ID_INSTRUCTION_STATES = "instruction_states"
+    GROUP_ID_INSTRUCTION_TRANSITIONS = "instruction_transitions"
+    GROUP_ID_NULL_FLAVOURS = "null_flavours"
     GROUP_ID_PROPERTY = "property"
-    GROUP_ID_PARTICIPATION_FUNCTION = "participation function"
+    GROUP_ID_PARTICIPATION_FUNCTION = "participation_function"
     GROUP_ID_SETTING = "setting"
-    GROUP_ID_TERM_MAPPING_PURPOSE = "term mapping purpose"
-    GROUP_ID_SUBJECT_RELATIONSHIP = "subject relationship"
-    GROUP_ID_VERSION_LIFE_CYCLE_STATE = "version lifecycle state"
+    GROUP_ID_TERM_MAPPING_PURPOSE = "term_mapping_purpose"
+    GROUP_ID_SUBJECT_RELATIONSHIP = "subject_relationship"
+    GROUP_ID_VERSION_LIFE_CYCLE_STATE = "version_lifecycle_state"
 
     # TODO: report typo in spec where an_id is a boolean - https://specifications.openehr.org/releases/RM/Release-1.1.0/support.html#_openehr_code_set_identifiers_class
     def valid_terminology_group_id(an_id : str) -> bool:
@@ -113,9 +115,8 @@ class ITerminologyAccess(ABC):
         """Return all codes under grouper 'a_group_id' from this terminology."""
         pass
 
-    # TODO: assume this is lacking an argument in spec of a_group_id
     @abstractmethod
-    def codes_for_group_name(self, a_group_id: str, a_lang: str, a_name: str) -> list[CodePhrase]:
+    def codes_for_group_name(self, a_lang: str, a_name: str) -> list[CodePhrase]:
         """Return all codes under grouper whose name in 'a_lang' is 'a_name' from this terminology."""
         pass
 
