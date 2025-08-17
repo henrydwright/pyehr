@@ -67,7 +67,7 @@ class TermMapping(AnyClass):
 
         # invariant: match_valid
         if not self.is_valid_match_code(match):
-            raise ValueError(f"Match code must be one of '>', '=', '>' or '?', but \'{match}\' was given (invariant: match_valid)")
+            raise ValueError(f"Match code must be one of '>', '=', '<' or '?', but \'{match}\' was given (invariant: match_valid)")
         
         # invariant: purpose_valid
         if purpose is not None:
@@ -76,7 +76,7 @@ class TermMapping(AnyClass):
             else:
                 openehr_terminology = terminology_service.terminology(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR)
                 if not openehr_terminology.has_code_for_group_id(purpose.defining_code.code_string, OpenEHRTerminologyGroupIdentifiers.GROUP_ID_TERM_MAPPING_PURPOSE):
-                    raise ValueError(f"Provided purpose code {purpose.defining_code.code_string} was not in the OpenEHR term mapping purpose terminology group (invariant: purpose_valid)")
+                    raise ValueError(f"Provided purpose code \'{purpose.defining_code.code_string}\' was not in the OpenEHR 'term mapping purpose' terminology group (invariant: purpose_valid)")
             
 
     def is_equal(self, other: 'TermMapping'):
@@ -154,13 +154,15 @@ class DVText(DataValue):
         from org.openehr.rm.support.terminology import TerminologyService, OpenEHRCodeSetIdentifiers, OpenEHRTerminologyGroupIdentifiers
         ts : TerminologyService = terminology_service
 
+        # invariant: formatting_valid
         if (formatting is not None) and (formatting == ""):
             raise ValueError("If provided, formatting cannot be an empty string (invariant: formatting_valid)")
-        
+
+        # invariant: mappings_valid
         if (mappings is not None) and (len(mappings) == 0):
             raise ValueError("If provided, mappings cannot be an empty list (invariant: mappings_valid)")
 
-        if (language is not None) or (encoding is not None) and (ts is None):
+        if ((language is not None) or (encoding is not None)) and (ts is None):
             raise ValueError("If language or encoding is provided, access to a TerminologyService with OpenEHR terminology must also be given to check validity (invariant: language_valid, encoding_valid)")
 
         # invariant: language_valid
@@ -178,6 +180,8 @@ class DVText(DataValue):
             encoding_code_set = ts.code_set_for_id(OpenEHRCodeSetIdentifiers.CODE_SET_ID_CHARACTER_SETS)
             if not encoding_code_set.has_code(encoding.code_string):
                 raise ValueError(f"Provided encoding code {encoding.code_string} was not in the OpenEHR character set code set (invariant: encoding_valid)")
+            
+
             
         
     def is_equal(self, other: 'DVText'):
@@ -211,4 +215,25 @@ class DVCodedText(DVText):
             super().is_equal(other)
         )
 
-# TODO: DV_PARAGRAPH
+class DVParagraph(DataValue):
+    """DEPRECATED: use markdown formatted DV_TEXT instead.
+
+    Original definition:
+
+    A logical composite text value consisting of a series of DV_TEXTs, i.e. plain text (optionally coded) potentially with simple formatting, to form a larger tract of prose, which may be interpreted for display purposes as a paragraph.
+
+    DV_PARAGRAPH is the standard way for constructing longer text items in summaries, reports and so on.
+    """
+
+    items : list[DVText]
+    """Items making up the paragraph, each of which is a text item (which may have its own formatting, and/or have hyperlinks)."""
+
+    def __init__(self, items: list[DVText]):
+        if len(items) == 0:
+            raise ValueError("List of items cannot be an empty list (invariant: items_valid)")
+        
+    def is_equal(self, other: 'DVParagraph'):
+        return (
+            type(self) == type(other) and
+            is_equal_value(self.items, other.items)
+        )
