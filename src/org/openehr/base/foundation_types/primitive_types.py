@@ -1,6 +1,7 @@
 from typing import Union
+import re
 
-from uritools import urisplit
+from uritools import urisplit, uriencode, RESERVED, UNRESERVED
 import numpy as np
 from pydantic import BaseModel
 
@@ -11,10 +12,17 @@ class Uri(str):
     A string constrained to obey the syntax of RFC 3986
     """
 
-    def __new__(cls, uri_string : str):
+    def __new__(cls, uri_string : str, allow_unencoded = False):
         parts = urisplit(uri_string)
         if not parts.isuri():
             raise ValueError("URI string not valid under RFC 3986")
+        
+        if not allow_unencoded:
+            valid_chars = RESERVED + UNRESERVED + "%"
+            for i in range(0, len(uri_string)):
+                if valid_chars.find(uri_string[i]) < 0:
+                    raise ValueError("URI string contains characters that have not been encoded as per RFC 3986")
+        
         return str(uri_string)
 
 # This section defines Types for other primitive types
