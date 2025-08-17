@@ -42,3 +42,15 @@ class DVUri(DataValue):
     def query(self) -> str:
         """Query string to send to application implied by scheme and path. Enables queries to applications, including databases to be included in the URI. Supports any query meaningful to the server, including SQL."""
         return urisplit(self.value).query or ""
+    
+class DVEHRUri(DVUri):
+    """A DV_EHR_URI is a DV_URI which has the scheme name 'ehr', and which can only reference items in EHRs.
+
+    Used to reference items in an EHR, which may be the same as the current EHR (containing this link), or another."""
+
+    EHR_SCHEME = "ehr"
+
+    def __init__(self, value):
+        super().__init__(value)
+        if self.scheme() != self.EHR_SCHEME:
+            raise ValueError(f"An EHR URI must have the scheme 'ehr' but the given scheme was \'{self.scheme()}\' (invariant: scheme_valid)")

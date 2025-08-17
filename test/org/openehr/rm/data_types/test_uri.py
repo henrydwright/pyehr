@@ -1,6 +1,6 @@
 import pytest
 
-from org.openehr.rm.data_types.uri import DVUri
+from org.openehr.rm.data_types.uri import DVUri, DVEHRUri
 
 def test_dv_uri_accepts_only_valid_uris():
     # all these should be OK
@@ -36,3 +36,10 @@ def test_dv_uri_fragment():
 def test_dv_uri_query():
     assert t1.query() == "name=ferret"
     assert t2.query() == ""
+
+def test_dv_ehr_uri_scheme_valid():
+    # OK
+    eu = DVEHRUri("ehr://system_id/ehr_id/top_level_structure_locator/path_inside_top_level_structure")
+    # not OK
+    with pytest.raises(ValueError):
+        eu = DVEHRUri("foo://example.com:8042/over/there?name=ferret#nose")
