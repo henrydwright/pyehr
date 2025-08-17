@@ -113,9 +113,8 @@ class ITerminologyAccess(ABC):
         """Return all codes under grouper 'a_group_id' from this terminology."""
         pass
 
-    # TODO: assume this is lacking an argument in spec of a_group_id
     @abstractmethod
-    def codes_for_group_name(self, a_group_id: str, a_lang: str, a_name: str) -> list[CodePhrase]:
+    def codes_for_group_name(self, a_lang: str, a_name: str) -> list[CodePhrase]:
         """Return all codes under grouper whose name in 'a_lang' is 'a_name' from this terminology."""
         pass
 
