@@ -174,6 +174,9 @@ class PythonTerminologyService(TerminologyService):
 TERMINOLOGYID_OPENEHR_CHARACTER_SETS = TerminologyID("IANA_character-sets")
 TERMINOLOGYID_OPENEHR_COUNTRIES = TerminologyID("ISO_3166-1")
 TERMINOLOGYID_OPENEHR_LANGUAGES = TerminologyID("ISO_639-1")
+TERMINOLOGYID_OPENEHR_MEDIA_TYPES = TerminologyID("IANA_media-types")
+TERMINOLOGYID_OPENEHR_COMPRESSION_ALGORITHMS = TerminologyID("openehr_compression_algorithms")
+TERMINOLOGYID_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS = TerminologyID("openehr_integrity_check_algorithms")
 TERMINOLOGYID_OPENEHR = TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR)
 
 CODELIST_OPENEHR_CHARACTER_SETS = [
@@ -445,18 +448,6 @@ CODELIST_OPENEHR_COUNTRIES = [
     CodePhrase(TERMINOLOGYID_OPENEHR_COUNTRIES, "ZW", "ZIMBABWE")
 ]
 CODELIST_OPENEHR_LANGUAGES = [
-    CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "AF", "AFGHANISTAN"),
-    CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "AX", "ÅLAND ISLANDS"),
-    CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "AL", "ALBANIA"),
-    CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "DZ", "ALGERIA"),
-    CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "AS", "AMERICAN SAMOA"),
-    CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "AD", "ANDORRA"),
-    CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "AO", "ANGOLA"),
-    CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "AI", "ANGUILLA"),
-    CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "AQ", "ANTARCTICA"),
-    CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "AG", "ANTIGUA AND BARBUDA"),
-    CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "AR", "ARGENTINA"),
-    CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "AM", "ARMENIA"),
     CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "aa", "Afar"),
     CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "af", "Afrikaans"),
     CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "ak", "Akan"),
@@ -711,6 +702,131 @@ CODELIST_OPENEHR_LANGUAGES = [
     CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "za", "Zhuang, Chuang"),
     CodePhrase(TERMINOLOGYID_OPENEHR_LANGUAGES, "zu", "Zulu")
 ]
+CODELIST_OPENEHR_MEDIA_TYPES = [
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/DVI4"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/G722"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/G723"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/G726-16"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/G726-24"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/G726-32"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/G726-40"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/G728"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/L8"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/L16"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/LPC"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/G729"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/G729D"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/G729E"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "video/BT656"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "video/CelB"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "video/JPEG"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "video/H261"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "video/H263"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "video/H263-1998"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "video/H263-2000"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "video/H264"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "video/MPV"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "video/mp4"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "video/ogg"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "video/mpeg"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/basic"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/mpeg"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/mpeg3"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/mpeg4-generic"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/mp4"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/L20"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/L24"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/telephone-event"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/ogg"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "audio/vorbis"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "video/quicktime"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "text/calendar"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "text/directory"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "text/html"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "text/plain"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "text/richtext"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "text/rtf"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "text/rfc822-headers"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "text/sgml"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "text/tab-separated-values"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "text/uri-list"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "text/xml"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "text/xml-external-parsed-entity"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "image/avif"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "image/bmp"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "image/cgm"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "image/gif"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "image/png"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "image/tiff"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "image/jpeg"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "image/jp2"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "image/svg+xml"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/cda+xml"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/EDIFACT"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/fhir+json"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/fhir+xml"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/hl7v2+xml"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/gzip"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/json"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/msword"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/pdf"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/rtf"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/dicom"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/dicom+json"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/dicom+xml"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/octet-stream"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/ogg"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.base"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.chart"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.chart-template"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.formula"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.formula-template"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.graphics"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.graphics-template"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.image"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.image-template"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.presentation"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.presentation-template"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.spreadsheet"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.spreadsheet-template"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.text"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.text-master"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.text-template"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.oasis.opendocument.text-web"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.ms-word.document.macroEnabled.12"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.ms-word.template.macroEnabled.12"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.openxmlformats-officedocument.wordprocessingml.template"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.ms-powerpoint.slideshow.macroEnabled.12"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.openxmlformats-officedocument.presentationml.slideshow"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.ms-powerpoint.presentation.macroEnabled.12"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.ms-excel.sheet.binary.macroEnabled.12"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.ms-excel.sheet.macroEnabled.12"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.ms-xpsdocument"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.ms-excel"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.ms-outlook"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.ms-powerpoint"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/vnd.rar"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_MEDIA_TYPES, "application/zip")
+]
+CODELIST_OPENEHR_COMPRESSION_ALGORITHMS = [
+    CodePhrase(TERMINOLOGYID_OPENEHR_COMPRESSION_ALGORITHMS, "compress"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_COMPRESSION_ALGORITHMS, "deflate"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_COMPRESSION_ALGORITHMS, "gzip"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_COMPRESSION_ALGORITHMS, "zlib"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_COMPRESSION_ALGORITHMS, "other")
+]
+CODELIST_OPENEHR_INTEGRITY_CHECK_ALGORITHMS = [
+    CodePhrase(TERMINOLOGYID_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, "SHA-1"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, "SHA-224"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, "SHA-256"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, "SHA-384"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, "SHA-512"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, "SHA-512/224"),
+    CodePhrase(TERMINOLOGYID_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, "SHA-512/256")
+]
 
 GROUPLIST_OPENEHR_TERM_MAPPING_PURPOSES = [
     CodePhrase(TERMINOLOGYID_OPENEHR, "669", "public health"),
@@ -721,6 +837,9 @@ GROUPLIST_OPENEHR_TERM_MAPPING_PURPOSES = [
 CODESET_OPENEHR_CHARACTER_SETS = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_CHARACTER_SETS.name(), "en", CODELIST_OPENEHR_CHARACTER_SETS)
 CODESET_OPENEHR_COUNTRIES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_COUNTRIES.name(), "en", CODELIST_OPENEHR_COUNTRIES)
 CODESET_OPENEHR_LANGUAGES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_LANGUAGES.name(), "en", CODELIST_OPENEHR_LANGUAGES)
+CODESET_OPENEHR_MEDIA_TYPES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_MEDIA_TYPES.name(), "en", CODELIST_OPENEHR_MEDIA_TYPES)
+CODESET_OPENEHR_COMPRESSION_ALGORITHMS = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_COMPRESSION_ALGORITHMS.name(), "en", CODELIST_OPENEHR_COMPRESSION_ALGORITHMS)
+CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS.name(), "en", CODELIST_OPENEHR_INTEGRITY_CHECK_ALGORITHMS)
 
 TERMINOLOGY_OPENEHR = DictTerminologyAccess("openehr", "en", {
     ("term_mapping_purpose", "term mapping purpose"): GROUPLIST_OPENEHR_TERM_MAPPING_PURPOSES
