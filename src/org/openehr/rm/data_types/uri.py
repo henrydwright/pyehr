@@ -1,3 +1,5 @@
+"""The data_types.uri package includes two types used for referring to information resources."""
+
 from org.openehr.rm.data_types import DataValue
 from org.openehr.base.foundation_types.primitive_types import Uri
 

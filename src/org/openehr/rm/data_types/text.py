@@ -1,3 +1,6 @@
+"""The rm.data_types.text package contains classes for representing all textual values in the health record, 
+including plain text, coded terms, and narrative text."""
+
 from typing import Optional
 
 from numpy import uint8
@@ -63,7 +66,7 @@ class TermMapping(AnyClass):
 
     def __init__(self, match : uint8, target: CodePhrase, purpose: Optional['DVCodedText'] = None, terminology_service = None):
         # import here to avoid circular reference
-        from org.openehr.rm.support.terminology import TerminologyService, OpenEHRTerminologyGroupIdentifiers
+        from org.openehr.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers, util_verify_code_in_openehr_terminology_group_or_error
 
         # invariant: match_valid
         if not self.is_valid_match_code(match):
@@ -71,13 +74,9 @@ class TermMapping(AnyClass):
         
         # invariant: purpose_valid
         if purpose is not None:
-            if (terminology_service is None) or (not terminology_service.has_terminology(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR)):
+            if (terminology_service is None):
                 raise ValueError("If purpose is provided, access to a TerminologyService with OpenEHR terminology must also be given to check validity (invariant: purpose_valid)")
-            else:
-                openehr_terminology = terminology_service.terminology(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR)
-                if not openehr_terminology.has_code_for_group_id(purpose.defining_code.code_string, OpenEHRTerminologyGroupIdentifiers.GROUP_ID_TERM_MAPPING_PURPOSE):
-                    raise ValueError(f"Provided purpose code \'{purpose.defining_code.code_string}\' was not in the OpenEHR 'term mapping purpose' terminology group (invariant: purpose_valid)")
-            
+            util_verify_code_in_openehr_terminology_group_or_error(purpose.defining_code, OpenEHRTerminologyGroupIdentifiers.GROUP_ID_TERM_MAPPING_PURPOSE, terminology_service, invariant_name_for_error="purpose_valid")            
 
     def is_equal(self, other: 'TermMapping'):
         return (

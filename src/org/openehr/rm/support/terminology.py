@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from org.openehr.rm.data_types.text import CodePhrase
 
@@ -189,3 +190,18 @@ class TerminologyService(ABC):
         """Set of all code set identifiers known in the terminology service."""
         pass
     
+def util_verify_code_in_openehr_codeset_or_error(code: CodePhrase, codeset_name: str, terminology_service: TerminologyService, invariant_name_for_error : Optional[str] = None):
+    if (not terminology_service.has_code_set(codeset_name)):
+        raise ValueError(f"Provided terminology service did not contain OpenEHR \'{codeset_name}\' codeset needed to validate charset {"(invariant: " + invariant_name_for_error + ")" if invariant_name_for_error else ""}")
+    else:
+        codeset = terminology_service.code_set_for_id(codeset_name)
+        if not codeset.has_code(code.code_string):
+            raise ValueError(f"Code \'{code.code_string}\' was not valid as not found in \'{codeset_name}\' codeset {"(invariant: " + invariant_name_for_error + ")" if invariant_name_for_error else ""}")
+
+def util_verify_code_in_openehr_terminology_group_or_error(code: CodePhrase, terminology_group_id: str, terminology_service: TerminologyService, invariant_name_for_error: Optional[str] = None):
+    if (not terminology_service.has_terminology(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR)):
+        raise ValueError(f"Access to a TerminologyService with OpenEHR terminology must also be given to check validity {"(invariant: " + invariant_name_for_error + ")" if invariant_name_for_error else ""}")
+    else:
+        openehr_terminology = terminology_service.terminology(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR)
+        if not openehr_terminology.has_code_for_group_id(code.code_string, terminology_group_id):
+            raise ValueError(f"Provided code \'{code.code_string}\' was not in the OpenEHR \'{terminology_group_id}\' terminology group {"(invariant: " + invariant_name_for_error + ")" if invariant_name_for_error else ""}")
