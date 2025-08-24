@@ -1,3 +1,6 @@
+"""The rm.data_types.text package contains classes for representing all textual values in the health record, 
+including plain text, coded terms, and narrative text."""
+
 from typing import Optional
 
 from numpy import uint8

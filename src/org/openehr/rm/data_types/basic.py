@@ -1,3 +1,7 @@
+"""The data_types.basic package, contains types for the concepts of bistate, 
+state (in a state machine) and real-world entity identifiers (see the openEHR 
+Common IM for a discussion on identifier types)."""
+
 from typing import Optional
 
 from org.openehr.rm.data_types import DataValue
