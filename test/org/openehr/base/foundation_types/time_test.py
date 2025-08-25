@@ -559,3 +559,53 @@ def test_iso_date_subtract_nominal_month_underflow():
     nd = ISODate.subtract_nominal(d, du)
     # 2022-03-15 - 5M = 2021-10-15
     assert str(nd) == "2021-10-15"
+
+def test_iso_date_implements_ordered_methods():
+    o1 = ISODate("2024-01-01")
+    o2 = ISODate("2025-01-01")
+
+    assert (not(o1.is_equal(o2)))
+    assert (o1 < o2) == True
+    assert (o1 <= o2) == True
+    assert (o1 > o2) == False
+    assert (o1 >= o2) == False
+
+def test_iso_time_implements_ordered_methods():
+    o1 = ISOTime("17:59:59")
+    o2 = ISOTime("18:00:00")
+
+    assert (not(o1.is_equal(o2)))
+    assert (o1 < o2) == True
+    assert (o1 <= o2) == True
+    assert (o1 > o2) == False
+    assert (o1 >= o2) == False
+
+def test_iso_date_time_implements_ordered_methods():
+    o1 = ISODateTime("2025-08-25T17:59:59")
+    o2 = ISODateTime("2025-08-25T18:00:00")
+
+    assert (not(o1.is_equal(o2)))
+    assert (o1 < o2) == True
+    assert (o1 <= o2) == True
+    assert (o1 > o2) == False
+    assert (o1 >= o2) == False
+
+def test_iso_timezone_implements_ordered_methods():
+    o1 = ISOTimeZone("Z")
+    o2 = ISOTimeZone("+0100")
+
+    assert (not(o1.is_equal(o2)))
+    assert (o1 < o2) == True
+    assert (o1 <= o2) == True
+    assert (o1 > o2) == False
+    assert (o1 >= o2) == False
+
+def test_iso_duration_implements_ordered_methods():
+    o1 = ISODuration("P2M")
+    o2 = ISODuration("P2Y")
+
+    assert (not(o1.is_equal(o2)))
+    assert (o1 < o2) == True
+    assert (o1 <= o2) == True
+    assert (o1 > o2) == False
+    assert (o1 >= o2) == False

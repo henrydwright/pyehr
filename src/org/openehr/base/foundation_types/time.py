@@ -149,6 +149,23 @@ class ISOType(AnyClass, ABC):
     def is_equal(self, other) -> bool:
         return (type(self) == type(other) and
             self.value == other.value)
+    
+
+    @abstractmethod
+    def __lt__(self, other) -> bool:
+        pass
+
+    @abstractmethod
+    def __le__(self, other) -> bool:
+        pass
+
+    @abstractmethod
+    def __gt__(self, other) -> bool:
+        pass
+
+    @abstractmethod
+    def __ge__(self, other) -> bool:
+        pass
 
     @abstractmethod
     def is_partial(self) -> bool:
@@ -287,7 +304,29 @@ class ISODate(ISOType):
             return self.diff(value)
         else:
             return self.subtract(value)
+        
+    def _comparison_check(self, other):
+        if type(self) != type(other):
+            raise TypeError(f"Cannot compare type of \'{type(self)}\' with type of \'{type(other)}\'")
+        if self.is_partial() or other.is_partial():
+            raise ValueError("Cannot compare partial dates.")
+
+    def __ge__(self, other: 'ISODate'):
+        self._comparison_check(other)
+        return (self.to_python_date() >= other.to_python_date())
     
+    def __gt__(self, other: 'ISODate'):
+        self._comparison_check(other)
+        return (self.to_python_date() > other.to_python_date())
+    
+    def __le__(self, other: 'ISODate'):
+        self._comparison_check(other)
+        return (self.to_python_date() <= other.to_python_date())
+    
+    def __lt__(self, other: 'ISODate'):
+        self._comparison_check(other)
+        return (self.to_python_date() < other.to_python_date())
+        
     def add_nominal(self, a_diff: 'ISODuration') -> 'ISODate':
         """Addition of nominal duration represented by a_diff. 
         For example, a duration of 'P1Y' means advance to the same date next year, 
@@ -525,6 +564,26 @@ class ISOTime(ISOType):
             return self.diff(value)
         else:
             return self.subtract(value)
+        
+    def _comparison_check(self, other):
+        if type(self) != type(other):
+            raise TypeError(f"Cannot compare type of \'{type(self)}\' with type of \'{type(other)}\'")
+
+    def __ge__(self, other: 'ISOTime'):
+        self._comparison_check(other)
+        return (self.to_python_time() >= other.to_python_time())
+    
+    def __gt__(self, other: 'ISOTime'):
+        self._comparison_check(other)
+        return (self.to_python_time() > other.to_python_time())
+    
+    def __le__(self, other: 'ISOTime'):
+        self._comparison_check(other)
+        return (self.to_python_time() <= other.to_python_time())
+    
+    def __lt__(self, other: 'ISOTime'):
+        self._comparison_check(other)
+        return (self.to_python_time() < other.to_python_time())
 
 class ISODateTime(ISOType):
     """Represents an ISO 8601 date/time, including partial and extended forms. Value may be:
@@ -671,6 +730,28 @@ class ISODateTime(ISOType):
             return self.diff(value)
         else:
             return self.subtract(value)
+        
+    def _comparison_check(self, other):
+        if type(self) != type(other):
+            raise TypeError(f"Cannot compare type of \'{type(self)}\' with type of \'{type(other)}\'")
+        if self.is_partial() or other.is_partial():
+            raise ValueError("Cannot compare partial datetimes.")
+
+    def __ge__(self, other: 'ISODateTime'):
+        self._comparison_check(other)
+        return (self._python_datetime >= other._python_datetime)
+    
+    def __gt__(self, other: 'ISODateTime'):
+        self._comparison_check(other)
+        return (self._python_datetime > other._python_datetime)
+    
+    def __le__(self, other: 'ISODateTime'):
+        self._comparison_check(other)
+        return (self._python_datetime <= other._python_datetime)
+    
+    def __lt__(self, other: 'ISODateTime'):
+        self._comparison_check(other)
+        return (self._python_datetime < other._python_datetime)
 
 
 class ISODuration(ISOType):
@@ -860,6 +941,28 @@ class ISODuration(ISOType):
     
     def __neg__(self) -> 'ISODuration':
         return self.negative()
+    
+    def _comparison_check(self, other):
+        if type(self) != type(other):
+            raise TypeError(f"Cannot compare type of \'{type(self)}\' with type of \'{type(other)}\'")
+        if self.is_partial() or other.is_partial():
+            raise ValueError("Cannot compare partial durations.")
+
+    def __ge__(self, other: 'ISODuration'):
+        self._comparison_check(other)
+        return (self.to_python_timedelta() >= other.to_python_timedelta())
+    
+    def __gt__(self, other: 'ISODuration'):
+        self._comparison_check(other)
+        return (self.to_python_timedelta() > other.to_python_timedelta())
+    
+    def __le__(self, other: 'ISODuration'):
+        self._comparison_check(other)
+        return (self.to_python_timedelta() <= other.to_python_timedelta())
+    
+    def __lt__(self, other: 'ISODuration'):
+        self._comparison_check(other)
+        return (self.to_python_timedelta() < other.to_python_timedelta())
 
 class ISOTimeZone(ISOType):
     """ISO8601 timezone string, in format:
@@ -951,6 +1054,30 @@ class ISOTimeZone(ISOType):
 
     def __str__(self) -> str:
         return self.as_string()
+    
+    def _comparison_check(self, other):
+        if type(self) != type(other):
+            raise TypeError(f"Cannot compare type of \'{type(self)}\' with type of \'{type(other)}\'")
+
+    def __ge__(self, other: 'ISOTimeZone'):
+        self._comparison_check(other)
+        return (self.is_equal(other) or self > other)
+    
+    def __gt__(self, other: 'ISOTimeZone'):
+        self._comparison_check(other)
+        val_self = self._sign * ((self._hour * 60) + self._minute)
+        val_other = other._sign * ((other._hour * 60) + other._minute)
+        return (val_self > val_other)
+    
+    def __le__(self, other: 'ISOTimeZone'):
+        self._comparison_check(other)
+        return (self.is_equal(other) or self < other)
+    
+    def __lt__(self, other: 'ISOTimeZone'):
+        self._comparison_check(other)
+        val_self = self._sign * ((self._hour * 60) + self._minute)
+        val_other = other._sign * ((other._hour * 60) + other._minute)
+        return (val_self < val_other)
     
 temporal = ISOType
 """Abstract ancestor of time-related classes."""
