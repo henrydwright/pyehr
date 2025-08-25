@@ -18,16 +18,16 @@ class _TstDVOrderedImpl(DVOrdered):
 
 def test_other_reference_ranges_validity():
     # OK
-    dvo = _TstDVOrderedImpl(4, other_reference_ranges=[ReferenceRange(DVText("theraputic"), DVInterval(ProperInterval(lower=_TstDVOrderedImpl(3), upper=_TstDVOrderedImpl(5))))])
+    dvo = _TstDVOrderedImpl(4, other_reference_ranges=[ReferenceRange(DVText("theraputic"), DVInterval(lower=_TstDVOrderedImpl(3), upper=_TstDVOrderedImpl(5)))])
     # not OK
     with pytest.raises(ValueError):
         dvo = _TstDVOrderedImpl(4, other_reference_ranges=[])
 
 def test_is_simple_validity():
-    dvo = _TstDVOrderedImpl(4, other_reference_ranges=[ReferenceRange(DVText("theraputic"), DVInterval(ProperInterval(lower=_TstDVOrderedImpl(3), upper=_TstDVOrderedImpl(5))))])
+    dvo = _TstDVOrderedImpl(4, other_reference_ranges=[ReferenceRange(DVText("theraputic"), DVInterval(lower=_TstDVOrderedImpl(3), upper=_TstDVOrderedImpl(5)))])
     assert dvo.is_simple() == False
 
-    dvo = _TstDVOrderedImpl(4, normal_range=DVInterval(ProperInterval(lower=_TstDVOrderedImpl(2), upper=_TstDVOrderedImpl(5))))
+    dvo = _TstDVOrderedImpl(4, normal_range=DVInterval(lower=_TstDVOrderedImpl(2), upper=_TstDVOrderedImpl(5)))
     assert dvo.is_simple() == False
 
     dvo = _TstDVOrderedImpl(4)
@@ -60,37 +60,37 @@ def test_normal_range_and_status_consistency():
 
     # not OK (mismatch between status and range - status = normal, range = too low)
     with pytest.raises(ValueError):
-        dvo = _TstDVOrderedImpl(4, normal_status=CodePhrase(TerminologyID("openehr_normal_statuses"), "N"), normal_range=DVInterval(ProperInterval(lower=_TstDVOrderedImpl(10), upper=_TstDVOrderedImpl(20))), terminology_service=test_ts)
+        dvo = _TstDVOrderedImpl(4, normal_status=CodePhrase(TerminologyID("openehr_normal_statuses"), "N"), normal_range=DVInterval(lower=_TstDVOrderedImpl(10), upper=_TstDVOrderedImpl(20)), terminology_service=test_ts)
 
     # not OK (mismatch between status and range - status = normal, range = too high)
     with pytest.raises(ValueError):
-        dvo = _TstDVOrderedImpl(4, normal_status=CodePhrase(TerminologyID("openehr_normal_statuses"), "N"), normal_range=DVInterval(ProperInterval(lower=_TstDVOrderedImpl(1), upper=_TstDVOrderedImpl(2))), terminology_service=test_ts)
+        dvo = _TstDVOrderedImpl(4, normal_status=CodePhrase(TerminologyID("openehr_normal_statuses"), "N"), normal_range=DVInterval(lower=_TstDVOrderedImpl(1), upper=_TstDVOrderedImpl(2)), terminology_service=test_ts)
 
     # not OK (mismatch between status and range - status = high, range = normal)
     with pytest.raises(ValueError):
-        dvo = _TstDVOrderedImpl(4, normal_status=CodePhrase(TerminologyID("openehr_normal_statuses"), "H"), normal_range=DVInterval(ProperInterval(lower=_TstDVOrderedImpl(2), upper=_TstDVOrderedImpl(5))), terminology_service=test_ts)
+        dvo = _TstDVOrderedImpl(4, normal_status=CodePhrase(TerminologyID("openehr_normal_statuses"), "H"), normal_range=DVInterval(lower=_TstDVOrderedImpl(2), upper=_TstDVOrderedImpl(5)), terminology_service=test_ts)
 
     # not OK (mismatch between status and range - status = critically low, range = normal)
     with pytest.raises(ValueError):
-        dvo = _TstDVOrderedImpl(4, normal_status=CodePhrase(TerminologyID("openehr_normal_statuses"), "LLL"), normal_range=DVInterval(ProperInterval(lower=_TstDVOrderedImpl(2), upper=_TstDVOrderedImpl(5))), terminology_service=test_ts)
+        dvo = _TstDVOrderedImpl(4, normal_status=CodePhrase(TerminologyID("openehr_normal_statuses"), "LLL"), normal_range=DVInterval(lower=_TstDVOrderedImpl(2), upper=_TstDVOrderedImpl(5)), terminology_service=test_ts)
 
 def test_is_normal():
     assert _TstDVOrderedImpl(4).is_normal() is None
     assert _TstDVOrderedImpl(4, normal_status=CodePhrase(TerminologyID("openehr_normal_statuses"), "N"), terminology_service=test_ts).is_normal() == True
-    assert _TstDVOrderedImpl(4, normal_range=DVInterval(ProperInterval(lower=_TstDVOrderedImpl(2), upper=_TstDVOrderedImpl(5)))).is_normal() == True
+    assert _TstDVOrderedImpl(4, normal_range=DVInterval(lower=_TstDVOrderedImpl(2), upper=_TstDVOrderedImpl(5))).is_normal() == True
     assert _TstDVOrderedImpl(1, normal_status=CodePhrase(TerminologyID("openehr_normal_statuses"), "L"), terminology_service=test_ts).is_normal() == False
-    assert _TstDVOrderedImpl(4, normal_range=DVInterval(ProperInterval(lower=_TstDVOrderedImpl(1), upper=_TstDVOrderedImpl(3)))).is_normal() == False
+    assert _TstDVOrderedImpl(4, normal_range=DVInterval(lower=_TstDVOrderedImpl(1), upper=_TstDVOrderedImpl(3))).is_normal() == False
 
 def test_reference_range_range_is_simple():
     # OK
-    r = ReferenceRange(DVText("test"), DVInterval(ProperInterval()))
-    r = ReferenceRange(DVText("test"), DVInterval(ProperInterval(lower=_TstDVOrderedImpl(1.0))))
-    r = ReferenceRange(DVText("test"), DVInterval(ProperInterval(upper=_TstDVOrderedImpl(2.0))))
-    r = ReferenceRange(DVText("test"), DVInterval(ProperInterval(lower=_TstDVOrderedImpl(1.0), upper=_TstDVOrderedImpl(2.0))))
+    r = ReferenceRange(DVText("test"), DVInterval())
+    r = ReferenceRange(DVText("test"), DVInterval(lower=_TstDVOrderedImpl(1.0)))
+    r = ReferenceRange(DVText("test"), DVInterval(upper=_TstDVOrderedImpl(2.0)))
+    r = ReferenceRange(DVText("test"), DVInterval(lower=_TstDVOrderedImpl(1.0), upper=_TstDVOrderedImpl(2.0)))
     # Not OK (non simple lower bound)
     with pytest.raises(ValueError):
-        r = ReferenceRange(DVText("test"), DVInterval(ProperInterval(lower=_TstDVOrderedImpl(1.0, normal_range=DVInterval(ProperInterval(upper=_TstDVOrderedImpl(5.0)))))))
+        r = ReferenceRange(DVText("test"), DVInterval(lower=_TstDVOrderedImpl(1.0, normal_range=DVInterval(upper=_TstDVOrderedImpl(5.0)))))
     # Not OK (non simple upper bound)
     with pytest.raises(ValueError):
-        r = ReferenceRange(DVText("test"), DVInterval(ProperInterval(upper=_TstDVOrderedImpl(5.0, normal_range=DVInterval(ProperInterval(upper=_TstDVOrderedImpl(6.0)))))))
+        r = ReferenceRange(DVText("test"), DVInterval(upper=_TstDVOrderedImpl(5.0, normal_range=DVInterval(upper=_TstDVOrderedImpl(6.0)))))
     

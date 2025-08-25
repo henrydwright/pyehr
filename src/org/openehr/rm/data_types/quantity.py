@@ -8,7 +8,7 @@ import numpy as np
 
 from org.openehr.base.foundation_types.primitive_types import ordered
 from org.openehr.base.foundation_types.time import ISOType, ISODate
-from org.openehr.base.foundation_types.interval import Interval, ProperInterval
+from org.openehr.base.foundation_types.interval import Interval, ProperInterval, PointInterval
 from org.openehr.base.foundation_types.any import AnyClass
 from org.openehr.base.foundation_types.structure import is_equal_value
 from org.openehr.rm.data_types import DataValue
@@ -158,10 +158,29 @@ class DVInterval(DataValue):
 
     value: Interval[DVOrdered]
 
-    def __init__(self, value: Interval[DVOrdered]):
+    def _attempt_set_value(self, value: Interval[DVOrdered]):
         if ((value.lower is not None) and (not isinstance(value.lower, DVOrdered))) or ((value.upper is not None) and (not isinstance(value.upper, DVOrdered))):
-            raise TypeError("DVInterval values must be of type DVOrdered (did you forget to wrap an ordered value in DVOrdered first?)")
+                raise TypeError("DVInterval values must be of type DVOrdered (did you forget to wrap an ordered value in DVOrdered first?)")
         self.value = value
+
+    def __init__(self, value: Optional[Interval[DVOrdered]] = None, lower: Optional[DVOrdered] = None, upper: Optional[DVOrdered] = None):
+        """If value filled it is used, otherwise lower and upper are taken (defaults to a completely unbounded proper interval)"""
+        if value is not None:
+            self._attempt_set_value(value)
+        else:
+            if (lower is not None and (not isinstance(lower, DVOrdered))) or (upper is not None and (not isinstance(upper, DVOrdered))):
+                raise ValueError("If lower or upper bounds are proivded, they must be of type DVOrdered or `None` (did you forget to wrap an ordered value in DVOrdered first?)")
+            
+            if (lower is None and upper is None):
+                self._attempt_set_value(ProperInterval[DVOrdered]())
+            elif (lower is None and upper is not None) or (lower is not None and upper is None):
+                self._attempt_set_value(ProperInterval[DVOrdered](lower=lower, upper=upper))
+            else:
+                if lower.is_equal(upper):
+                    self._attempt_set_value(PointInterval(point_value=lower))
+                else:
+                    self._attempt_set_value(ProperInterval[DVOrdered](lower=lower, upper=upper))
+
         super().__init__()
 
     def __str__(self):
