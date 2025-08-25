@@ -952,5 +952,5 @@ class ISOTimeZone(ISOType):
     def __str__(self) -> str:
         return self.as_string()
     
-temporal = type(ISOType)
+temporal = ISOType
 """Abstract ancestor of time-related classes."""
