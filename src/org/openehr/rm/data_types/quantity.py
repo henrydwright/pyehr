@@ -2,17 +2,17 @@
 forms of measured quantity and supporting information for those quantities"""
 
 from abc import abstractmethod
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 
-from org.openehr.base.foundation_types.primitive_types import ordered
+from org.openehr.base.foundation_types.primitive_types import ordered, integer_type
 from org.openehr.base.foundation_types.time import ISOType, ISODate
 from org.openehr.base.foundation_types.interval import Interval, ProperInterval, PointInterval
 from org.openehr.base.foundation_types.any import AnyClass
 from org.openehr.base.foundation_types.structure import is_equal_value
 from org.openehr.rm.data_types import DataValue
-from org.openehr.rm.data_types.text import CodePhrase, DVText
+from org.openehr.rm.data_types.text import CodePhrase, DVCodedText, DVText
 from org.openehr.rm.support.terminology import TerminologyService, util_verify_code_in_openehr_codeset_or_error, OpenEHRCodeSetIdentifiers
 
 # wrapper around an 'ordered' datatype
@@ -228,3 +228,76 @@ class ReferenceRange(AnyClass):
     def is_in_range(self, v: DVOrdered):
         """Indicates if the value v is inside the range."""
         return self.range.has(v)
+
+class DVOrdinal(DVOrdered):
+    """A data type that represents integral score values, e.g. pain, Apgar values, etc, where there is:
+
+    a) implied ordering, b) no implication that the distance between each value is constant, 
+    c) the total number of values is finite and d) integer values only.
+
+    Note that although the term 'ordinal' in mathematics means natural numbers only, here any integer is allowed, 
+    since negative and zero values are often used by medical professionals for values around a neutral point. 
+    Examples of sets of ordinal values:
+
+    -3, -2, -1, 0, 1, 2, 3 - reflex response values
+
+    0, 1, 2 - Apgar values
+
+    This class is used for recording any clinical datum which is customarily recorded using symbolic values. 
+    Example: the results on a urinalysis strip, e.g. `{neg, trace, +, , +}` are used for leucocytes, protein, 
+    nitrites etc; for non-haemolysed blood `{neg, trace, moderate}`; for haemolysed blood `{small, moderate, large}`.
+
+    For scores or scales that include Real numbers (or might in the future, i.e. not fixed for all time, such as Apgar), 
+    use DV_SCALE. DV_SCALE may also be used in future for representing purely Integer-based scales, however, 
+    the DV_ORDINAL type should continue to be supported in software implementations in order to accommodate existing 
+    data that are instances of this type."""
+
+    symbol : DVCodedText
+    """Coded textual representation of this value in the enumeration, which may be strings made from + symbols, or 
+    other enumerations of terms such as mild, moderate, severe, or even the same number series as the values, 
+    e.g. 1, 2, 3."""
+
+    def __init__(self, value: Union[integer_type, int], symbol: DVCodedText, normal_status = None, normal_range = None, other_reference_ranges = None, terminology_service = None):
+        if not (isinstance(value, integer_type) or isinstance(value, int)):
+            raise TypeError("DVOrdinal value must be of integer type")
+        self.symbol = symbol
+        super().__init__(value, normal_status, normal_range, other_reference_ranges, terminology_service)
+
+    def is_strictly_comparable_to(self, other):
+        return super().is_strictly_comparable_to(other)
+    
+class DVScale(DVOrdered):
+    """A data type that represents scale values, where there is:
+
+    a) implied ordering, b) no implication that the distance between each value is constant, and 
+    c) the total number of values is finite; d) non-integer values are allowed.
+
+    Example:
+    ```
+        Borg CR 10 Scale
+
+        0    No Breathlessness at all
+        0.5  Very Very Slight (Just Noticeable)
+        1    Very Slight
+        2    Slight Breathlessness
+        3    Moderate
+        ... etc
+    ```
+    For scores that include only Integers, DV_SCALE may also be used, but DV_ORDINAL should be supported to accommodate 
+    existing data instances of that type."""
+
+    symbol : DVCodedText
+    """Coded textual representation of this value in the scale range, which may be strings made from symbols or other 
+    enumerations of terms such as no breathlessness, very very slight, slight breathlessness. Codes come from archetypes.
+
+    In some cases, a scale may include values that have no code/symbol. In this case, the symbol will be a DV-CODED_TEXT 
+    including the terminology_id and a blank String value for code_string."""
+
+    def __init__(self, value: Union[np.float32, float], symbol: DVCodedText, normal_status = None, normal_range = None, other_reference_ranges = None, terminology_service = None):
+        if not (isinstance(value, np.float32) or isinstance(value, float)):
+            raise TypeError("DVScale value must be of float type")
+        self.symbol = symbol
+        super().__init__(value, normal_status, normal_range, other_reference_ranges, terminology_service)
+
+    def is_strictly_comparable_to(self, other):
+        return super().is_strictly_comparable_to(other)

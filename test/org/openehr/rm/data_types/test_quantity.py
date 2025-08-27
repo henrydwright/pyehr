@@ -1,8 +1,8 @@
 import pytest
 
 from org.openehr.base.foundation_types.interval import ProperInterval
-from org.openehr.rm.data_types.text import CodePhrase, DVText
-from org.openehr.rm.data_types.quantity import DVOrdered, DVInterval, ReferenceRange
+from org.openehr.rm.data_types.text import CodePhrase, DVCodedText, DVText
+from org.openehr.rm.data_types.quantity import DVOrdered, DVInterval, ReferenceRange, DVOrdinal, DVScale
 from org.openehr.base.base_types.identification import TerminologyID
 from common import PythonTerminologyService, CODESET_OPENEHR_NORMAL_STATUSES
 
@@ -94,3 +94,17 @@ def test_reference_range_range_is_simple():
     with pytest.raises(ValueError):
         r = ReferenceRange(DVText("test"), DVInterval(upper=_TstDVOrderedImpl(5.0, normal_range=DVInterval(upper=_TstDVOrderedImpl(6.0)))))
     
+def test_dv_ordinal_only_integers_accepted():
+    # OK
+    dvo = DVOrdinal(1, DVCodedText("Moderate amount of hemolyzed blood detected in urine by dipstick (finding)", CodePhrase(TerminologyID("SNOMED-CT"), "1348318004")))
+    # Not OK
+    with pytest.raises(TypeError):
+        dvo = DVOrdinal("Moderate", DVCodedText("Moderate amount of hemolyzed blood detected in urine by dipstick (finding)", CodePhrase(TerminologyID("SNOMED-CT"), "1348318004")))
+
+def test_dv_scale_only_reals_accepted():
+    # OK
+    dvs = DVScale(0.5, DVCodedText("Borg Breathlessness Score: 0.5 very, very slight (just noticeable) (finding)", CodePhrase(TerminologyID("SNOMED-CT"), "401323002")))
+    dvs = DVScale(10.0, DVCodedText("Borg Breathlessness Score: 10 maximal (finding)", CodePhrase(TerminologyID("SNOMED-CT"), "401293009")))
+    # Not OK
+    with pytest.raises(TypeError):
+        dvs = DVScale(10, DVCodedText("Borg Breathlessness Score: 10 maximal (finding)", CodePhrase(TerminologyID("SNOMED-CT"), "401293009")))
