@@ -2,7 +2,7 @@ import pytest
 
 from org.openehr.base.foundation_types.interval import ProperInterval
 from org.openehr.rm.data_types.text import CodePhrase, DVCodedText, DVText
-from org.openehr.rm.data_types.quantity import DVOrdered, DVInterval, ReferenceRange, DVOrdinal, DVScale
+from org.openehr.rm.data_types.quantity import DVOrdered, DVInterval, ReferenceRange, DVOrdinal, DVScale, DVQuantified
 from org.openehr.base.base_types.identification import TerminologyID
 from common import PythonTerminologyService, CODESET_OPENEHR_NORMAL_STATUSES
 
@@ -13,6 +13,13 @@ class _TstDVOrderedImpl(DVOrdered):
     def __init__(self, value, normal_status = None, normal_range = None, other_reference_ranges = None, terminology_service = None):
         super().__init__(value, normal_status, normal_range, other_reference_ranges, terminology_service)
 
+    def is_strictly_comparable_to(self, other):
+        return super().is_strictly_comparable_to(other)
+    
+class _TstDVQuantifiedImpl(DVQuantified):
+    def __init__(self, value, normal_status=None, normal_range=None, other_reference_ranges=None, magnitude_status=None, accuracy=None, terminology_service=None):
+        super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, terminology_service)
+    
     def is_strictly_comparable_to(self, other):
         return super().is_strictly_comparable_to(other)
 
@@ -108,3 +115,17 @@ def test_dv_scale_only_reals_accepted():
     # Not OK
     with pytest.raises(TypeError):
         dvs = DVScale(10, DVCodedText("Borg Breathlessness Score: 10 maximal (finding)", CodePhrase(TerminologyID("SNOMED-CT"), "401293009")))
+
+def test_dv_quantified_valid_magnitude_status_correct():
+    valid_statues = {"=", "<", ">", "<=", ">=", "~"}
+    for status in valid_statues:
+        assert DVQuantified.valid_magnitude_status(status) == True
+    assert DVQuantified.valid_magnitude_status("!=") == False
+    assert DVQuantified.valid_magnitude_status("ABACUS") == False
+
+def test_dv_quantified_magnitude_status_valid():
+    # OK
+    dvq = _TstDVQuantifiedImpl(5.0, magnitude_status=DVQuantified.MagnitudeStatus.APPROXIMATE_VALUE)
+    # not OK
+    with pytest.raises(ValueError):
+        dvq = _TstDVQuantifiedImpl(5.0, magnitude_status="ABABABA")

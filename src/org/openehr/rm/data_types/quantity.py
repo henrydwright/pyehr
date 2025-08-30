@@ -2,11 +2,12 @@
 forms of measured quantity and supporting information for those quantities"""
 
 from abc import abstractmethod
+from enum import StrEnum
 from typing import Optional, Union
 
 import numpy as np
 
-from org.openehr.base.foundation_types.primitive_types import ordered, integer_type
+from org.openehr.base.foundation_types.primitive_types import ordered, integer_type, ordered_numeric
 from org.openehr.base.foundation_types.time import ISOType, ISODate
 from org.openehr.base.foundation_types.interval import Interval, ProperInterval, PointInterval
 from org.openehr.base.foundation_types.any import AnyClass
@@ -301,3 +302,66 @@ class DVScale(DVOrdered):
 
     def is_strictly_comparable_to(self, other):
         return super().is_strictly_comparable_to(other)
+    
+
+class DVQuantified(DVOrdered):
+    """Abstract class defining the concept of true quantified values, i.e. values which are not only ordered, but which 
+    have a precise magnitude."""
+
+    magnitude_status: Optional[str]
+    """Optional status of magnitude with values:
+    * `"="` : magnitude is a point value
+    * `"<"` : value is < magnitude
+    * `">"` : value is > magnitude
+    * `"<="` : value is <= magnitude
+    * `">="` : value is >= magnitude
+    * `"~"` : value is approximately magnitude
+
+    If not present, assumed meaning is "=" ."""
+
+    accuracy : Optional[AnyClass]
+    """Accuracy of measurement. Exact form of expression determined in descendants."""
+
+    class MagnitudeStatus(StrEnum):
+        POINT_VALUE = "="
+        """magnitude is a point value"""
+        APPROXIMATE_VALUE = "~"
+        """true value is approximately magnitude"""
+        VALUE_LESS_THAN_MANGITUDE = "<"
+        """true value is < magnitude"""
+        VALUE_GREATER_THAN_MAGNITUDE = ">"
+        """true value is > magnitude"""
+        VALUE_LESS_THAN_OR_EQUAL_TO_MAGNITUDE = "<="
+        """true value is <= magnitude"""
+        VALUE_GREATER_THAN_OR_EQUAL_TO_MAGNITUDE = ">="
+        """true value is >= magnitude"""
+
+
+    @abstractmethod
+    def __init__(self, value: ordered_numeric, normal_status = None, normal_range = None, other_reference_ranges = None, magnitude_status = None, accuracy = None, terminology_service = None):
+        if not (isinstance(value, ordered_numeric) or isinstance(value, float) or isinstance(value, int)):
+            raise TypeError("Quantified value must be of an ordered_numeric type")
+        
+        if (magnitude_status is not None) and (not DVQuantified.valid_magnitude_status(magnitude_status)):
+            raise ValueError("Provided magnitude status was not one of the valid values (invariant: magnitude_status_valid)")
+        
+        self.magnitude_status = magnitude_status
+        self.accuracy = accuracy
+
+        super().__init__(value, normal_status, normal_range, other_reference_ranges, terminology_service)
+
+    # TODO: seems like specificaion is missing a string argument 's'
+    def valid_magnitude_status(s: Union[MagnitudeStatus, str]):
+        """Test whether a string value is one of the valid values for the magnitude_status attribute."""
+        return (s in {"=", "<", ">", "<=", ">=", "~"})
+
+    def magnitude(self) -> ordered_numeric:
+        return self.value
+
+    def accuracy_unknown(self) -> bool:
+        """True if accuracy is not known, e.g. due to not being recorded or discernable."""
+        pass
+
+    def is_equal(self, other):
+        return super().is_equal(other)
+
