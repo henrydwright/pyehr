@@ -42,6 +42,9 @@ class DVOrdered(DataValue):
     other_reference_ranges: Optional[list['ReferenceRange']]
     """Optional tagged other reference ranges for this value in its particular measurement context."""
 
+    _terminology_service : Optional[TerminologyService]
+    """PRIVATE: Keep track of TerminologyService used at initialization for later re-use if needed"""
+
     @abstractmethod
     def __init__(self, value: ordered, normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, terminology_service: Optional[TerminologyService] = None):
         """Instantiate new DVOrdered with type conversion from native Python types of 
@@ -71,6 +74,8 @@ class DVOrdered(DataValue):
         if (other_reference_ranges is not None and len(other_reference_ranges) == 0):
             raise ValueError("other_reference_ranges cannot be an empty list (invariant: other_reference_ranges_validity)")
         self.other_reference_ranges = other_reference_ranges
+
+        self._terminology_service = terminology_service
 
         super().__init__()
 
@@ -338,7 +343,7 @@ class DVQuantified(DVOrdered):
 
 
     @abstractmethod
-    def __init__(self, value: ordered_numeric, normal_status = None, normal_range = None, other_reference_ranges = None, magnitude_status = None, accuracy = None, terminology_service = None):
+    def __init__(self, value: ordered_numeric, normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[MagnitudeStatus, str]] = None, accuracy : Optional[AnyClass] = None, terminology_service: Optional[TerminologyService] = None):
         if not (isinstance(value, ordered_numeric) or isinstance(value, float) or isinstance(value, int)):
             raise TypeError("Quantified value must be of an ordered_numeric type")
         
@@ -360,8 +365,135 @@ class DVQuantified(DVOrdered):
 
     def accuracy_unknown(self) -> bool:
         """True if accuracy is not known, e.g. due to not being recorded or discernable."""
-        pass
+        return (self.accuracy is None)
+
+    def is_equal(self, other: 'DVQuantified'):
+        return (
+            super().is_equal(other) and
+            is_equal_value(self.accuracy, other.accuracy) and
+            self.magnitude_status == other.magnitude_status
+        )
+    
+    def is_strictly_comparable_to(self, other):
+        return super().is_strictly_comparable_to(other)
+
+
+class DVAmount(DVQuantified):
+    """Abstract class defining the concept of relative quantified 'amounts'. For relative quantities, 
+    the + and - operators are defined (unlike descendants of DV_ABSOLUTE_QUANTITY, such as the date/time types)."""
+    
+    accuracy_is_percent : Optional[bool]
+    """If `True`, indicates that when this object was created, accuracy was recorded as a percent value; 
+    if `False`, as an absolute quantity value."""
+
+    accuracy : Optional[np.float32]
+    """Accuracy of measurement, expressed either as a half-range percent value (`accuracy_is_percent == True`) or a half-range quantity. A value of 0 means that accuracy is 100%, i.e. no error.
+    
+    A value of `None` means that accuracy was not recorded."""
+
+    def valid_percentage(number: ordered_numeric) -> bool:
+        """Test whether a number is a valid percentage, i.e. between 0 and 100."""
+        return (number >= 0) and (number <= 100)
+
+    def __init__(self, value: ordered_numeric, normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, accuracy : Optional[np.float32] = None, accuracy_is_percent: Optional[bool] = None, terminology_service: Optional[TerminologyService] = None):
+        converted_accuracy = accuracy
+        if accuracy is not None:
+            if (not isinstance(accuracy, np.float32)) and (not isinstance(accuracy, float)):
+                raise TypeError("Accuracy must be a Real value")
+            if isinstance(accuracy, float):
+                converted_accuracy = np.float32(accuracy)
+
+            if accuracy_is_percent is None:
+                raise ValueError("If accuracy is provided, so must be accuracy_is_percent")
+            
+            if accuracy == 0.0 and accuracy_is_percent:
+                raise ValueError("If accuracy is 0 (i.e amount is exact) then accuracy_is_percent must be False (invariant: accuracy_is_percent_validity)")
+            
+            if not DVAmount.valid_percentage(accuracy) and accuracy_is_percent:
+                raise ValueError(f"Percentage accuracies must be a value between 0 and 100 inclusive, but \'{accuracy}\' was given (invariant: accuracy_validity)")
+
+        self.accuracy_is_percent = accuracy_is_percent
+        super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, converted_accuracy, terminology_service)
 
     def is_equal(self, other):
-        return super().is_equal(other)
+        return (
+            super().is_equal(other) and
+            self.accuracy_is_percent == other.accuracy_is_percent
+        )
+    
+    def _allowed_numeric_operation_check(self, other) -> bool:
+        if not isinstance(other, type(self)):
+            raise TypeError(f"Other type must also be DVAmount to allow numerical operations - you provided type \'{type(other)}\' (perhaps you forgot to wrap an ordered_numeric value type?)")
+        if (not self.is_strictly_comparable_to(other)):
+            raise TypeError(f"DVAmount with value of type \'{type(self.value)}\' is not strictly comparable to DVAmount with value of type \'{type(other.value)}\'")
+
+    def __neg__(self):
+        return DVAmount(-self.value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, self.accuracy, self.accuracy_is_percent, self._terminology_service)
+
+    def _combine_accuracies_addsub(self, other: 'DVAmount', new_value: ordered_numeric) -> tuple[Optional[np.float32], Optional[bool]]:
+        new_accuracy = None
+        new_accuracy_is_percent = None
+        # from spec: The result is ... unknown, if either or both operand accuracies are unknown.
+        if not self.accuracy_unknown() and not other.accuracy_unknown():
+            # from spec: The result is the sum of the accuracies of the operands, if both present, or;
+            self_absolute_accuracy = abs(self.accuracy if not self.accuracy_is_percent else ((self.accuracy / 100) * self.value))
+            other_absolute_accuracy = abs(other.accuracy if not other.accuracy_is_percent else ((other.accuracy / 100) * other.value))
+            new_absolute_accuracy = self_absolute_accuracy + other_absolute_accuracy
+
+            # from spec: If the accuracy value is a percentage in one operand and not in the other, the form in the result is that of the larger operand.
+            if self.value >= other.value:
+                new_accuracy_is_percent = self.accuracy_is_percent
+            else:
+                new_accuracy_is_percent = other.accuracy_is_percent
+
+            new_accuracy = new_absolute_accuracy if not new_accuracy_is_percent else ((new_absolute_accuracy / new_value) * 100)
+
+        return (new_accuracy, new_accuracy_is_percent)
+
+
+    def __add__(self, other: 'DVAmount'):
+        self._allowed_numeric_operation_check(other)
+        new_value = self.value + other.value
+        new_accuracy, new_accuracy_is_percent = self._combine_accuracies_addsub(other, new_value)
+
+        return DVAmount(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, new_accuracy, new_accuracy_is_percent, self._terminology_service)
+    
+    def __sub__(self, other: 'DVAmount'):
+        self._allowed_numeric_operation_check(other)
+        new_value = self.value - other.value
+        new_accuracy, new_accuracy_is_percent = self._combine_accuracies_addsub(other, new_value)
+
+        return DVAmount(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, new_accuracy, new_accuracy_is_percent, self._terminology_service)
+    
+    def _combine_accuracies_muldiv(self, other: 'DVAmount', new_value: ordered_numeric) -> tuple[Optional[np.float32], Optional[bool]]:
+        new_accuracy = None
+        new_accuracy_is_percent = None
+
+        if not self.accuracy_unknown() and not other.accuracy_unknown():
+            self_perc_accuracy = abs(self.accuracy if self.accuracy_is_percent else ((self.accuracy / self.value) * 100))
+            other_perc_accuracy = abs(other.accuracy if other.accuracy_is_percent else ((other.accuracy / other.value) * 100))
+            new_perc_accuracy = self_perc_accuracy + other_perc_accuracy
+
+            if self.value >= other.value:
+                new_accuracy_is_percent = self.accuracy_is_percent
+            else:
+                new_accuracy_is_percent = other.accuracy_is_percent
+
+            new_accuracy = new_perc_accuracy if new_accuracy_is_percent else ((new_perc_accuracy / 100) * new_value)
+
+        return (new_accuracy, new_accuracy_is_percent)
+
+    def __mul__(self, other: 'DVAmount'):
+        self._allowed_numeric_operation_check(other)
+        new_value = self.value * other.value
+        new_accuracy, new_accuracy_is_percent = self._combine_accuracies_muldiv(other, new_value)
+
+        return DVAmount(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, new_accuracy, new_accuracy_is_percent, self._terminology_service)
+    
+    def __truediv__(self, other: 'DVAmount'):
+        self._allowed_numeric_operation_check(other)
+        new_value = self.value / other.value
+        new_accuracy, new_accuracy_is_percent = self._combine_accuracies_muldiv(other, new_value)
+
+        return DVAmount(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, new_accuracy, new_accuracy_is_percent, self._terminology_service)
 

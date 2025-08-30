@@ -2,7 +2,7 @@ import pytest
 
 from org.openehr.base.foundation_types.interval import ProperInterval
 from org.openehr.rm.data_types.text import CodePhrase, DVCodedText, DVText
-from org.openehr.rm.data_types.quantity import DVOrdered, DVInterval, ReferenceRange, DVOrdinal, DVScale, DVQuantified
+from org.openehr.rm.data_types.quantity import DVOrdered, DVInterval, ReferenceRange, DVOrdinal, DVScale, DVQuantified, DVAmount
 from org.openehr.base.base_types.identification import TerminologyID
 from common import PythonTerminologyService, CODESET_OPENEHR_NORMAL_STATUSES
 
@@ -129,3 +129,251 @@ def test_dv_quantified_magnitude_status_valid():
     # not OK
     with pytest.raises(ValueError):
         dvq = _TstDVQuantifiedImpl(5.0, magnitude_status="ABABABA")
+
+def test_dv_quantified_accuracy_unknown():
+    dvq = _TstDVQuantifiedImpl(5.0)
+    assert dvq.accuracy_unknown() == True
+    dvq = _TstDVQuantifiedImpl(5.0, accuracy=0.1)
+    assert dvq.accuracy_unknown() == False
+
+# source for accuracy combinations: https://www.savemyexams.com/a-level/physics/aqa/17/revision-notes/1-measurements-and-their-errors/1-2-limitation-of-physical-measurements/1-2-2-calculating-uncertainties/
+
+def test_dv_amount_addition_accuracy_correct():
+    # no accuracies
+    dva1 = DVAmount(5)
+    dva2 = DVAmount(6)
+    dvar = dva1 + dva2
+    assert dvar.value == 11
+    assert dvar.accuracy_is_percent is None
+    assert dvar.accuracy is None
+
+    # accuracy on one operand only
+    dva1 = DVAmount(5, accuracy=2.0, accuracy_is_percent=False)
+    dva2 = DVAmount(5)
+    dvar = dva1 + dva2
+    assert dvar.value == 10
+    assert dvar.accuracy_is_percent is None
+    assert dvar.accuracy is None
+
+    # accuracy on both, both absolutes
+    dva1 = DVAmount(6, accuracy=2.0, accuracy_is_percent=False)
+    dva2 = DVAmount(6, accuracy=1.0, accuracy_is_percent=False)
+    dvar = dva1 + dva2
+    assert dvar.value == 12
+    assert dvar.accuracy_is_percent == False
+    assert dvar.accuracy <= 3.00000001 and dvar.accuracy >= 2.99999999
+
+    # accuracy on both, both percentages
+    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=True)
+    dva2 = DVAmount(50, accuracy=5.0, accuracy_is_percent=True)
+    dvar = dva1 + dva2
+    assert dvar.value == 150
+    assert dvar.accuracy_is_percent == True
+    # abs_accuracy = (100 * 0.1 + 50 * 0.05) = 12.5
+    # perc_accuracy = 12.5 / 150.0 = 8.3333333...%
+    assert dvar.accuracy <= 8.334 and dvar.accuracy >= 8.332
+
+    # accuracy on both, larger is percent
+    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=True)
+    dva2 = DVAmount(80, accuracy=5.0, accuracy_is_percent=False)
+    dvar = dva1 + dva2
+    assert dvar.value == 180
+    assert dvar.accuracy_is_percent == True
+    # abs_accuracy = (100 * 0.1 + 5) = 15
+    # perc_accuracy = 15 / 180 = 8.3333333...%
+    assert dvar.accuracy <= 8.334 and dvar.accuracy >= 8.332
+
+    # accuracy on both, smaller is percent
+    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=False)
+    dva2 = DVAmount(80, accuracy=5.0, accuracy_is_percent=True)
+    dvar = dva1 + dva2
+    assert dvar.value == 180
+    assert dvar.accuracy_is_percent == False
+    # abs_accuracy = (80 * 0.05 + 10) = 14
+    assert dvar.accuracy <= 14.001 and dvar.accuracy >= 13.999
+
+def test_dv_amount_subtract_accuracy_correct():
+    # no accuracies
+    dva1 = DVAmount(5)
+    dva2 = DVAmount(6)
+    dvar = dva1 - dva2
+    assert dvar.value == -1
+    assert dvar.accuracy_is_percent is None
+    assert dvar.accuracy is None
+
+    # accuracy on one operand only
+    dva1 = DVAmount(5, accuracy=2.0, accuracy_is_percent=False)
+    dva2 = DVAmount(5)
+    dvar = dva1 - dva2
+    assert dvar.value == 0
+    assert dvar.accuracy_is_percent is None
+    assert dvar.accuracy is None
+
+    # accuracy on both, both absolutes
+    dva1 = DVAmount(6, accuracy=2.0, accuracy_is_percent=False)
+    dva2 = DVAmount(6, accuracy=1.0, accuracy_is_percent=False)
+    dvar = dva1 - dva2
+    assert dvar.value == 0
+    assert dvar.accuracy_is_percent == False
+    assert dvar.accuracy <= 3.00000001 and dvar.accuracy >= 2.99999999
+
+    # accuracy on both, both percentages
+    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=True)
+    dva2 = DVAmount(50, accuracy=5.0, accuracy_is_percent=True)
+    dvar = dva1 - dva2
+    assert dvar.value == 50
+    assert dvar.accuracy_is_percent == True
+    # abs_accuracy = (100 * 0.1 + 50 * 0.05) = 12.5
+    # perc_accuracy = 12.5 / 50.0 = 25%
+    assert dvar.accuracy <= 25.001 and dvar.accuracy >= 24.999
+
+    # accuracy on both, larger is percent
+    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=True)
+    dva2 = DVAmount(80, accuracy=5.0, accuracy_is_percent=False)
+    dvar = dva1 - dva2
+    assert dvar.value == 20
+    assert dvar.accuracy_is_percent == True
+    # abs_accuracy = (100 * 0.1 + 5) = 15
+    # perc_accuracy = 15 / 20 = 75%
+    assert dvar.accuracy <= 75.001 and dvar.accuracy >= 74.999
+
+    # accuracy on both, smaller is percent
+    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=False)
+    dva2 = DVAmount(80, accuracy=5.0, accuracy_is_percent=True)
+    dvar = dva1 - dva2
+    assert dvar.value == 20
+    assert dvar.accuracy_is_percent == False
+    # abs_accuracy = (80 * 0.05 + 10) = 14
+    assert dvar.accuracy <= 14.001 and dvar.accuracy >= 13.999
+
+def test_dv_amount_negation_works():
+    dva = DVAmount(-100)
+    dvar = -dva
+    assert dvar.value == 100
+
+def test_dv_amount_multiply_accuracy_correct():
+    # no accuracies
+    dva1 = DVAmount(5)
+    dva2 = DVAmount(6)
+    dvar = dva1 * dva2
+    assert dvar.value == 30
+    assert dvar.accuracy_is_percent is None
+    assert dvar.accuracy is None
+
+    # accuracy on one operand only
+    dva1 = DVAmount(5, accuracy=2.0, accuracy_is_percent=False)
+    dva2 = DVAmount(5)
+    dvar = dva1 * dva2
+    assert dvar.value == 25
+    assert dvar.accuracy_is_percent is None
+    assert dvar.accuracy is None
+
+    # accuracy on both, both absolutes
+    dva1 = DVAmount(6, accuracy=2.0, accuracy_is_percent=False)
+    dva2 = DVAmount(6, accuracy=1.0, accuracy_is_percent=False)
+    dvar = dva1 * dva2
+    assert dvar.value == 36
+    assert dvar.accuracy_is_percent == False
+    # perc_accuracy = (2/6 + 1/6) = 50%
+    # abs_accuracy = 0.5 * 36 = 18
+    assert dvar.accuracy <= 18.001 and dvar.accuracy >= 17.999
+
+    # accuracy on both, both percentages
+    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=True)
+    dva2 = DVAmount(50, accuracy=5.0, accuracy_is_percent=True)
+    dvar = dva1 * dva2
+    assert dvar.value == 5000
+    assert dvar.accuracy_is_percent == True
+    # perc_accuracy = 10 + 5 = 15%
+    assert dvar.accuracy <= 15.001 and dvar.accuracy >= 14.999
+
+    # accuracy on both, larger is percent
+    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=True)
+    dva2 = DVAmount(80, accuracy=5.0, accuracy_is_percent=False)
+    dvar = dva1 * dva2
+    assert dvar.value == 8000
+    assert dvar.accuracy_is_percent == True
+    # perc_accuracy = 0.1 + 5/80 = 16.25%
+    assert dvar.accuracy <= 16.251 and dvar.accuracy >= 16.249
+
+    # accuracy on both, smaller is percent
+    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=False)
+    dva2 = DVAmount(80, accuracy=5.0, accuracy_is_percent=True)
+    dvar = dva1 * dva2
+    assert dvar.value == 8000
+    assert dvar.accuracy_is_percent == False
+    # perc_accuracy = 0.05 + 0.1 = 15%
+    # abs_accuracy = 0.15 * 8000 = 1200
+    assert dvar.accuracy <= 1200.001 and dvar.accuracy >= 1199.999
+
+def test_dv_amount_divide_accuracy_correct():
+    # no accuracies
+    dva1 = DVAmount(5)
+    dva2 = DVAmount(6)
+    dvar = dva1 / dva2
+    assert dvar.value <= 0.8334 and dvar.value >= 0.8332
+    assert dvar.accuracy_is_percent is None
+    assert dvar.accuracy is None
+
+    # accuracy on one operand only
+    dva1 = DVAmount(5, accuracy=2.0, accuracy_is_percent=False)
+    dva2 = DVAmount(5)
+    dvar = dva1 / dva2
+    assert dvar.value == 1
+    assert dvar.accuracy_is_percent is None
+    assert dvar.accuracy is None
+
+    # accuracy on both, both absolutes
+    dva1 = DVAmount(6, accuracy=2.0, accuracy_is_percent=False)
+    dva2 = DVAmount(6, accuracy=1.0, accuracy_is_percent=False)
+    dvar = dva1 / dva2
+    assert dvar.value == 1
+    assert dvar.accuracy_is_percent == False
+    # perc_accuracy = (2/6 + 1/6) = 50%
+    # abs_accuracy = 0.5 * 1 = 0.5
+    assert dvar.accuracy <= 0.501 and dvar.accuracy >= 0.499
+
+    # accuracy on both, both percentages
+    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=True)
+    dva2 = DVAmount(50, accuracy=5.0, accuracy_is_percent=True)
+    dvar = dva1 / dva2
+    assert dvar.value == 2
+    assert dvar.accuracy_is_percent == True
+    # perc_accuracy = 10 + 5 = 15%
+    assert dvar.accuracy <= 15.001 and dvar.accuracy >= 14.999
+
+    # accuracy on both, larger is percent
+    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=True)
+    dva2 = DVAmount(80, accuracy=5.0, accuracy_is_percent=False)
+    dvar = dva1 / dva2
+    assert dvar.value <= 1.2501 and dvar.value >= 1.2499
+    assert dvar.accuracy_is_percent == True
+    # perc_accuracy = 0.1 + 5/80 = 16.25%
+    assert dvar.accuracy <= 16.251 and dvar.accuracy >= 16.249
+
+    # accuracy on both, smaller is percent
+    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=False)
+    dva2 = DVAmount(80, accuracy=5.0, accuracy_is_percent=True)
+    dvar = dva1 / dva2
+    assert dvar.value <= 1.2501 and dvar.value >= 1.2499
+    assert dvar.accuracy_is_percent == False
+    # perc_accuracy = 0.05 + 0.1 = 15%
+    # abs_accuracy = 0.15 * 1.25 = 0.1875
+    assert dvar.accuracy <= 0.187501 and dvar.accuracy >= 0.187499
+
+def test_dv_amount_accuracy_is_percent_validity():
+    # OK
+    dva = DVAmount(5, accuracy=0.0, accuracy_is_percent=False)
+    # not OK
+    with pytest.raises(ValueError):
+        dva = DVAmount(5, accuracy=0.0, accuracy_is_percent=True)
+
+def test_dv_amount_accuracy_validity():
+    # OK
+    dva = DVAmount(900, accuracy=10.0, accuracy_is_percent=True)
+    # not OK
+    with pytest.raises(ValueError):
+        dva = DVAmount(900, accuracy=-10.0, accuracy_is_percent=True)
+    
+    with pytest.raises(ValueError):
+        dva = DVAmount(900, accuracy=100.5, accuracy_is_percent=True)
