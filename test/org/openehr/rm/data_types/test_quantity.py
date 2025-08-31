@@ -2,7 +2,7 @@ import pytest
 
 from org.openehr.base.foundation_types.interval import ProperInterval
 from org.openehr.rm.data_types.text import CodePhrase, DVCodedText, DVText
-from org.openehr.rm.data_types.quantity import DVOrdered, DVInterval, ReferenceRange, DVOrdinal, DVScale, DVQuantified, DVAmount
+from org.openehr.rm.data_types.quantity import DVOrdered, DVInterval, ReferenceRange, DVOrdinal, DVScale, DVQuantified, DVAmount, DVQuantity
 from org.openehr.base.base_types.identification import TerminologyID
 from common import PythonTerminologyService, CODESET_OPENEHR_NORMAL_STATUSES
 
@@ -377,3 +377,67 @@ def test_dv_amount_accuracy_validity():
     
     with pytest.raises(ValueError):
         dva = DVAmount(900, accuracy=100.5, accuracy_is_percent=True)
+
+def test_dv_quantity_numeric_operation_checks_units_and_units_system():
+    # OK
+    dvq1 = DVQuantity(5.0, "m")
+    dvq2 = DVQuantity(6.0, "m")
+    dvqr = dvq1 * dvq2
+    assert dvqr.units == "m"
+
+    dvq1 = DVQuantity(6.0, "258669008", "http://snomed.info/sct", "meter(s)")
+    dvq2 = DVQuantity(7.0, "258669008", "http://snomed.info/sct", "meter")
+    dvqr = dvq1 * dvq2
+    assert dvqr.units == "258669008"
+    assert dvqr.units_system == "http://snomed.info/sct"
+    assert dvqr.units_display_name == "meter(s)"
+
+    dvq1 = DVQuantity(5.0, "m")
+    dvq2 = DVQuantity(6.0, "kg")
+    # not OK
+    with pytest.raises(ValueError):
+        dvqr = dvq1 + dvq2
+    with pytest.raises(ValueError):
+        dvqr = dvq1 - dvq2
+    with pytest.raises(ValueError):
+        dvqr = dvq1 * dvq2
+    with pytest.raises(ValueError):
+        dvqr = dvq1 / dvq2
+
+    dvq1 = DVQuantity(6.0, "258669008", "http://snomed.info/sct", "meter(s)")
+    dvq2 = DVQuantity(7.0, "m")
+    # not OK
+    with pytest.raises(ValueError):
+        dvqr = dvq1 + dvq2
+    with pytest.raises(ValueError):
+        dvqr = dvq1 - dvq2
+    with pytest.raises(ValueError):
+        dvqr = dvq1 * dvq2
+    with pytest.raises(ValueError):
+        dvqr = dvq1 / dvq2
+
+def test_dv_quantity_addition_precision_correct():
+    # custom is that precision is bounded by lowest precision
+    # both have precision
+    dvq1 = DVQuantity(5.25, "m", precision=2)
+    dvq2 = DVQuantity(5.0, "m", precision=0)
+    dvqr = dvq1 + dvq2
+    assert dvqr.precision == 0
+
+    # both have precision, one is unlimited
+    dvq1 = DVQuantity(5.25, "m", precision=2)
+    dvq2 = DVQuantity(5.0, "m", precision=-1)
+    dvqr = dvq1 + dvq2
+    assert dvqr.precision == 0
+
+    # only one has precision
+    dvq1 = DVQuantity(5.25, "m", precision=2)
+    dvq2 = DVQuantity(5.0, "m")
+    dvqr = dvq1 + dvq2
+    assert dvqr.precision is None
+
+    # neither have precision
+    dvq1 = DVQuantity(5.25, "m")
+    dvq2 = DVQuantity(5.0, "m")
+    dvqr = dvq1 + dvq2
+    assert dvqr.precision is None

@@ -382,6 +382,8 @@ class DVAmount(DVQuantified):
     """Abstract class defining the concept of relative quantified 'amounts'. For relative quantities, 
     the + and - operators are defined (unlike descendants of DV_ABSOLUTE_QUANTITY, such as the date/time types)."""
     
+    value: ordered_numeric
+
     accuracy_is_percent : Optional[bool]
     """If `True`, indicates that when this object was created, accuracy was recorded as a percent value; 
     if `False`, as an absolute quantity value."""
@@ -497,3 +499,129 @@ class DVAmount(DVQuantified):
 
         return DVAmount(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, new_accuracy, new_accuracy_is_percent, self._terminology_service)
 
+class DVQuantity(DVAmount):
+    """Quantitified type representing scientific quantities, i.e. quantities expressed as a magnitude and units. 
+    Units are expressed in the UCUM syntax (Unified Code for Units of Measure (UCUM), by Gunther Schadow and Clement 
+    J. McDonald of The Regenstrief Institute) (case-sensitive form) by default, or another system if units_system is set.
+
+    Can also be used for time durations, where it is more convenient to treat these as simply a number of seconds rather 
+    than days, months, years (in the latter case, DV_DURATION may be used)."""
+
+    value: np.float32
+
+    def _get_magnitude(self) -> np.float32:
+        return self.value
+
+    magnitude = property(
+        fget=_get_magnitude
+    )
+    """Numeric magnitude of the quantity."""
+
+    precision : Optional[np.int32]
+    """Precision to which the value of the quantity is expressed, in terms of number of decimal places. The value 0 
+    implies an integral quantity. The value -1 implies no limit, i.e. any number of decimal places."""
+
+    units: str
+    """Quantity units, expressed as a code or syntax string from either UCUM (the default) or the units system 
+    specified in `units_system`, when set.
+
+    In either case, the value is the code or syntax - normally formed of standard ASCII - which is in principal 
+    not the same as the display string, although in simple cases such as 'm' (for meters) it will be.
+
+    If the `units_display_name` field is set, this may be used for display. If not, the implementations must effect 
+    the resolution of the `units` value to a display form locally, e.g. by lookup of reference tables, request to 
+    a terminology service etc.
+
+    Example values from UCUM: "kg/m^2", “mm[Hg]", "ms-1", "km/h"."""
+
+    units_system: Optional[str]
+    """Optional field used to specify a units system from which codes in units are defined. Value is a URI 
+    identifying a terminology containing units concepts from the ([HL7 FHIR terminologies list](https://www.hl7.org/fhir/terminologies-systems.html)).
+
+    If not set, the UCUM standard (case-sensitive codes) is assumed as the units system."""
+
+    units_display_name : Optional[str]
+    """Optional field containing the displayable form of the units field, e.g. '°C'.
+
+    If not set, the application environment needs to determine the displayable form."""
+
+    # n.B: normal_range and other_reference_ranges must now have DVQuantity, not DVOrdered
+
+    def __init__(self, 
+                 value: np.float32,
+                 units: str, 
+                 units_system: Optional[str] = None,
+                 units_display_name: Optional[str] = None,
+                 normal_status: Optional[CodePhrase] = None, 
+                 normal_range: Optional['DVInterval'] = None, 
+                 other_reference_ranges: Optional[list['ReferenceRange']] = None, 
+                 magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, 
+                 accuracy : Optional[np.float32] = None, 
+                 accuracy_is_percent: Optional[bool] = None, 
+                 precision: Optional[np.int32] = None,
+                 terminology_service: Optional[TerminologyService] = None):
+        converted_value = value
+        if not (isinstance(value, np.float32) or isinstance(value, float)):
+            raise TypeError("Value/magnitude must be a float")
+        if isinstance(value, float):
+            converted_value = np.float32(value)
+        self.value = converted_value
+        self.units = units
+        self.units_system = units_system
+        self.units_display_name = units_display_name
+        self.precision = precision
+
+        super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, accuracy_is_percent, terminology_service)
+
+    def is_strictly_comparable_to(self, other: 'DVQuantity'):
+        return (
+            super().is_strictly_comparable_to(other) and
+            self.units == other.units and
+            self.units_system == other.units_system
+        )
+    
+    # overridden to improve error messages
+    def _allowed_numeric_operation_check(self, other: 'DVQuantity'):
+        if not isinstance(other, type(self)):
+            raise TypeError(f"Other type must also be DVQuantity to allow numerical operations - you provided type \'{type(other)}\' (perhaps you forgot to wrap an Real value type?)")
+        if self.units_system != other.units_system:
+            raise ValueError(f"Cannot add two quantities with different units systems - \'{self.units_system if self.units_system is not None else "http://unitsofmeasure.org (default)"}\' and \'{other.units_system if other.units_system is not None else "http://unitsofmeasure.org (default)"}\'")
+        if self.units != other.units:
+            raise ValueError(f"Cannot add two quantities with different units - \'{self.units}\' and \'{other.units}\'")
+        if (not self.is_strictly_comparable_to(other)):
+            raise TypeError(f"DVQuantity with value of type \'{type(self.value)}\' is not strictly comparable to DVQuantity with value of type \'{type(other.value)}\'")
+
+    def _combine_precision(self, other: 'DVQuantity') -> Optional[np.int32]:
+        if self.precision is None or other.precision is None:
+            return None
+        else:
+            if self.precision == -1 and other.precision == -1:
+                return -1
+            else:
+                return min(max(self.precision, 0), max(other.precision, 0))
+
+
+    def __add__(self, other) -> 'DVQuantity':
+        amount_result = super().__add__(other)
+        new_precision = self._combine_precision(other)
+        return DVQuantity(amount_result.value, self.units, self.units_system, self.units_display_name, amount_result.normal_status, amount_result.normal_range, amount_result.other_reference_ranges, amount_result.magnitude_status, amount_result.accuracy, amount_result.accuracy_is_percent, new_precision, amount_result._terminology_service)
+    
+    def __sub__(self, other) -> 'DVQuantity':
+        amount_result = super().__sub__(other)
+        new_precision = self._combine_precision(other)
+        return DVQuantity(amount_result.value, self.units, self.units_system, self.units_display_name, amount_result.normal_status, amount_result.normal_range, amount_result.other_reference_ranges, amount_result.magnitude_status, amount_result.accuracy, amount_result.accuracy_is_percent, new_precision, amount_result._terminology_service)
+    
+    def __mul__(self, other):
+        amount_result = super().__mul__(other)
+        new_precision = self._combine_precision(other)
+        return DVQuantity(amount_result.value, self.units, self.units_system, self.units_display_name, amount_result.normal_status, amount_result.normal_range, amount_result.other_reference_ranges, amount_result.magnitude_status, amount_result.accuracy, amount_result.accuracy_is_percent, new_precision, amount_result._terminology_service)
+    
+    def __truediv__(self, other):
+        amount_result = super().__truediv__(other)
+        new_precision = self._combine_precision(other)
+        return DVQuantity(amount_result.value, self.units, self.units_system, self.units_display_name, amount_result.normal_status, amount_result.normal_range, amount_result.other_reference_ranges, amount_result.magnitude_status, amount_result.accuracy, amount_result.accuracy_is_percent, new_precision, amount_result._terminology_service)
+
+    def is_integral(self) -> bool:
+        """True if precision = 0, meaning that the magnitude is a whole number."""
+        return self.precision == 0
+    
