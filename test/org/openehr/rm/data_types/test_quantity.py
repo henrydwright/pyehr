@@ -2,7 +2,7 @@ import pytest
 
 from org.openehr.base.foundation_types.interval import ProperInterval
 from org.openehr.rm.data_types.text import CodePhrase, DVCodedText, DVText
-from org.openehr.rm.data_types.quantity import DVOrdered, DVInterval, ReferenceRange, DVOrdinal, DVScale, DVQuantified, DVAmount, DVQuantity
+from org.openehr.rm.data_types.quantity import DVOrdered, DVInterval, ReferenceRange, DVOrdinal, DVScale, DVQuantified, DVAmount, DVQuantity, DVCount
 from org.openehr.base.base_types.identification import TerminologyID
 from common import PythonTerminologyService, CODESET_OPENEHR_NORMAL_STATUSES
 
@@ -252,114 +252,42 @@ def test_dv_amount_negation_works():
     assert dvar.value == 100
 
 def test_dv_amount_multiply_accuracy_correct():
-    # no accuracies
+    # no accuracies (maintained)
     dva1 = DVAmount(5)
+    dvar = dva1 * 6.0
     dva2 = DVAmount(6)
-    dvar = dva1 * dva2
+    dvar = 5.0 * dva2
     assert dvar.value == 30
     assert dvar.accuracy_is_percent is None
     assert dvar.accuracy is None
 
-    # accuracy on one operand only
+    # accuracy (maintained)
     dva1 = DVAmount(5, accuracy=2.0, accuracy_is_percent=False)
-    dva2 = DVAmount(5)
-    dvar = dva1 * dva2
+    dvar = dva1 * 5.0
     assert dvar.value == 25
-    assert dvar.accuracy_is_percent is None
-    assert dvar.accuracy is None
-
-    # accuracy on both, both absolutes
-    dva1 = DVAmount(6, accuracy=2.0, accuracy_is_percent=False)
-    dva2 = DVAmount(6, accuracy=1.0, accuracy_is_percent=False)
-    dvar = dva1 * dva2
-    assert dvar.value == 36
-    assert dvar.accuracy_is_percent == False
-    # perc_accuracy = (2/6 + 1/6) = 50%
-    # abs_accuracy = 0.5 * 36 = 18
-    assert dvar.accuracy <= 18.001 and dvar.accuracy >= 17.999
-
-    # accuracy on both, both percentages
-    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=True)
-    dva2 = DVAmount(50, accuracy=5.0, accuracy_is_percent=True)
-    dvar = dva1 * dva2
-    assert dvar.value == 5000
-    assert dvar.accuracy_is_percent == True
-    # perc_accuracy = 10 + 5 = 15%
-    assert dvar.accuracy <= 15.001 and dvar.accuracy >= 14.999
-
-    # accuracy on both, larger is percent
-    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=True)
-    dva2 = DVAmount(80, accuracy=5.0, accuracy_is_percent=False)
-    dvar = dva1 * dva2
-    assert dvar.value == 8000
-    assert dvar.accuracy_is_percent == True
-    # perc_accuracy = 0.1 + 5/80 = 16.25%
-    assert dvar.accuracy <= 16.251 and dvar.accuracy >= 16.249
-
-    # accuracy on both, smaller is percent
-    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=False)
-    dva2 = DVAmount(80, accuracy=5.0, accuracy_is_percent=True)
-    dvar = dva1 * dva2
-    assert dvar.value == 8000
-    assert dvar.accuracy_is_percent == False
-    # perc_accuracy = 0.05 + 0.1 = 15%
-    # abs_accuracy = 0.15 * 8000 = 1200
-    assert dvar.accuracy <= 1200.001 and dvar.accuracy >= 1199.999
+    assert dvar.accuracy_is_percent is False
+    assert dvar.accuracy == 2.0
 
 def test_dv_amount_divide_accuracy_correct():
-    # no accuracies
+    # no accuracy (maintained)
     dva1 = DVAmount(5)
-    dva2 = DVAmount(6)
-    dvar = dva1 / dva2
+    dvar = dva1 / 6.0
     assert dvar.value <= 0.8334 and dvar.value >= 0.8332
     assert dvar.accuracy_is_percent is None
     assert dvar.accuracy is None
 
-    # accuracy on one operand only
+    # accuracy (maintained)
     dva1 = DVAmount(5, accuracy=2.0, accuracy_is_percent=False)
-    dva2 = DVAmount(5)
-    dvar = dva1 / dva2
-    assert dvar.value == 1
-    assert dvar.accuracy_is_percent is None
-    assert dvar.accuracy is None
-
-    # accuracy on both, both absolutes
-    dva1 = DVAmount(6, accuracy=2.0, accuracy_is_percent=False)
-    dva2 = DVAmount(6, accuracy=1.0, accuracy_is_percent=False)
-    dvar = dva1 / dva2
-    assert dvar.value == 1
+    dvar = dva1 / 5.0
+    assert dvar.value <= 1.001 and dvar.value >= 0.999
     assert dvar.accuracy_is_percent == False
-    # perc_accuracy = (2/6 + 1/6) = 50%
-    # abs_accuracy = 0.5 * 1 = 0.5
-    assert dvar.accuracy <= 0.501 and dvar.accuracy >= 0.499
+    assert dvar.accuracy == 2.0
 
-    # accuracy on both, both percentages
-    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=True)
-    dva2 = DVAmount(50, accuracy=5.0, accuracy_is_percent=True)
-    dvar = dva1 / dva2
-    assert dvar.value == 2
-    assert dvar.accuracy_is_percent == True
-    # perc_accuracy = 10 + 5 = 15%
-    assert dvar.accuracy <= 15.001 and dvar.accuracy >= 14.999
-
-    # accuracy on both, larger is percent
-    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=True)
-    dva2 = DVAmount(80, accuracy=5.0, accuracy_is_percent=False)
-    dvar = dva1 / dva2
-    assert dvar.value <= 1.2501 and dvar.value >= 1.2499
-    assert dvar.accuracy_is_percent == True
-    # perc_accuracy = 0.1 + 5/80 = 16.25%
-    assert dvar.accuracy <= 16.251 and dvar.accuracy >= 16.249
-
-    # accuracy on both, smaller is percent
-    dva1 = DVAmount(100, accuracy=10.0, accuracy_is_percent=False)
-    dva2 = DVAmount(80, accuracy=5.0, accuracy_is_percent=True)
-    dvar = dva1 / dva2
-    assert dvar.value <= 1.2501 and dvar.value >= 1.2499
-    assert dvar.accuracy_is_percent == False
-    # perc_accuracy = 0.05 + 0.1 = 15%
-    # abs_accuracy = 0.15 * 1.25 = 0.1875
-    assert dvar.accuracy <= 0.187501 and dvar.accuracy >= 0.187499
+def test_dv_amount_rdivide_not_possible():
+    # reasoning - if you do x / quantity the units might change
+    dva = DVAmount(6)
+    with pytest.raises(TypeError):
+        dvar = 5.0 / dva
 
 def test_dv_amount_accuracy_is_percent_validity():
     # OK
@@ -382,15 +310,22 @@ def test_dv_quantity_numeric_operation_checks_units_and_units_system():
     # OK
     dvq1 = DVQuantity(5.0, "m")
     dvq2 = DVQuantity(6.0, "m")
-    dvqr = dvq1 * dvq2
+    dvqr = dvq1 + dvq2
     assert dvqr.units == "m"
 
     dvq1 = DVQuantity(6.0, "258669008", "http://snomed.info/sct", "meter(s)")
     dvq2 = DVQuantity(7.0, "258669008", "http://snomed.info/sct", "meter")
-    dvqr = dvq1 * dvq2
+    dvqr = dvq2 - dvq1
     assert dvqr.units == "258669008"
     assert dvqr.units_system == "http://snomed.info/sct"
-    assert dvqr.units_display_name == "meter(s)"
+    assert dvqr.units_display_name == "meter"
+
+    # maintains with mult/div
+    dvq = DVQuantity(5.0, "m")
+    dvqr = dvq / 5.0
+    assert dvqr.units == "m"
+    dvqr = dvq * 5.0
+    assert dvqr.units == "m"
 
     dvq1 = DVQuantity(5.0, "m")
     dvq2 = DVQuantity(6.0, "kg")
@@ -399,10 +334,6 @@ def test_dv_quantity_numeric_operation_checks_units_and_units_system():
         dvqr = dvq1 + dvq2
     with pytest.raises(ValueError):
         dvqr = dvq1 - dvq2
-    with pytest.raises(ValueError):
-        dvqr = dvq1 * dvq2
-    with pytest.raises(ValueError):
-        dvqr = dvq1 / dvq2
 
     dvq1 = DVQuantity(6.0, "258669008", "http://snomed.info/sct", "meter(s)")
     dvq2 = DVQuantity(7.0, "m")
@@ -411,12 +342,8 @@ def test_dv_quantity_numeric_operation_checks_units_and_units_system():
         dvqr = dvq1 + dvq2
     with pytest.raises(ValueError):
         dvqr = dvq1 - dvq2
-    with pytest.raises(ValueError):
-        dvqr = dvq1 * dvq2
-    with pytest.raises(ValueError):
-        dvqr = dvq1 / dvq2
 
-def test_dv_quantity_addition_precision_correct():
+def test_dv_quantity_addsub_precision_correct():
     # custom is that precision is bounded by lowest precision
     # both have precision
     dvq1 = DVQuantity(5.25, "m", precision=2)
@@ -427,8 +354,8 @@ def test_dv_quantity_addition_precision_correct():
     # both have precision, one is unlimited
     dvq1 = DVQuantity(5.25, "m", precision=2)
     dvq2 = DVQuantity(5.0, "m", precision=-1)
-    dvqr = dvq1 + dvq2
-    assert dvqr.precision == 0
+    dvqr = dvq1 - dvq2
+    assert dvqr.precision == 2
 
     # only one has precision
     dvq1 = DVQuantity(5.25, "m", precision=2)
@@ -439,5 +366,28 @@ def test_dv_quantity_addition_precision_correct():
     # neither have precision
     dvq1 = DVQuantity(5.25, "m")
     dvq2 = DVQuantity(5.0, "m")
-    dvqr = dvq1 + dvq2
+    dvqr = dvq1 - dvq2
     assert dvqr.precision is None
+
+def test_dv_quantity_muldiv_precision_correct():
+    dvq = DVQuantity(5.25, "m", precision=2)
+    dvqr = dvq * 5.0
+    assert dvqr.precision == 2
+
+    dvq = DVQuantity(5.0, "m", precision=-1)
+    dvqr = dvq / 5.0
+    assert dvqr.precision == -1
+
+def test_dv_quantity_normal_range_is_quantities():
+    # OK
+    dvq = DVQuantity(9.0, "m", normal_range=DVInterval(lower=DVQuantity(8.0, "m"), upper=DVQuantity(10.0, "m")))
+    # Not OK
+    with pytest.raises(TypeError):
+        dvq = DVQuantity(9.0, "m", normal_range=DVInterval(lower=_TstDVQuantifiedImpl(2.0), upper=_TstDVQuantifiedImpl(10.0)))
+
+def test_dv_count_integer_only():
+    # OK
+    dvc = DVCount(6)
+    # not OK
+    with pytest.raises(TypeError):
+        dvc = DVCount(7.1)

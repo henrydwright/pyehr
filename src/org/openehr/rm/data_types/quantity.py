@@ -485,19 +485,23 @@ class DVAmount(DVQuantified):
 
         return (new_accuracy, new_accuracy_is_percent)
 
-    def __mul__(self, other: 'DVAmount'):
-        self._allowed_numeric_operation_check(other)
-        new_value = self.value * other.value
-        new_accuracy, new_accuracy_is_percent = self._combine_accuracies_muldiv(other, new_value)
+    def __mul__(self, other: np.float32):
+        if not (isinstance(other, np.float32) or isinstance(other, float)):
+            raise TypeError(f"Can only multiply a DVAmount by Real, not \'{type(other)}\'")
+        new_value = self.value * other
 
-        return DVAmount(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, new_accuracy, new_accuracy_is_percent, self._terminology_service)
+        return DVAmount(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, self.accuracy, self.accuracy_is_percent, self._terminology_service)
     
-    def __truediv__(self, other: 'DVAmount'):
-        self._allowed_numeric_operation_check(other)
-        new_value = self.value / other.value
-        new_accuracy, new_accuracy_is_percent = self._combine_accuracies_muldiv(other, new_value)
+    def __rmul__(self, other: np.float32):
+        return self.__mul__(other)
 
-        return DVAmount(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, new_accuracy, new_accuracy_is_percent, self._terminology_service)
+    def __truediv__(self, other: np.float32):
+        if not (isinstance(other, np.float32) or isinstance(other, float)):
+            raise TypeError(f"Can only multiply a DVAmount by Real, not \'{type(other)}\'")
+        new_value = self.value / other
+
+        return DVAmount(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, self.accuracy, self.accuracy_is_percent, self._terminology_service)
+    
 
 class DVQuantity(DVAmount):
     """Quantitified type representing scientific quantities, i.e. quantities expressed as a magnitude and units. 
@@ -562,9 +566,16 @@ class DVQuantity(DVAmount):
                  terminology_service: Optional[TerminologyService] = None):
         converted_value = value
         if not (isinstance(value, np.float32) or isinstance(value, float)):
-            raise TypeError("Value/magnitude must be a float")
+            raise TypeError("Value/magnitude must be a Real")
         if isinstance(value, float):
             converted_value = np.float32(value)
+        
+        if normal_range is not None:
+            if normal_range.value.upper is not None and not isinstance(normal_range.value.upper, DVQuantity):
+                raise TypeError(f"Normal range values must each be DVQuantity, but \'{type(normal_range.value.upper)}\' was given")
+            if normal_range.value.lower is not None and not isinstance(normal_range.value.lower, DVQuantity):
+                raise TypeError(f"Normal range values must each be DVQuantity, but \'{type(normal_range.value.upper)}\' was given")
+
         self.value = converted_value
         self.units = units
         self.units_system = units_system
@@ -597,8 +608,12 @@ class DVQuantity(DVAmount):
         else:
             if self.precision == -1 and other.precision == -1:
                 return -1
+            elif self.precision == -1:
+                return other.precision
+            elif other.precision == -1:
+                return self.precision
             else:
-                return min(max(self.precision, 0), max(other.precision, 0))
+                return min(self.precision, other.precision)
 
 
     def __add__(self, other) -> 'DVQuantity':
@@ -611,17 +626,42 @@ class DVQuantity(DVAmount):
         new_precision = self._combine_precision(other)
         return DVQuantity(amount_result.value, self.units, self.units_system, self.units_display_name, amount_result.normal_status, amount_result.normal_range, amount_result.other_reference_ranges, amount_result.magnitude_status, amount_result.accuracy, amount_result.accuracy_is_percent, new_precision, amount_result._terminology_service)
     
-    def __mul__(self, other):
+    def __mul__(self, other: np.float32):
         amount_result = super().__mul__(other)
-        new_precision = self._combine_precision(other)
+        new_precision = self.precision
         return DVQuantity(amount_result.value, self.units, self.units_system, self.units_display_name, amount_result.normal_status, amount_result.normal_range, amount_result.other_reference_ranges, amount_result.magnitude_status, amount_result.accuracy, amount_result.accuracy_is_percent, new_precision, amount_result._terminology_service)
     
     def __truediv__(self, other):
         amount_result = super().__truediv__(other)
-        new_precision = self._combine_precision(other)
+        new_precision = self.precision
         return DVQuantity(amount_result.value, self.units, self.units_system, self.units_display_name, amount_result.normal_status, amount_result.normal_range, amount_result.other_reference_ranges, amount_result.magnitude_status, amount_result.accuracy, amount_result.accuracy_is_percent, new_precision, amount_result._terminology_service)
 
     def is_integral(self) -> bool:
         """True if precision = 0, meaning that the magnitude is a whole number."""
         return self.precision == 0
     
+class DVCount(DVAmount):
+    """Countable quantities. Used for countable types such as pregnancies and steps (taken by a physiotherapy patient), number of cigarettes smoked in a day.
+
+    Misuse: Not to be used for amounts of physical entities (which all have units)."""
+
+    value: np.int64
+
+    def _get_magnitude(self) -> np.int64:
+        return self.value
+
+    magnitude = property(
+        fget=_get_magnitude
+    )
+    """Numeric magnitude of the quantity."""
+
+    # n.B: normal_range and other_reference_ranges must now have DVQuantity, not DVOrdered
+
+    def __init__(self, value: np.int64, normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, accuracy : Optional[np.float32] = None, accuracy_is_percent: Optional[bool] = None, terminology_service: Optional[TerminologyService] = None):
+        converted_value = value
+        if not (isinstance(value, np.int64) or isinstance(value, int)):
+            raise TypeError("Value/magnitude must be a Integer64")
+        if isinstance(value, int):
+            converted_value = np.int64(value)
+        
+        super().__init__(converted_value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, accuracy_is_percent, terminology_service)
