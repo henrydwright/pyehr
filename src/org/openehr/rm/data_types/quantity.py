@@ -833,3 +833,11 @@ class DVProportion(DVAmount):
                 return str(whole_part) + " " + str(frac_part) + "/" + str(int(self.denominator))
             else:
                 return str(int(self.numerator)) + "/" + str(int(self.denominator))
+            
+class DVAbsoluteQuantity(DVQuantified):
+    """Abstract class defining the concept of quantified entities whose values are absolute with respect to an origin. 
+    Dates and Times are the main example."""
+
+    @abstractmethod
+    def __init__(self, value, normal_status = None, normal_range = None, other_reference_ranges = None, magnitude_status = None, accuracy = None, terminology_service = None):
+        super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, terminology_service)
