@@ -872,5 +872,23 @@ class DVAbsoluteQuantity(DVQuantified):
         pass
 
     @abstractmethod
+    def subtract(self, a_diff: DVAmount) -> 'DVAbsoluteQuantity':
+        """Result of subtracting a differential amount from this quantity.
+
+        The value of accuracy in the result is either:
+        * the sum of the accuracies of the operands, if both present, or;
+        * unknown, if either or both operand accuracies are unknown."""
+        pass
+
+    @abstractmethod
+    def diff(self, other: 'DVAbsoluteQuantity') -> DVAmount:
+        """Difference of two quantities.
+
+        The value of accuracy in the result is either:
+        * the sum of the accuracies of the operands, if both present, or;
+        * unknown, if either or both operand accuracies are unknown."""
+        pass
+
+    @abstractmethod
     def __sub__(self, other: Union[DVAmount, 'DVAbsoluteQuantity']) -> Union['DVAbsoluteQuantity', DVAmount]:
         pass

@@ -32,6 +32,12 @@ class _TstDVAbsoluteQuantityImpl(DVAbsoluteQuantity):
     
     def __sub__(self, other):
         return super().__sub__(other)
+    
+    def diff(self, other):
+        return super().diff(other)
+    
+    def subtract(self, a_diff):
+        return super().subtract(a_diff)
 
 def test_other_reference_ranges_validity():
     # OK

@@ -1,9 +1,10 @@
+from abc import abstractmethod
 from typing import Optional, Union
 
 import numpy as np
 
 from org.openehr.base.foundation_types.primitive_types import ordered_numeric
-from org.openehr.base.foundation_types.time import ISODuration
+from org.openehr.base.foundation_types.time import ISODuration, ISOTime, ISODateTime, ISODate
 from org.openehr.rm.data_types.text import CodePhrase
 from org.openehr.rm.data_types.quantity import DVAmount, DVAbsoluteQuantity, DVInterval, DVQuantified, ReferenceRange
 from org.openehr.rm.support.terminology import TerminologyService
@@ -117,3 +118,39 @@ class DVDuration(DVAmount):
     def as_string(self) -> str:
         return self._value.as_string()
     
+class DVTemporal(DVAbsoluteQuantity):
+    """Specialised temporal variant of DV_ABSOLUTE_QUANTITY whose diff type is DV_DURATION."""
+
+    accuracy : Optional[DVDuration]
+    """Time accuracy, expressed as a duration."""
+
+    def __init__(self, 
+                 value: Union[ISOTime, ISODateTime, ISODate], 
+                 normal_status: Optional[CodePhrase] = None, 
+                 normal_range: Optional['DVInterval'] = None, 
+                 other_reference_ranges: Optional[list['ReferenceRange']] = None, 
+                 magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, 
+                 accuracy : Optional[DVDuration] = None, 
+                 accuracy_is_percent: Optional[bool] = None, 
+                 terminology_service: Optional[TerminologyService] = None):
+        if accuracy is not None and not isinstance(accuracy, DVDuration):
+            raise TypeError(f"Accuracy must be DVDuration for subclasses of DVTemporal but \'{type(accuracy)}\' was given")
+        super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, accuracy_is_percent, terminology_service)
+
+    @abstractmethod
+    def __add__(self, other: DVDuration) -> 'DVTemporal':
+        pass
+    
+    @abstractmethod
+    def subtract(self, a_diff: DVDuration) -> 'DVTemporal':
+        """Subtract a Duration from this temporal entity."""
+        pass
+
+    @abstractmethod
+    def diff(self, other: 'DVTemporal') -> DVDuration:
+        """Difference between this temporal entity and other."""
+        pass
+
+    @abstractmethod
+    def __sub__(self, other: Union[DVDuration, 'DVTemporal']) -> Union['DVTemporal', DVDuration]:
+        pass
