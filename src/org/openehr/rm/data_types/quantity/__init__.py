@@ -838,6 +838,26 @@ class DVAbsoluteQuantity(DVQuantified):
     """Abstract class defining the concept of quantified entities whose values are absolute with respect to an origin. 
     Dates and Times are the main example."""
 
+    accuracy : Optional[DVAmount]
+
     @abstractmethod
-    def __init__(self, value, normal_status = None, normal_range = None, other_reference_ranges = None, magnitude_status = None, accuracy = None, terminology_service = None):
-        super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, terminology_service)
+    def __init__(self, 
+                 value: ordered_numeric, 
+                 normal_status: Optional[CodePhrase] = None, 
+                 normal_range: Optional['DVInterval'] = None, 
+                 other_reference_ranges: Optional[list['ReferenceRange']] = None, 
+                 magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, 
+                 accuracy : Optional[DVAmount] = None, 
+                 accuracy_is_percent: Optional[bool] = None, 
+                 terminology_service: Optional[TerminologyService] = None):
+        super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, None, terminology_service)
+        if not (accuracy is None or isinstance(accuracy, DVAmount)):
+            raise TypeError(f"Accuracy must be of type DVAmount but \'{type(accuracy)}\' was given")
+    
+    @abstractmethod
+    def __add__(self, other: DVAmount) -> 'DVAbsoluteQuantity':
+        pass
+
+    @abstractmethod
+    def __sub__(self, other: Union[DVAmount, 'DVAbsoluteQuantity']) -> Union['DVAbsoluteQuantity', DVAmount]:
+        pass
