@@ -2,7 +2,8 @@
 forms of measured quantity and supporting information for those quantities"""
 
 from abc import abstractmethod
-from enum import StrEnum
+from enum import IntEnum, StrEnum
+from math import floor
 from typing import Optional, Union
 
 import numpy as np
@@ -102,7 +103,7 @@ class DVOrdered(DataValue):
         if not isinstance(other, type(self)):
             raise TypeError(f"Other type must also be DVOrdered to allow comparison - you provided type \'{type(other)}\' (perhaps you forgot to wrap an ordered value type?)")
         if (not self.is_strictly_comparable_to(other)):
-            raise TypeError(f"DVOrdered with value of type \'{type(self.value)}\' is not strictly comparable to DVOrdered with value of type \'{type(other.value)}\'")
+            raise TypeError(f"The two classes were not strictly comparable (e.g. incomparable types, proportion kinds, etc.)")
         
     def less_than(self, other):
         """True if this Ordered object is less than other. Redefined in descendants."""
@@ -466,24 +467,6 @@ class DVAmount(DVQuantified):
         new_accuracy, new_accuracy_is_percent = self._combine_accuracies_addsub(other, new_value)
 
         return DVAmount(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, new_accuracy, new_accuracy_is_percent, self._terminology_service)
-    
-    def _combine_accuracies_muldiv(self, other: 'DVAmount', new_value: ordered_numeric) -> tuple[Optional[np.float32], Optional[bool]]:
-        new_accuracy = None
-        new_accuracy_is_percent = None
-
-        if not self.accuracy_unknown() and not other.accuracy_unknown():
-            self_perc_accuracy = abs(self.accuracy if self.accuracy_is_percent else ((self.accuracy / self.value) * 100))
-            other_perc_accuracy = abs(other.accuracy if other.accuracy_is_percent else ((other.accuracy / other.value) * 100))
-            new_perc_accuracy = self_perc_accuracy + other_perc_accuracy
-
-            if self.value >= other.value:
-                new_accuracy_is_percent = self.accuracy_is_percent
-            else:
-                new_accuracy_is_percent = other.accuracy_is_percent
-
-            new_accuracy = new_perc_accuracy if new_accuracy_is_percent else ((new_perc_accuracy / 100) * new_value)
-
-        return (new_accuracy, new_accuracy_is_percent)
 
     def __mul__(self, other: np.float32):
         if not (isinstance(other, np.float32) or isinstance(other, float)):
@@ -596,9 +579,9 @@ class DVQuantity(DVAmount):
         if not isinstance(other, type(self)):
             raise TypeError(f"Other type must also be DVQuantity to allow numerical operations - you provided type \'{type(other)}\' (perhaps you forgot to wrap an Real value type?)")
         if self.units_system != other.units_system:
-            raise ValueError(f"Cannot add two quantities with different units systems - \'{self.units_system if self.units_system is not None else "http://unitsofmeasure.org (default)"}\' and \'{other.units_system if other.units_system is not None else "http://unitsofmeasure.org (default)"}\'")
+            raise ValueError(f"Cannot perform numerical operations on two quantities with different units systems - \'{self.units_system if self.units_system is not None else "http://unitsofmeasure.org (default)"}\' and \'{other.units_system if other.units_system is not None else "http://unitsofmeasure.org (default)"}\'")
         if self.units != other.units:
-            raise ValueError(f"Cannot add two quantities with different units - \'{self.units}\' and \'{other.units}\'")
+            raise ValueError(f"Cannot perform numerical operations on two quantities with different units - \'{self.units}\' and \'{other.units}\'")
         if (not self.is_strictly_comparable_to(other)):
             raise TypeError(f"DVQuantity with value of type \'{type(self.value)}\' is not strictly comparable to DVQuantity with value of type \'{type(other.value)}\'")
 
@@ -665,3 +648,188 @@ class DVCount(DVAmount):
             converted_value = np.int64(value)
         
         super().__init__(converted_value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, accuracy_is_percent, terminology_service)
+
+class ProportionKind(IntEnum):
+    """Class of enumeration constants defining types of proportion for the DV_PROPORTION class."""
+    PK_RATIO = 0
+    """Ratio type. Numerator and denominator may be any value."""
+    PK_UNITARY = 1
+    """Denominator must be 1."""
+    PK_PERCENT = 2
+    """Denominator is 100, numerator is understood as a percentage value."""
+    PK_FRACTION = 3
+    """Numerator and denominator are integral, and the presentation method uses a slash, e.g. 1/2 ."""
+    PK_INTEGER_FRACTION = 4
+    """Numerator and denominator are integral, and the presentation method uses a slash, e.g. 1/2 ; if the numerator is greater than the denominator, e.g. n=3, d=2, the presentation is 1 1/2 ."""
+
+    def valid_proportion_kind(nq: int) -> bool:
+        """True if n is one of the defined types."""
+        return nq in ProportionKind
+
+
+class DVProportion(DVAmount):
+    """Models a ratio of values, i.e. where the numerator and denominator are both pure numbers. The `valid_proportion_kind` 
+    property of the PROPORTION_KIND class is used to control the type attribute to be one of a defined set.
+
+    Used for recording titers (e.g. 1:128), concentration ratios, e.g. Na:K (unitary denominator), albumin:creatinine ratio, 
+    and percentages, e.g. red cell distirbution width (RDW).
+
+    Misuse: Should not be used to represent things like blood pressure which are often written using a '/' character, giving 
+    the misleading impression that the item is a ratio, when in fact it is a structured value. Similarly, visual acuity, often 
+    written as (e.g.) "6/24" in clinical notes is not a ratio but an ordinal (which includes non-numeric symbols like 
+    CF = count fingers etc). Should not be used for formulations."""
+
+    numerator: np.float32
+    """Numerator of ratio"""
+
+    denominator: np.float32
+    """Denominator of ratio."""
+
+    proportion_type: Union[ProportionKind, np.int32]
+    """Indicates semantic type of proportion, including percent, unitary etc."""
+
+    precision: Optional[np.int32]
+    """Precision to which the numerator and denominator values of the proportion are expressed, in terms of number of decimal 
+    places. The value 0 implies an integral quantity. The value -1 implies no limit, i.e. any number of decimal places."""
+
+    # n.B: normal_range and other_reference_ranges must now have DVProportion, not DVOrdered
+
+    def magnitude(self):
+        return self.numerator / self.denominator
+    
+    magnitude = property(
+        fget=magnitude
+        )
+
+    def is_integral(self) -> bool:
+        return self.precision == 0
+    
+    def __init__(self, numerator: np.float32, denominator: np.float32, proportion_type: Union[ProportionKind, np.int32], precision : Optional[np.int32] = None, normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, accuracy : Optional[np.float32] = None, accuracy_is_percent: Optional[bool] = None, terminology_service: Optional[TerminologyService] = None):
+        self.numerator = numerator
+
+        if (denominator == 0.0):
+            raise ValueError("Denominator cannot be 0.0 (invariant: valid_denominator)")
+
+        self.denominator = denominator
+
+        if (proportion_type == ProportionKind.PK_FRACTION or proportion_type == ProportionKind.PK_INTEGER_FRACTION) and (precision != 0):
+            raise ValueError(f"For proportion of FRACTION or INTEGER_FRACTION type, numerator and denominator must both be whole numbers and precision set to 0. Given value was \'{self.numerator}/{self.denominator}\' and precision \'{precision}\' (invariant: fraction_validity)")
+
+        if (proportion_type == ProportionKind.PK_UNITARY and denominator != 1.0):
+            raise ValueError(f"For proportion of type UNITARY, denominator must be 1.0 but \'{denominator}\' was given (invariant: unitary_validity)")
+
+        if (proportion_type == ProportionKind.PK_PERCENT and denominator != 100.0):
+            raise ValueError(f"For proportion of type PERCENT, denominator must be 100.0 but \'{denominator}\' was given (invariant: percent_validity)")
+
+        self.proportion_type = proportion_type
+        
+        if precision is not None:
+            if precision == 0 and ((floor(numerator) != numerator) or floor(denominator) != denominator):
+                raise ValueError(f"Precision was given as 0, but numerator \'{numerator}\' and denominator \'{denominator}\' were not BOTH whole numbers (invariant: is_integral_validity))")
+
+        self.precision = precision
+
+        super().__init__((numerator/denominator), normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, accuracy_is_percent, terminology_service)
+        
+        # stops value being set independently (after initialization)
+        self.value = self.magnitude
+
+    def is_strictly_comparable_to(self, other: 'DVProportion'):
+        """Return True if the type of this proportion is the same as the type of other."""
+        return (
+            isinstance(other, type(self)) and
+            self.proportion_type == other.proportion_type
+        )
+    
+    def _allowed_numeric_operation_check(self, other: 'DVProportion'):
+        prop_type_error_lookup = {
+            0: "0 - PK_RATIO",
+            1: "1 - PK_UNITARY",
+            2: "2 - PK_PERCENT",
+            3: "3 - PK_FRACTION",
+            4: "4 - PK_INTEGER_FUNCTION"
+        }
+        if not isinstance(other, type(self)):
+            raise TypeError(f"Other type must also be DVProportion to allow numerical operations - you provided type \'{type(other)}\'")
+        if self.proportion_type != other.proportion_type:
+            raise ValueError(f"Cannot perform numerical operations on two proportions with different proportion types - \'{prop_type_error_lookup[self.proportion_type]}\' and \'{prop_type_error_lookup[other.proportion_type]}\'")
+        
+    def _combine_precision(self, other: 'DVProportion') -> Optional[np.int32]:
+        if self.precision is None or other.precision is None:
+            return None
+        else:
+            if self.precision == -1 and other.precision == -1:
+                return -1
+            elif self.precision == -1:
+                return other.precision
+            elif other.precision == -1:
+                return self.precision
+            else:
+                return min(self.precision, other.precision)
+
+    def __neg__(self):
+        return DVProportion(-self.numerator, self.denominator, self.proportion_type, self.precision, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, self.accuracy, self.accuracy_is_percent, self._terminology_service)
+
+    def __add__(self, other: 'DVProportion'):
+        self._allowed_numeric_operation_check(other)
+        new_numerator = 0
+        new_denominator = 0
+        new_precision = self._combine_precision(other)
+        if self.proportion_type == ProportionKind.PK_UNITARY or self.proportion_type == ProportionKind.PK_UNITARY:
+            new_numerator = self.numerator + other.numerator
+            new_denominator = self.denominator
+        else:
+            # to preserve integrality if it exists, scale to the bigger denominator
+            if self.denominator > other.denominator:
+                new_denominator = self.denominator
+                scalor = self.denominator / other.denominator
+                new_numerator = self.numerator + (other.numerator * scalor)
+            else:
+                new_denominator = other.denominator
+                scalor = other.denominator / self.denominator
+                new_numerator = other.numerator + (self.numerator * scalor)
+
+        new_accuracy, new_accuracy_is_percent = self._combine_accuracies_addsub(other, new_numerator / new_denominator)
+        return DVProportion(new_numerator, new_denominator, self.proportion_type, new_precision, accuracy=new_accuracy, accuracy_is_percent=new_accuracy_is_percent)
+    
+    def __sub__(self, other: 'DVProportion'):
+        return self + (-other)
+
+    def __mul__(self, other: np.float32):
+        if not (isinstance(other, np.float32) or isinstance(other, float)):
+            raise TypeError(f"Can only multiply a DVProportion by Real, not \'{type(other)}\'")
+        if self.precision == 0 and floor(other) != other:
+            raise ValueError(f"For integral proportions, these may only be multiplied by whole numbers so \'{other}\' is not allowed")
+        new_numerator = self.numerator * other
+        return DVProportion(new_numerator, self.denominator, self.proportion_type, self.precision, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, self.accuracy, self.accuracy_is_percent, self._terminology_service)
+    
+    def __truediv__(self, other):
+        if not (isinstance(other, np.float32) or isinstance(other, float)):
+            raise TypeError(f"Can only divide a DVProportion by Real, not \'{type(other)}\'")
+        if self.precision == 0 and floor(other) != other:
+            raise ValueError(f"For integral proportions, these may only be divided by whole numbers so \'{other}\' is not allowed")
+        
+        new_numerator = self.numerator
+        new_denominator = self.denominator
+        if self.proportion_type == ProportionKind.PK_UNITARY or self.proportion_type == ProportionKind.PK_PERCENT:
+            new_numerator = self.numerator / other
+        else:
+            new_denominator = self.denominator * other
+        return DVProportion(new_numerator, new_denominator, self.proportion_type, self.precision, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, self.accuracy, self.accuracy_is_percent, self._terminology_service)
+        
+    def __str__(self):
+        if self.proportion_type == ProportionKind.PK_UNITARY:
+            return str(self.numerator) + ":1"
+        elif self.proportion_type == ProportionKind.PK_RATIO:
+            return str(self.numerator) + ":" + str(self.denominator)
+        elif self.proportion_type == ProportionKind.PK_PERCENT:
+            return str(self.numerator) + "%"
+        elif self.proportion_type == ProportionKind.PK_FRACTION:
+            return str(int(self.numerator)) + "/" + str(int(self.denominator))
+        elif self.proportion_type == ProportionKind.PK_INTEGER_FRACTION:
+            whole_part = int(self.numerator) // int(self.denominator)
+            frac_part = int(self.numerator) % int(self.denominator)
+            if whole_part > 0:
+                return str(whole_part) + " " + str(frac_part) + "/" + str(int(self.denominator))
+            else:
+                return str(int(self.numerator)) + "/" + str(int(self.denominator))

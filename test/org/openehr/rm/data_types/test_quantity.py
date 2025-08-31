@@ -2,7 +2,7 @@ import pytest
 
 from org.openehr.base.foundation_types.interval import ProperInterval
 from org.openehr.rm.data_types.text import CodePhrase, DVCodedText, DVText
-from org.openehr.rm.data_types.quantity import DVOrdered, DVInterval, ReferenceRange, DVOrdinal, DVScale, DVQuantified, DVAmount, DVQuantity, DVCount
+from org.openehr.rm.data_types.quantity import DVOrdered, DVInterval, ReferenceRange, DVOrdinal, DVScale, DVQuantified, DVAmount, DVQuantity, DVCount, ProportionKind, DVProportion
 from org.openehr.base.base_types.identification import TerminologyID
 from common import PythonTerminologyService, CODESET_OPENEHR_NORMAL_STATUSES
 
@@ -391,3 +391,142 @@ def test_dv_count_integer_only():
     # not OK
     with pytest.raises(TypeError):
         dvc = DVCount(7.1)
+
+def test_proportion_kind_valid_proportion_kind():
+    assert ProportionKind.valid_proportion_kind(5) == False
+    for val in {0, 1, 2, 3, 4}:
+        assert ProportionKind.valid_proportion_kind(val) == True
+
+def test_dv_proportion_precision_validity():
+    dvp = DVProportion(5.0, 100.0, ProportionKind.PK_PERCENT, 0)
+    assert dvp.is_integral() == True
+
+def test_dv_proportion_is_integral_validity():
+    # OK
+    dvp = DVProportion(1.0, 8.0, ProportionKind.PK_FRACTION, 0)
+    dvp = DVProportion(1.0, 8.5, ProportionKind.PK_RATIO, 1)
+    # not OK
+    with pytest.raises(ValueError):
+        dvp = DVProportion(1.0, 8.5, ProportionKind.PK_RATIO, 0)
+
+def test_dv_proportion_fraction_validity():
+    # OK
+    dvp = DVProportion(1.0, 2.0, ProportionKind.PK_FRACTION, 0)
+    dvp = DVProportion(7.0, 3.0, ProportionKind.PK_INTEGER_FRACTION, 0)
+    # not OK
+    with pytest.raises(ValueError):
+        dvp = DVProportion(1.0, 2.5, ProportionKind.PK_FRACTION, 1)
+    with pytest.raises(ValueError):
+        dvp = DVProportion(7.0, 3.5, ProportionKind.PK_INTEGER_FRACTION, 1)
+
+def test_dv_proportion_unitary_validity():
+    # OK
+    dvp = DVProportion(48.9, 1.0, ProportionKind.PK_UNITARY)
+    # not OK
+    with pytest.raises(ValueError):
+        dvp = DVProportion(48.9, 1.5, ProportionKind.PK_UNITARY)
+    
+def test_dv_proportion_percent_validity():
+    # OK
+    dvp = DVProportion(69.0, 100.0, ProportionKind.PK_PERCENT)
+    # not OK
+    with pytest.raises(ValueError):
+        dvp = DVProportion(69.0, 100.5, ProportionKind.PK_PERCENT)
+
+def test_dv_proportion_valid_denominator():
+    # not OK
+    with pytest.raises(ValueError):
+        dvp = DVProportion(100.0, 0.0, ProportionKind.PK_RATIO)
+
+def test_dv_proportion_addition_correct():
+    # percentages
+    dvp1 = DVProportion(20.0, 100.0, ProportionKind.PK_PERCENT)
+    dvp2 = DVProportion(30.0, 100.0, ProportionKind.PK_PERCENT)
+    dvpr = dvp1 + dvp2
+    assert dvpr.numerator <= 50.001 and dvpr.numerator > 49.999
+    assert dvpr.proportion_type == ProportionKind.PK_PERCENT
+
+    # fractions
+    dvp1 = DVProportion(2.0, 8.0, ProportionKind.PK_FRACTION, 0)
+    dvp2 = DVProportion(1.0, 16.0, ProportionKind.PK_FRACTION, 0)
+    dvpr = dvp1 + dvp2
+    assert dvpr.denominator <= 16.001 and dvpr.denominator >= 15.999
+    assert dvpr.numerator <= 5.001 and dvpr.numerator >= 4.999
+    assert dvpr.proportion_type == ProportionKind.PK_FRACTION
+
+def test_dv_proportion_addition_checks_strictly_comparable():
+    # OK
+    dvp1 = DVProportion(128.0, 1.0, ProportionKind.PK_UNITARY)
+    dvp2 = DVProportion(64.0, 1.0, ProportionKind.PK_UNITARY)
+    dvpr = dvp1 + dvp2
+    assert dvpr.numerator <= 192.001 and dvpr.numerator >= 191.999
+
+    # not OK
+    dvp1 = DVProportion(1.0, 2.0, ProportionKind.PK_FRACTION, 0)
+    dvp2 = DVProportion(1.0, 2.0, ProportionKind.PK_INTEGER_FRACTION, 0)
+    with pytest.raises(ValueError):
+        dvpr = dvp1 + dvp2
+
+def test_dv_proportion_multiply_correct():
+    dvp1 = DVProportion(1.0, 2.0, ProportionKind.PK_FRACTION, 0)
+    dvp2 = DVProportion(1.0, 3.0, ProportionKind.PK_FRACTION, 0)
+    dpvr = dvp1 * 5.0
+    dvpr = 5.0 * dvp1
+    assert dvpr.numerator <= 5.001 and dvpr.numerator >= 4.999
+    assert dvpr.denominator == 2.0
+    # fraction multiplied by non integral number gives error
+    with pytest.raises(ValueError):
+        dvpr = 3.5 * dvp1
+    # multiplying two proportions gives error
+    with pytest.raises(TypeError):
+        dvpr = dvp1 * dvp2
+
+def test_dv_proportion_divide_correct():
+    dvp1 = DVProportion(20.0, 100.0, ProportionKind.PK_PERCENT)
+    dvpr = dvp1 / 4.0
+    assert dvpr.numerator <= 5.001 and dvpr.numerator >= 4.999
+    assert dvpr.denominator == 100.0
+
+    dvp2 = DVProportion(7.0, 6.0, ProportionKind.PK_INTEGER_FRACTION, 0)
+    dvpr = dvp2 / 5.0
+    assert dvpr.numerator == 7.0
+    assert dvpr.denominator <= 30.001 and dvpr.denominator >= 29.999
+
+    # integral divided by non integral gives error
+    dvp3 = DVProportion(30.0, 100.0, ProportionKind.PK_PERCENT, 0)
+    with pytest.raises(ValueError):
+        dvpr = dvp3 / 5.9
+
+    # proportion divided by proportion gives error
+    with pytest.raises(TypeError):
+        dvp3 / dvp1
+
+    # number divided by proportion gives error
+    with pytest.raises(TypeError):
+        5.0 / dvp1
+
+def test_dv_proportion_subtract_correct():
+    # percentages
+    dvp1 = DVProportion(20.0, 100.0, ProportionKind.PK_PERCENT)
+    dvp2 = DVProportion(30.0, 100.0, ProportionKind.PK_PERCENT)
+    dvpr = dvp1 - dvp2
+    assert dvpr.numerator <= -9.999 and dvpr.numerator > -10.001
+    assert dvpr.proportion_type == ProportionKind.PK_PERCENT
+
+    # fractions
+    dvp1 = DVProportion(2.0, 8.0, ProportionKind.PK_FRACTION, 0)
+    dvp2 = DVProportion(1.0, 16.0, ProportionKind.PK_FRACTION, 0)
+    dvpr = dvp1 - dvp2
+    assert dvpr.denominator <= 16.001 and dvpr.denominator >= 15.999
+    assert dvpr.numerator <= 3.001 and dvpr.numerator >= 2.999
+    assert dvpr.proportion_type == ProportionKind.PK_FRACTION
+
+def test_dv_proportion_comparisons_correct():
+    dvp1 = DVProportion(1.0, 2.0, ProportionKind.PK_INTEGER_FRACTION, 0) 
+    dvp2 = DVProportion(9.0, 4.0, ProportionKind.PK_INTEGER_FRACTION, 0)
+    assert dvp1 < dvp2
+
+    dvp1 = DVProportion(20.0, 100.0, ProportionKind.PK_PERCENT)
+    dvp2 = DVProportion(29.9, 100.0, ProportionKind.PK_PERCENT)
+    assert dvp2 >= dvp1
+    assert dvp2 >= dvp2
