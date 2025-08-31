@@ -9,7 +9,7 @@ from typing import Optional, Union
 import numpy as np
 
 from org.openehr.base.foundation_types.primitive_types import ordered, integer_type, ordered_numeric
-from org.openehr.base.foundation_types.time import ISOType, ISODate
+from org.openehr.base.foundation_types.time import ISOType, ISODate, ISODuration
 from org.openehr.base.foundation_types.interval import Interval, ProperInterval, PointInterval
 from org.openehr.base.foundation_types.any import AnyClass
 from org.openehr.base.foundation_types.structure import is_equal_value
@@ -29,8 +29,19 @@ class DVOrdered(DataValue):
     compare meaningfully. For example, instances of DV_QUANTITY can only be compared if they measure 
     the same kind of physical quantity."""
 
-    value: ordered
+    _value: ordered
     """Value of `ordered` type"""
+
+    def _get_value(self):
+        return self._value
+    
+    def _set_value(self, new_value):
+        self._value = new_value
+
+    value = property(
+        fget=_get_value,
+        fset=_set_value
+    )
 
     normal_status: Optional[CodePhrase]
     """Optional normal status indicator of value with respect to normal range for this value. Often 
@@ -58,7 +69,7 @@ class DVOrdered(DataValue):
             converted_value = np.float64(value)
         if not isinstance(converted_value, ordered):
             raise TypeError(f"Value must be of an ordered type, but value of type \'{type(value)}\' was provided")
-        self.value = converted_value
+        self._value = converted_value
 
         if (normal_status is not None) and (terminology_service is None):
             raise ValueError("If normal_status is provided, a terminology service must be provided to check its validity (invariant: normal_status_validity)")
@@ -88,22 +99,22 @@ class DVOrdered(DataValue):
 
     def is_equal(self, other: 'DVOrdered'):
         return (type(self) == type(other) and
-                self.value == other.value)
+                self._value == other._value)
     
     @abstractmethod
     def is_strictly_comparable_to(self, other: 'DVOrdered'):
         return not (
-            (isinstance(self.value, str) and not isinstance(other.value, str)) or 
-            (isinstance(other.value, str) and not isinstance(self.value, str)) or 
-            (isinstance(self.value, ISOType) and not isinstance(other.value, ISOType)) or
-            (isinstance(other.value, ISOType) and not isinstance(self.value, ISOType))
+            (isinstance(self._value, str) and not isinstance(other._value, str)) or 
+            (isinstance(other._value, str) and not isinstance(self._value, str)) or 
+            (isinstance(self._value, ISOType) and not isinstance(other._value, ISOType)) or
+            (isinstance(other._value, ISOType) and not isinstance(self._value, ISOType))
         )
     
     def _allowed_comparison_check(self, other):
-        if not isinstance(other, type(self)):
+        if not isinstance(other, DVOrdered):
             raise TypeError(f"Other type must also be DVOrdered to allow comparison - you provided type \'{type(other)}\' (perhaps you forgot to wrap an ordered value type?)")
         if (not self.is_strictly_comparable_to(other)):
-            raise TypeError(f"The two classes were not strictly comparable (e.g. incomparable types, proportion kinds, etc.)")
+            raise TypeError(f"The two classes were not strictly comparable (e.g. incomparable types (incl. of inner values), proportion kinds, etc.)")
         
     def less_than(self, other):
         """True if this Ordered object is less than other. Redefined in descendants."""
@@ -111,19 +122,19 @@ class DVOrdered(DataValue):
 
     def __lt__(self, other):
         self._allowed_comparison_check(other)
-        return self.value < other.value
+        return self._value < other._value
     
     def __le__(self, other):
         self._allowed_comparison_check(other)
-        return self.value <= other.value
+        return self._value <= other._value
     
     def __gt__(self, other):
         self._allowed_comparison_check(other)
-        return self.value > other.value
+        return self._value > other._value
     
     def __ge__(self, other):
         self._allowed_comparison_check(other)
-        return self.value >= other.value
+        return self._value >= other._value
     
     def __eq__(self, other):
         return self.is_equal(other)
@@ -144,7 +155,7 @@ class DVOrdered(DataValue):
             return None
 
     def __str__(self):
-        return str(self.value)
+        return str(self._value)
 
 class DVInterval(DataValue):
     """Generic class defining an interval (i.e. range) of a comparable type. An interval is a 
@@ -344,10 +355,7 @@ class DVQuantified(DVOrdered):
 
 
     @abstractmethod
-    def __init__(self, value: ordered_numeric, normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[MagnitudeStatus, str]] = None, accuracy : Optional[AnyClass] = None, terminology_service: Optional[TerminologyService] = None):
-        if not (isinstance(value, ordered_numeric) or isinstance(value, float) or isinstance(value, int)):
-            raise TypeError("Quantified value must be of an ordered_numeric type")
-        
+    def __init__(self, value: ordered_numeric, normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[MagnitudeStatus, str]] = None, accuracy : Optional[AnyClass] = None, terminology_service: Optional[TerminologyService] = None):        
         if (magnitude_status is not None) and (not DVQuantified.valid_magnitude_status(magnitude_status)):
             raise ValueError("Provided magnitude status was not one of the valid values (invariant: magnitude_status_valid)")
         
@@ -362,7 +370,7 @@ class DVQuantified(DVOrdered):
         return (s in {"=", "<", ">", "<=", ">=", "~"})
 
     def magnitude(self) -> ordered_numeric:
-        return self.value
+        return self._value
 
     def accuracy_unknown(self) -> bool:
         """True if accuracy is not known, e.g. due to not being recorded or discernable."""
@@ -383,7 +391,7 @@ class DVAmount(DVQuantified):
     """Abstract class defining the concept of relative quantified 'amounts'. For relative quantities, 
     the + and - operators are defined (unlike descendants of DV_ABSOLUTE_QUANTITY, such as the date/time types)."""
     
-    value: ordered_numeric
+    _value: Union[ordered_numeric, ISODuration]
 
     accuracy_is_percent : Optional[bool]
     """If `True`, indicates that when this object was created, accuracy was recorded as a percent value; 
@@ -398,7 +406,10 @@ class DVAmount(DVQuantified):
         """Test whether a number is a valid percentage, i.e. between 0 and 100."""
         return (number >= 0) and (number <= 100)
 
-    def __init__(self, value: ordered_numeric, normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, accuracy : Optional[np.float32] = None, accuracy_is_percent: Optional[bool] = None, terminology_service: Optional[TerminologyService] = None):
+    def __init__(self, value: Union[ordered_numeric, ISODuration], normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, accuracy : Optional[np.float32] = None, accuracy_is_percent: Optional[bool] = None, terminology_service: Optional[TerminologyService] = None):
+        if not (isinstance(value, ordered_numeric) or isinstance(value, float) or isinstance(value, int) or isinstance(value, ISODuration)):
+            raise TypeError("DVAmount value must be of an ordered_numeric type or ISODuration")
+        
         converted_accuracy = accuracy
         if accuracy is not None:
             if (not isinstance(accuracy, np.float32)) and (not isinstance(accuracy, float)):
@@ -428,10 +439,10 @@ class DVAmount(DVQuantified):
         if not isinstance(other, type(self)):
             raise TypeError(f"Other type must also be DVAmount to allow numerical operations - you provided type \'{type(other)}\' (perhaps you forgot to wrap an ordered_numeric value type?)")
         if (not self.is_strictly_comparable_to(other)):
-            raise TypeError(f"DVAmount with value of type \'{type(self.value)}\' is not strictly comparable to DVAmount with value of type \'{type(other.value)}\'")
+            raise TypeError(f"DVAmount with value of type \'{type(self._value)}\' is not strictly comparable to DVAmount with value of type \'{type(other._value)}\'")
 
     def __neg__(self):
-        return DVAmount(-self.value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, self.accuracy, self.accuracy_is_percent, self._terminology_service)
+        return DVAmount(-self._value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, self.accuracy, self.accuracy_is_percent, self._terminology_service)
 
     def _combine_accuracies_addsub(self, other: 'DVAmount', new_value: ordered_numeric) -> tuple[Optional[np.float32], Optional[bool]]:
         new_accuracy = None
@@ -439,12 +450,12 @@ class DVAmount(DVQuantified):
         # from spec: The result is ... unknown, if either or both operand accuracies are unknown.
         if not self.accuracy_unknown() and not other.accuracy_unknown():
             # from spec: The result is the sum of the accuracies of the operands, if both present, or;
-            self_absolute_accuracy = abs(self.accuracy if not self.accuracy_is_percent else ((self.accuracy / 100) * self.value))
-            other_absolute_accuracy = abs(other.accuracy if not other.accuracy_is_percent else ((other.accuracy / 100) * other.value))
+            self_absolute_accuracy = abs(self.accuracy if not self.accuracy_is_percent else ((self.accuracy / 100) * self._value))
+            other_absolute_accuracy = abs(other.accuracy if not other.accuracy_is_percent else ((other.accuracy / 100) * other._value))
             new_absolute_accuracy = self_absolute_accuracy + other_absolute_accuracy
 
             # from spec: If the accuracy value is a percentage in one operand and not in the other, the form in the result is that of the larger operand.
-            if self.value >= other.value:
+            if self._value >= other._value:
                 new_accuracy_is_percent = self.accuracy_is_percent
             else:
                 new_accuracy_is_percent = other.accuracy_is_percent
@@ -456,14 +467,14 @@ class DVAmount(DVQuantified):
 
     def __add__(self, other: 'DVAmount'):
         self._allowed_numeric_operation_check(other)
-        new_value = self.value + other.value
+        new_value = self._value + other._value
         new_accuracy, new_accuracy_is_percent = self._combine_accuracies_addsub(other, new_value)
 
         return DVAmount(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, new_accuracy, new_accuracy_is_percent, self._terminology_service)
     
     def __sub__(self, other: 'DVAmount'):
         self._allowed_numeric_operation_check(other)
-        new_value = self.value - other.value
+        new_value = self._value - other._value
         new_accuracy, new_accuracy_is_percent = self._combine_accuracies_addsub(other, new_value)
 
         return DVAmount(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, new_accuracy, new_accuracy_is_percent, self._terminology_service)
@@ -471,7 +482,7 @@ class DVAmount(DVQuantified):
     def __mul__(self, other: np.float32):
         if not (isinstance(other, np.float32) or isinstance(other, float)):
             raise TypeError(f"Can only multiply a DVAmount by Real, not \'{type(other)}\'")
-        new_value = self.value * other
+        new_value = self._value * other
 
         return DVAmount(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, self.accuracy, self.accuracy_is_percent, self._terminology_service)
     
@@ -481,7 +492,7 @@ class DVAmount(DVQuantified):
     def __truediv__(self, other: np.float32):
         if not (isinstance(other, np.float32) or isinstance(other, float)):
             raise TypeError(f"Can only multiply a DVAmount by Real, not \'{type(other)}\'")
-        new_value = self.value / other
+        new_value = self._value / other
 
         return DVAmount(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, self.accuracy, self.accuracy_is_percent, self._terminology_service)
     
@@ -494,10 +505,10 @@ class DVQuantity(DVAmount):
     Can also be used for time durations, where it is more convenient to treat these as simply a number of seconds rather 
     than days, months, years (in the latter case, DV_DURATION may be used)."""
 
-    value: np.float32
+    _value: np.float32
 
     def _get_magnitude(self) -> np.float32:
-        return self.value
+        return self._value
 
     magnitude = property(
         fget=_get_magnitude
@@ -559,7 +570,7 @@ class DVQuantity(DVAmount):
             if normal_range.value.lower is not None and not isinstance(normal_range.value.lower, DVQuantity):
                 raise TypeError(f"Normal range values must each be DVQuantity, but \'{type(normal_range.value.upper)}\' was given")
 
-        self.value = converted_value
+        self._value = converted_value
         self.units = units
         self.units_system = units_system
         self.units_display_name = units_display_name
@@ -583,7 +594,7 @@ class DVQuantity(DVAmount):
         if self.units != other.units:
             raise ValueError(f"Cannot perform numerical operations on two quantities with different units - \'{self.units}\' and \'{other.units}\'")
         if (not self.is_strictly_comparable_to(other)):
-            raise TypeError(f"DVQuantity with value of type \'{type(self.value)}\' is not strictly comparable to DVQuantity with value of type \'{type(other.value)}\'")
+            raise TypeError(f"DVQuantity with value of type \'{type(self._value)}\' is not strictly comparable to DVQuantity with value of type \'{type(other._value)}\'")
 
     def _combine_precision(self, other: 'DVQuantity') -> Optional[np.int32]:
         if self.precision is None or other.precision is None:
@@ -602,22 +613,22 @@ class DVQuantity(DVAmount):
     def __add__(self, other) -> 'DVQuantity':
         amount_result = super().__add__(other)
         new_precision = self._combine_precision(other)
-        return DVQuantity(amount_result.value, self.units, self.units_system, self.units_display_name, amount_result.normal_status, amount_result.normal_range, amount_result.other_reference_ranges, amount_result.magnitude_status, amount_result.accuracy, amount_result.accuracy_is_percent, new_precision, amount_result._terminology_service)
+        return DVQuantity(amount_result._value, self.units, self.units_system, self.units_display_name, amount_result.normal_status, amount_result.normal_range, amount_result.other_reference_ranges, amount_result.magnitude_status, amount_result.accuracy, amount_result.accuracy_is_percent, new_precision, amount_result._terminology_service)
     
     def __sub__(self, other) -> 'DVQuantity':
         amount_result = super().__sub__(other)
         new_precision = self._combine_precision(other)
-        return DVQuantity(amount_result.value, self.units, self.units_system, self.units_display_name, amount_result.normal_status, amount_result.normal_range, amount_result.other_reference_ranges, amount_result.magnitude_status, amount_result.accuracy, amount_result.accuracy_is_percent, new_precision, amount_result._terminology_service)
+        return DVQuantity(amount_result._value, self.units, self.units_system, self.units_display_name, amount_result.normal_status, amount_result.normal_range, amount_result.other_reference_ranges, amount_result.magnitude_status, amount_result.accuracy, amount_result.accuracy_is_percent, new_precision, amount_result._terminology_service)
     
     def __mul__(self, other: np.float32):
         amount_result = super().__mul__(other)
         new_precision = self.precision
-        return DVQuantity(amount_result.value, self.units, self.units_system, self.units_display_name, amount_result.normal_status, amount_result.normal_range, amount_result.other_reference_ranges, amount_result.magnitude_status, amount_result.accuracy, amount_result.accuracy_is_percent, new_precision, amount_result._terminology_service)
+        return DVQuantity(amount_result._value, self.units, self.units_system, self.units_display_name, amount_result.normal_status, amount_result.normal_range, amount_result.other_reference_ranges, amount_result.magnitude_status, amount_result.accuracy, amount_result.accuracy_is_percent, new_precision, amount_result._terminology_service)
     
     def __truediv__(self, other):
         amount_result = super().__truediv__(other)
         new_precision = self.precision
-        return DVQuantity(amount_result.value, self.units, self.units_system, self.units_display_name, amount_result.normal_status, amount_result.normal_range, amount_result.other_reference_ranges, amount_result.magnitude_status, amount_result.accuracy, amount_result.accuracy_is_percent, new_precision, amount_result._terminology_service)
+        return DVQuantity(amount_result._value, self.units, self.units_system, self.units_display_name, amount_result.normal_status, amount_result.normal_range, amount_result.other_reference_ranges, amount_result.magnitude_status, amount_result.accuracy, amount_result.accuracy_is_percent, new_precision, amount_result._terminology_service)
 
     def is_integral(self) -> bool:
         """True if precision = 0, meaning that the magnitude is a whole number."""
@@ -628,10 +639,10 @@ class DVCount(DVAmount):
 
     Misuse: Not to be used for amounts of physical entities (which all have units)."""
 
-    value: np.int64
+    _value: np.int64
 
     def _get_magnitude(self) -> np.int64:
-        return self.value
+        return self._value
 
     magnitude = property(
         fget=_get_magnitude
@@ -700,6 +711,10 @@ class DVProportion(DVAmount):
     magnitude = property(
         fget=magnitude
         )
+    
+    value = property(
+        fget=magnitude
+    )
 
     def is_integral(self) -> bool:
         return self.precision == 0
@@ -731,8 +746,6 @@ class DVProportion(DVAmount):
 
         super().__init__((numerator/denominator), normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, accuracy_is_percent, terminology_service)
         
-        # stops value being set independently (after initialization)
-        self.value = self.magnitude
 
     def is_strictly_comparable_to(self, other: 'DVProportion'):
         """Return True if the type of this proportion is the same as the type of other."""
