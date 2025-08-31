@@ -35,10 +35,13 @@ class Interval[T : ordered](AnyClass):
         return self._upper
     
     def _set_upper(self, value: Optional[T]):
-        if self.lower is not None and (not isinstance(value, type(self._lower) or value is None)):
-            raise TypeError("Upper bound must be same type as lower bound (or `None`)")
-        if self.lower is not None and value < self.lower:
-            raise ValueError("Upper bound cannot be smaller than lower bound")
+        if value is None:
+            self._upper = value
+        else:
+            if self.lower is not None and not isinstance(value, type(self._lower)):
+                raise TypeError("Upper bound must be same type as lower bound")
+            if (self.lower is not None) and (value < self.lower):
+                raise ValueError("Upper bound cannot be smaller than lower bound")
         self._upper = value
 
     upper = property(
@@ -118,6 +121,15 @@ class Interval[T : ordered](AnyClass):
         """True if current object's interval is semantically same as other."""
         pass
 
+    def __str__(self):
+        str_rep = ""
+        str_rep += "[" if self.lower_included else "("
+        str_rep += str(self.lower) if self.lower is not None else "-INF"
+        str_rep += ", "
+        str_rep += str(self.upper) if self.upper is not None else "+INF"
+        str_rep += "]" if self.upper_included else ")"
+        return str_rep
+
 
 class PointInterval[T : ordered](Interval[T]):
     """Type representing an `Interval` that happens to be a point value. 
@@ -186,6 +198,13 @@ class ProperInterval[T: ordered](Interval[T]):
     """Type representing a 'proper' Interval, i.e. any two-sided 
     or one-sided interval."""
 
+    def __init__(self, lower: Optional[T] = None, upper: Optional[T] = None, lower_included: bool = False, upper_included: bool = False):
+        self.lower = lower
+        self.upper = upper
+        self.upper_included = upper_included
+        self.lower_included = lower_included
+        super().__init__()
+
     # override
     def is_equal(self, other) -> bool:
         return (type(self) == type(other) and
@@ -234,6 +253,9 @@ class MultiplicityInterval(ProperInterval[np.int32]):
 
     MULTIPLICITY_RANGE_MARKER : str = ".."
     MULTIPLICITY_UNBOUNDED_MARKER : str = "*"
+
+    def __init__(self, lower: Optional[np.int32] = None, upper: Optional[np.int32] = None):
+        super().__init__(lower=lower, upper=upper)
 
     def _get_upper(self) -> Optional[np.int32]:
         return super()._get_upper()
