@@ -24,8 +24,8 @@ class _TstDVQuantifiedImpl(DVQuantified):
         return super().is_strictly_comparable_to(other)
     
 class _TstDVAbsoluteQuantityImpl(DVAbsoluteQuantity):
-    def __init__(self, value, normal_status = None, normal_range = None, other_reference_ranges = None, magnitude_status = None, accuracy = None, accuracy_is_percent = None, terminology_service = None):
-        super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, accuracy_is_percent, terminology_service)
+    def __init__(self, value, normal_status = None, normal_range = None, other_reference_ranges = None, magnitude_status = None, accuracy = None, terminology_service = None):
+        super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, terminology_service)
 
     def __add__(self, other):
         return super().__add__(other)

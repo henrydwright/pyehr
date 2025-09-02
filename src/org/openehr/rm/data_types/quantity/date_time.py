@@ -4,7 +4,7 @@ from typing import Optional, Union
 import numpy as np
 
 from org.openehr.base.foundation_types.primitive_types import ordered_numeric
-from org.openehr.base.foundation_types.time import ISODuration, ISOTime, ISODateTime, ISODate
+from org.openehr.base.foundation_types.time import ISODuration, ISOTime, ISODateTime, ISODate, TimeDefinitions
 from org.openehr.rm.data_types.text import CodePhrase
 from org.openehr.rm.data_types.quantity import DVAmount, DVAbsoluteQuantity, DVInterval, DVQuantified, ReferenceRange
 from org.openehr.rm.support.terminology import TerminologyService
@@ -32,6 +32,7 @@ class DVDuration(DVAmount):
         fget=_get_value
     )
 
+    # assume that accuracy is in seconds here as magnitude is
     def __init__(self, value: Union[ISODuration, str], normal_status: Optional[CodePhrase] = None, normal_range: Optional[DVInterval] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, accuracy : Optional[np.float32] = None, accuracy_is_percent: Optional[bool] = None, terminology_service: Optional[TerminologyService] = None):
         converted_value = value
         if isinstance(value, str):
@@ -125,17 +126,16 @@ class DVTemporal(DVAbsoluteQuantity):
     """Time accuracy, expressed as a duration."""
 
     def __init__(self, 
-                 value: Union[ISOTime, ISODateTime, ISODate], 
+                 value: Union[ISOTime, ISODateTime, ISODate, str], 
                  normal_status: Optional[CodePhrase] = None, 
                  normal_range: Optional['DVInterval'] = None, 
                  other_reference_ranges: Optional[list['ReferenceRange']] = None, 
                  magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, 
                  accuracy : Optional[DVDuration] = None, 
-                 accuracy_is_percent: Optional[bool] = None, 
                  terminology_service: Optional[TerminologyService] = None):
         if accuracy is not None and not isinstance(accuracy, DVDuration):
             raise TypeError(f"Accuracy must be DVDuration for subclasses of DVTemporal but \'{type(accuracy)}\' was given")
-        super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, accuracy_is_percent, terminology_service)
+        super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, terminology_service)
 
     @abstractmethod
     def __add__(self, other: DVDuration) -> 'DVTemporal':
@@ -154,3 +154,85 @@ class DVTemporal(DVAbsoluteQuantity):
     @abstractmethod
     def __sub__(self, other: Union[DVDuration, 'DVTemporal']) -> Union['DVTemporal', DVDuration]:
         pass
+
+
+class DVDate(DVTemporal):
+    """Represents an absolute point in time, as measured on the Gregorian calendar,
+      and specified only to the day. Semantics defined by ISO 8601. Used for recording 
+      dates in real world time. The partial form is used for approximate birth dates, 
+      dates of death, etc."""
+    
+    _value : ISODate
+
+    def _get_value(self) -> str:
+        return self._value.value
+    
+    value = property(
+        fget=_get_value
+    )
+    
+    def __init__(self, 
+                 value: Union[ISODate, str], 
+                 normal_status: Optional[CodePhrase] = None, 
+                 normal_range: Optional['DVInterval'] = None, 
+                 other_reference_ranges: Optional[list['ReferenceRange']] = None, 
+                 magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, 
+                 accuracy : Optional[DVDuration] = None, 
+                 terminology_service: Optional[TerminologyService] = None):
+        converted_value = value
+        if isinstance(value, str):
+            converted_value = ISODate(value)
+        super().__init__(converted_value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, terminology_service)
+
+    def magnitude(self):
+        """Numeric value of the date as days since the calendar origin date `0001-01-01`."""
+        return np.int32((self._value - ISODate("0001-01-01")).to_seconds() / 86400)
+    
+    def is_equal(self, other: 'DVDate'):
+        """Return True if this `DV_QUANTIFIED` is considered equal to other."""
+        return (
+            type(self) == type(other) and
+            self._value.is_equal(other._value)
+            )
+    
+    def is_strictly_comparable_to(self, other: 'DVDate'):
+        """True, for any two Dates."""
+        return isinstance(other, DVDate)
+
+    def _combine_accuracies(self, other: Union[DVDuration, 'DVDate']) -> Optional[DVDuration]:
+        if self.accuracy is None or other.accuracy is None:
+            return None
+        else:
+            if isinstance(other, DVDate):
+                return self.accuracy + other.accuracy
+            else:
+                if other.accuracy_is_percent:
+                    absolute_accuracy = (other.accuracy / 100) * other.to_seconds()
+                    return self.accuracy + DVDuration(f"PT{absolute_accuracy}S")
+                else:
+                    return self.accuracy + DVDuration(f"PT{other.accuracy}S")
+                
+
+    def __add__(self, other: 'DVDuration'):
+        """Addition of a Duration to this Date."""
+        if not isinstance(other, DVDuration):
+            raise TypeError(f"Can only add DVDuration to DVDate, not \'{type(other)}\'")
+        new_value = self._value.add(other._value)
+        new_accuracy = self._combine_accuracies(other)
+        return DVDate(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, new_accuracy, self._terminology_service)
+    
+    def subtract(self, a_diff):
+        """Subtract a Duration from this Date."""
+        return self._value.subtract(a_diff._value)
+    
+    def diff(self, other):
+        """Difference between this Date and other."""
+        return self._value.diff(other._value)
+    
+    def __sub__(self, other: Union['DVDate', DVDuration]):
+        if isinstance(other, DVDate):
+            return self.diff(other)
+        elif isinstance(other, DVDuration):
+            return self.subtract(other)
+        else:
+            raise TypeError(f"Can only subtract DVDuration or DVDate from date, not \'{type(other)}\'")

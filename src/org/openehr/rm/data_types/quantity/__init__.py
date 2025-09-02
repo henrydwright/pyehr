@@ -355,7 +355,7 @@ class DVQuantified(DVOrdered):
 
 
     @abstractmethod
-    def __init__(self, value: ordered_numeric, normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[MagnitudeStatus, str]] = None, accuracy : Optional[AnyClass] = None, terminology_service: Optional[TerminologyService] = None):        
+    def __init__(self, value: Union[ordered_numeric, ISOType], normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[MagnitudeStatus, str]] = None, accuracy : Optional[AnyClass] = None, terminology_service: Optional[TerminologyService] = None):        
         if (magnitude_status is not None) and (not DVQuantified.valid_magnitude_status(magnitude_status)):
             raise ValueError("Provided magnitude status was not one of the valid values (invariant: magnitude_status_valid)")
         
@@ -861,7 +861,6 @@ class DVAbsoluteQuantity(DVQuantified):
                  other_reference_ranges: Optional[list['ReferenceRange']] = None, 
                  magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, 
                  accuracy : Optional[DVAmount] = None, 
-                 accuracy_is_percent: Optional[bool] = None, 
                  terminology_service: Optional[TerminologyService] = None):
         super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, None, terminology_service)
         if not (accuracy is None or isinstance(accuracy, DVAmount)):
