@@ -865,6 +865,7 @@ class DVAbsoluteQuantity(DVQuantified):
         super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, None, terminology_service)
         if not (accuracy is None or isinstance(accuracy, DVAmount)):
             raise TypeError(f"Accuracy must be of type DVAmount but \'{type(accuracy)}\' was given")
+        self.accuracy = accuracy
     
     @abstractmethod
     def __add__(self, other: DVAmount) -> 'DVAbsoluteQuantity':

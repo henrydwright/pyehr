@@ -1,8 +1,8 @@
 import pytest
 
-from org.openehr.rm.data_types.quantity.date_time import DVDuration, DVDate
+from org.openehr.rm.data_types.quantity.date_time import DVDuration, DVDate, DVTime
 from org.openehr.rm.data_types.quantity import DVAmount
-from org.openehr.base.foundation_types.time import ISODuration
+from org.openehr.base.foundation_types.time import ISODate
 
 def test_dv_duration_add():
     dvd1 = DVDuration("P30D")
@@ -51,6 +51,9 @@ def test_dv_duration_magnitude():
     dvd = DVDuration("P44D")
     assert dvd.magnitude() <= 3801600.001 and dvd.magnitude() >= 3801599.999
 
+def test_dv_duration_is_equal():
+    assert DVDuration("P30D").is_equal(DVDuration("P30D"))
+
 def test_dv_date_magnitude():
     dvdate = DVDate("0001-01-03")
     assert dvdate.magnitude() == 2
@@ -69,6 +72,10 @@ def test_dv_date_addition():
     with pytest.raises(TypeError):
         dvd2 + dvd1
 
+    # check accuracies
+    dvdr = DVDate("2020-01-03", accuracy=DVDuration("P3D")) + DVDuration("P2D", accuracy=86400.0, accuracy_is_percent=False)
+    assert dvdr.accuracy.is_equal(DVDuration("P4D"))
+
 def test_dv_date_subtract():
     dvd1 = DVDate("2025-09-02")
     dvdr = dvd1 - DVDuration("-P2D")
@@ -78,9 +85,17 @@ def test_dv_date_subtract():
     dvdr = dvd2 - DVDuration("P5D")
     assert dvdr.value == "2020-01-15"
 
+    # check accuracies
+    dvdr = DVDate("2020-01-03", accuracy=DVDuration("P3D")) - DVDuration("P2D", accuracy=86400.0, accuracy_is_percent=False)
+    assert dvdr.accuracy.is_equal(DVDuration("P4D"))
+
 def test_dv_date_diff():
     dvdr = DVDate("2025-09-02") - DVDate("0001-01-01")
     assert dvdr.value == "P739495D"
+
+    # check accuracies
+    dvdr = DVDate("2025-09-02", accuracy=DVDuration("P2D")) - DVDate("0001-01-01", accuracy=DVDuration("PT0S"))
+    assert dvdr.accuracy.is_equal(DVDuration("P2D"))
 
 def test_dv_date_comparison():
     assert DVDate("2025-09-02") > DVDate("2024-09-02")
@@ -99,3 +114,67 @@ def test_dv_date_value_valid():
         dvd5 = DVDate("Abacus")
     with pytest.raises(ValueError):
         dvd6 = DVDate("23-12-1998")
+
+def test_dv_date_is_equal():
+    assert DVDate("2024-03-20").is_equal(DVDate("2024-03-20")) == True
+    assert DVDate("2024-03-20").is_equal(ISODate("2024-03-20")) == False
+
+def test_dv_time_value_valid():
+    dvtp = DVTime("10:30")
+    dvt1 = DVTime("10:30:00")
+    dvt2 = DVTime("10:00:00.000Z")
+    dvt3 = DVTime("10:00:00.000+01:00")
+    with pytest.raises(ValueError):
+        dvt4 = DVDate("1")
+    with pytest.raises(ValueError):
+        dvt5 = DVDate("Abacus")
+    with pytest.raises(ValueError):
+        dvd6 = DVDate("1:00")
+
+def test_dv_time_magnitude():
+    assert DVTime("10:00:00").magnitude() == 36000.0
+    assert DVTime("00:00:01.500").magnitude() == 1.5
+    assert DVTime("00:15:00Z").magnitude() == 900.0
+    assert DVTime("01:01:00+01:10").magnitude() == 3660.0
+
+def test_dv_time_add():
+    assert (DVTime("03:00:00") + DVDuration("PT2H")).is_equal(DVTime("05:00:00"))
+    assert (DVTime("01:00:00") + DVDuration("P1D")).is_equal(DVTime("01:00:00"))
+
+    # check accuracies
+    dvt1 = DVTime("01:00:00", accuracy=DVDuration("PT30S"))
+    dvt2 = DVDuration("PT2H", accuracy=60.0, accuracy_is_percent=False)
+    assert (dvt1 + dvt2).accuracy.is_equal(DVDuration("PT90S"))
+
+def test_dv_time_subtract():
+    assert (DVTime("03:00:00") - DVDuration("PT2H")) == DVTime("01:00:00")
+    assert (DVTime("01:00:00") - DVDuration("P1D")) == DVTime("01:00:00")
+
+    # check accuracies
+    dvt1 = DVTime("03:00:00", accuracy=DVDuration("PT30S"))
+    dvt2 = DVDuration("PT2H", accuracy=60.0, accuracy_is_percent=False)
+    assert (dvt1 - dvt2).accuracy.is_equal(DVDuration("PT90S"))
+
+def test_dv_time_diff():
+    assert(DVTime("03:00:00") - DVTime("02:00:00")).is_equal(DVDuration("PT3600S"))
+    assert (DVTime("01:00:00") - DVTime("01:00:00")).is_equal(DVDuration("PT0S"))
+
+    # check accuracies
+    dvt1 = DVTime("03:00:00", accuracy=DVDuration("PT30S"))
+    dvt2 = DVTime("01:00:00", accuracy=DVDuration("PT60S"))
+    assert (dvt1 - dvt2).accuracy == 90.0
+
+def test_dv_time_has_iso_time_methods():
+    dvt = DVTime("05:04:03.128+02:00")
+    assert dvt.hour() == 5
+    assert dvt.minute() == 4
+    assert dvt.second() == 3
+    assert dvt.fractional_second() > 0.12
+    assert dvt.timezone().value == "+02:00"
+    assert dvt.minute_unknown() == False
+    assert dvt.second_unknown() == False
+    assert dvt.is_decimal_sign_comma() == False
+    assert dvt.is_partial() == False
+    assert dvt.is_extended() == True
+    assert dvt.has_fractional_second() == True
+    assert dvt.as_string() == "05:04:03.128+02:00"
