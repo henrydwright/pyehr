@@ -808,7 +808,7 @@ class ISODuration(ISOType):
         
         if td.days != 0:
             iso_str += str(abs(td.days)) + "D"
-        if td.seconds != 0 or td.microseconds != 0:
+        if (td.seconds != 0 or td.microseconds != 0) or (td.total_seconds() == 0.0):
             total_secs = float(td.seconds)
             if td.microseconds != 0:
                 total_secs += td.microseconds / 1000000.0
