@@ -376,3 +376,136 @@ class DVTime(DVTemporal):
     
     def __str__(self) -> str:
         return self._value.value
+    
+class DVDateTime(DVTemporal):
+    """Represents an absolute point in time, specified to the second. Semantics defined 
+    by ISO 8601.
+
+    Used for recording a precise point in real world time, and for approximate time stamps,
+    e.g. the origin of a HISTORY in an OBSERVATION which is only partially known."""
+    _value: ISODateTime
+
+    def _get_value(self) -> str:
+        return self._value.value
+
+    value = property(
+        fget=_get_value
+    )
+
+    def __init__(self, 
+                 value: Union[ISODateTime, str], 
+                 normal_status: Optional[CodePhrase] = None, 
+                 normal_range: Optional['DVInterval'] = None, 
+                 other_reference_ranges: Optional[list['ReferenceRange']] = None, 
+                 magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, 
+                 accuracy : Optional[DVDuration] = None, 
+                 terminology_service: Optional[TerminologyService] = None):
+        converted_value = value
+        if isinstance(value, str):
+            converted_value = ISODateTime(value)
+        super().__init__(converted_value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, terminology_service)
+
+    def magnitude(self):
+        """Numeric value of the datetime as seconds since the calendar origin date `0001-01-01T00:00:00Z`."""
+
+        return np.float32((self._value - ISODateTime("0001-01-01T00:00:00Z")).to_seconds())
+
+    def is_equal(self, other: 'DVDateTime'):
+        """Return True if this `DV_QUANTIFIED` is considered equal to other."""
+        return (
+            type(self) == type(other) and
+            self._value.is_equal(other._value)
+        )
+
+    def is_strictly_comparable_to(self, other: 'DVDateTime'):
+        """True, for any two DateTimes."""
+        return isinstance(other, DVDateTime)
+
+    def _combine_accuracies(self, other: Union[DVDuration, 'DVDateTime']) -> Optional[DVDuration]:
+        if self.accuracy is None or other.accuracy is None:
+            return None
+        else:
+            if isinstance(other, DVDateTime):
+                return (self.accuracy + other.accuracy).to_seconds()
+            else:
+                if other.accuracy_is_percent:
+                    absolute_accuracy = (other.accuracy / 100) * other.to_seconds()
+                    return self.accuracy + DVDuration(f"PT{absolute_accuracy}S")
+                else:
+                    return self.accuracy + DVDuration(f"PT{other.accuracy}S")
+
+    def __add__(self, other: 'DVDuration'):
+        """Addition of a Duration to this DateTime."""
+        if not isinstance(other, DVDuration):
+            raise TypeError(f"Can only add DVDuration to DVDateTime, not '{type(other)}'")
+        new_value = self._value.add(other._value)
+        new_accuracy = self._combine_accuracies(other)
+        return DVDateTime(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, new_accuracy, self._terminology_service)
+
+    def subtract(self, a_diff: DVDuration) -> 'DVDateTime':
+        """Subtract a Duration from this DateTime."""
+        new_value = self._value.subtract(a_diff._value)
+        new_accuracy = self._combine_accuracies(a_diff)
+        return DVDateTime(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, new_accuracy, self._terminology_service)
+
+    def diff(self, other: 'DVDateTime') -> DVDuration:
+        """Difference between this DateTime and other."""
+        new_value = self._value.diff(other._value)
+        new_accuracy = self._combine_accuracies(other)
+        return DVDuration(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, new_accuracy, False, self._terminology_service)
+
+    def __sub__(self, other: Union['DVDateTime', DVDuration]) -> Union[DVDuration, 'DVDateTime']:
+        if isinstance(other, DVDateTime):
+            return self.diff(other)
+        elif isinstance(other, DVDuration):
+            return self.subtract(other)
+        else:
+            raise TypeError(f"Can only subtract DVDuration or DVDateTime from datetime, not '{type(other)}'")
+
+    def year(self) -> np.int32:
+        return self._value.year()
+
+    def month(self) -> np.int32:
+        return self._value.month()
+
+    def day(self) -> np.int32:
+        return self._value.day()
+
+    def hour(self) -> np.int32:
+        return self._value.hour()
+
+    def minute(self) -> np.int32:
+        return self._value.minute()
+
+    def second(self) -> np.int32:
+        return self._value.second()
+
+    def fractional_second(self) -> np.float32:
+        return self._value.fractional_second()
+
+    def is_extended(self) -> bool:
+        return self._value.is_extended()
+
+    def is_partial(self) -> bool:
+        return self._value.is_partial()
+
+    def is_decimal_sign_comma(self) -> bool:
+        return self._value.is_decimal_sign_comma()
+
+    def timezone(self) -> ISOTimeZone:
+        return self._value.timezone()
+
+    def minute_unknown(self) -> bool:
+        return self._value.minute_unknown()
+
+    def second_unknown(self) -> bool:
+        return self._value.second_unknown()
+
+    def has_fractional_second(self) -> bool:
+        return self._value.has_fractional_second()
+
+    def as_string(self) -> str:
+        return self._value.as_string()
+
+    def __str__(self) -> str:
+        return self._value.value

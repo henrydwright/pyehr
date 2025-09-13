@@ -1,6 +1,6 @@
 import pytest
 
-from org.openehr.rm.data_types.quantity.date_time import DVDuration, DVDate, DVTime
+from org.openehr.rm.data_types.quantity.date_time import DVDuration, DVDate, DVTime, DVDateTime
 from org.openehr.rm.data_types.quantity import DVAmount
 from org.openehr.base.foundation_types.time import ISODate
 
@@ -125,11 +125,11 @@ def test_dv_time_value_valid():
     dvt2 = DVTime("10:00:00.000Z")
     dvt3 = DVTime("10:00:00.000+01:00")
     with pytest.raises(ValueError):
-        dvt4 = DVDate("1")
+        dvt4 = DVTime("1")
     with pytest.raises(ValueError):
-        dvt5 = DVDate("Abacus")
+        dvt5 = DVTime("Abacus")
     with pytest.raises(ValueError):
-        dvd6 = DVDate("1:00")
+        dvd6 = DVTime("1:00")
 
 def test_dv_time_magnitude():
     assert DVTime("10:00:00").magnitude() == 36000.0
@@ -156,7 +156,7 @@ def test_dv_time_subtract():
     assert (dvt1 - dvt2).accuracy.is_equal(DVDuration("PT90S"))
 
 def test_dv_time_diff():
-    assert(DVTime("03:00:00") - DVTime("02:00:00")).is_equal(DVDuration("PT3600S"))
+    assert (DVTime("03:00:00") - DVTime("02:00:00")).is_equal(DVDuration("PT3600S"))
     assert (DVTime("01:00:00") - DVTime("01:00:00")).is_equal(DVDuration("PT0S"))
 
     # check accuracies
@@ -178,3 +178,65 @@ def test_dv_time_has_iso_time_methods():
     assert dvt.is_extended() == True
     assert dvt.has_fractional_second() == True
     assert dvt.as_string() == "05:04:03.128+02:00"
+
+def test_dv_datetime_value_valid():
+    dvdtp = DVDateTime("2025")
+    dvdt1 = DVDateTime("2025-09-13T10:30:00")
+    dvdt2 = DVDateTime("2024-03-02T10:00:00.000Z")
+    dvdt3 = DVDateTime("20240302T100000.000+0100")
+    with pytest.raises(ValueError):
+        dvt4 = DVDateTime("1")
+    with pytest.raises(ValueError):
+        dvt5 = DVDateTime("Abacus")
+    with pytest.raises(ValueError):
+        dvd6 = DVDateTime("1:00")
+
+def test_dv_datetime_magnitude():
+    assert DVDateTime("0001-01-01T10:00:00+01:00").magnitude() == 32400.0
+    assert DVDateTime("0001-01-21T10:00:00Z").magnitude() == 1764000.0
+
+
+def test_dv_datetime_add():
+    assert (DVDateTime("2025-01-01T03:00:00") + DVDuration("PT2H")).is_equal(DVDateTime("2025-01-01T05:00:00"))
+    assert (DVDateTime("2025-01-01T01:00:00") + DVDuration("P1D")).is_equal(DVDateTime("2025-01-02T01:00:00"))
+
+    # check accuracies
+    dvt1 = DVDateTime("2025-01-01T01:00:00", accuracy=DVDuration("PT30S"))
+    dvt2 = DVDuration("PT2H", accuracy=60.0, accuracy_is_percent=False)
+    assert (dvt1 + dvt2).accuracy.is_equal(DVDuration("PT90S"))
+
+def test_dv_datetime_subtract():
+    assert (DVDateTime("2025-01-01T03:00:00") - DVDuration("PT2H")) == DVDateTime("2025-01-01T01:00:00")
+    assert (DVDateTime("2025-01-02T01:00:00") - DVDuration("P1D")) == DVDateTime("2025-01-01T01:00:00")
+
+    # check accuracies
+    dvt1 = DVDateTime("2025-01-01T03:00:00", accuracy=DVDuration("PT30S"))
+    dvt2 = DVDuration("PT2H", accuracy=60.0, accuracy_is_percent=False)
+    assert (dvt1 - dvt2).accuracy.is_equal(DVDuration("PT90S"))
+
+def test_dv_datetime_diff():
+    assert (DVDateTime("2025-01-01T03:00:00") - DVDateTime("2025-01-01T02:00:00")).is_equal(DVDuration("PT3600S"))
+    assert (DVDateTime("2025-01-01T01:00:00") - DVDateTime("2025-01-01T01:00:00")).is_equal(DVDuration("PT0S"))
+
+    # check accuracies
+    dvt1 = DVDateTime("2025-01-01T03:00:00", accuracy=DVDuration("PT30S"))
+    dvt2 = DVDateTime("2025-01-01T01:00:00", accuracy=DVDuration("PT60S"))
+    assert (dvt1 - dvt2).accuracy == 90.0
+
+def test_dv_datetime_has_iso_datetime_methods():
+    dvdt = DVDateTime("2025-01-01T03:00:00.128-01:30")
+    assert dvdt.year() == 2025
+    assert dvdt.month() == 1
+    assert dvdt.day() == 1
+    assert dvdt.hour() == 3
+    assert dvdt.minute() == 0
+    assert dvdt.second() == 0
+    assert dvdt.fractional_second() > 0.12
+    assert dvdt.timezone().value == "-01:30"
+    assert dvdt.minute_unknown() == False
+    assert dvdt.second_unknown() == False
+    assert dvdt.is_decimal_sign_comma() == False
+    assert dvdt.is_partial() == False
+    assert dvdt.is_extended() == True
+    assert dvdt.has_fractional_second() == True
+    assert dvdt.as_string() == "2025-01-01T03:00:00.128-01:30"
