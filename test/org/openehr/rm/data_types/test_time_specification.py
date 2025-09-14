@@ -1,7 +1,7 @@
 import pytest
 
 from org.openehr.rm.data_types.encapsulated import DVParsable
-from org.openehr.rm.data_types.time_specification import DVPeriodicTimeSpecification
+from org.openehr.rm.data_types.time_specification import DVPeriodicTimeSpecification, DVGeneralTimeSpecification
 
 def test_periodic_time_specification_value_valid():
     # OK
@@ -90,3 +90,13 @@ def test_periodic_time_specification_institution_specified():
     assert dpts5.institution_specified() == False
     dpts6 = DVPeriodicTimeSpecification(DVParsable("[;]/(PT8H) IST", "HL7:PIVL"))
     assert dpts6.institution_specified() == True
+
+def test_general_time_specification_methods_warning_on_init_others_not_implemented():
+    with pytest.warns(RuntimeWarning):
+        dgts = DVGeneralTimeSpecification(DVParsable("WAKE+[50m;1h]", "HL7:GTS"))
+        with pytest.raises(NotImplementedError):
+            dgts.calendar_alignment()
+        with pytest.raises(NotImplementedError):
+            dgts.event_alignment()
+        with pytest.raises(NotImplementedError):
+            dgts.institution_specified()

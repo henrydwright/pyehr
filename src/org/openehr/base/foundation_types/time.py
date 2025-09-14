@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta, time, timezone
 from typing import Union, Optional
 import re
-import warnings
 
 from org.openehr.base.foundation_types import AnyClass
 

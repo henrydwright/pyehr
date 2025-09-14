@@ -5,6 +5,7 @@ of the same names."""
 from abc import abstractmethod
 import re
 from typing import Optional, Union
+import warnings
 
 from common import PythonTerminologyService, ListCodeSetAccess
 
@@ -218,19 +219,15 @@ class DVGeneralTimeSpecification(DVTimeSpecification):
 
     def __init__(self, value):
         super().__init__(value)
+        if (value.formalism != "HL7:GTS"):
+            raise ValueError(f"Formalism must be set to 'HL7:GTS' but \'{value.formalism}\' was given")
+        warnings.warn("DVGeneralTimeSpecification does not parse input, so cannot be sure if input was valid GTS value.", category=RuntimeWarning, stacklevel=2)
 
     def calendar_alignment(self):
-        return super().calendar_alignment()
+        raise NotImplementedError("DVGeneralTimeSpecification has not implemented parsing its input value, so calendar_alignment() is not supported")
     
     def event_alignment(self):
-        return super().event_alignment()
+        raise NotImplementedError("DVGeneralTimeSpecification has not implemented parsing its input value, so event_alignment() is not supported")
     
     def institution_specified(self):
-        return super().institution_specified()
-
-p = DVPeriodicTimeSpecification(DVParsable("PC+[PT1H;PT1H]", "HL7:EIVL"))
-print(str(p))
-p = DVPeriodicTimeSpecification(DVParsable("WAKE", "HL7:EIVL"))
-print(str(p))
-p = DVPeriodicTimeSpecification(DVParsable("HS-[PT50M;PT1H]", "HL7:EIVL"))
-print(str(p))
+        raise NotImplementedError("DVGeneralTimeSpecification has not implemented parsing its input value, so institution_specified() is not supported")
