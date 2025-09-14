@@ -590,6 +590,14 @@ def test_iso_date_time_implements_ordered_methods():
     assert (o1 > o2) == False
     assert (o1 >= o2) == False
 
+def test_iso_date_time_is_partial():
+    o1 = ISODateTime("20250901")
+    assert o1.is_partial() == True
+    o2 = ISODateTime("2025-09-01T10:00")
+    assert o2.is_partial() == True
+    o3 = ISODateTime("2025-09-01T10:00:00")
+    assert o3.is_partial() == False
+
 def test_iso_timezone_implements_ordered_methods():
     o1 = ISOTimeZone("Z")
     o2 = ISOTimeZone("+0100")

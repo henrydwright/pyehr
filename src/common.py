@@ -122,11 +122,13 @@ class PythonTerminologyService(TerminologyService):
         self._terminologies = dict()
         self._openehr_supported_codesets = dict()
 
-        for code_set in code_sets:
-            self._code_sets[code_set.id()] = code_set
+        if code_sets is not None:
+            for code_set in code_sets:
+                self._code_sets[code_set.id()] = code_set
         
-        for terminology in terminologies:
-            self._terminologies[terminology.id()] = terminology
+        if terminologies is not None:
+            for terminology in terminologies:
+                self._terminologies[terminology.id()] = terminology
 
         super().__init__()
     

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta, time, timezone
 from typing import Union, Optional
 import re
+import warnings
 
 from org.openehr.base.foundation_types import AnyClass
 
@@ -623,7 +624,7 @@ class ISODateTime(ISOType):
 
     def is_partial(self) -> bool:
         """True if this date time is partial, i.e. if seconds or more is missing."""
-        return (self._date.is_partial() or self._time.is_partial())
+        return (self._date.is_partial() or self._time is None or self._time.is_partial())
     
     def is_extended(self) -> bool:
         """True if this date/time uses '-', ':' separators."""
@@ -731,11 +732,24 @@ class ISODateTime(ISOType):
         else:
             return self.subtract(value)
         
+    def _resolution(self) -> int:
+        """If partial, returns the number of elements (1 for year, 2 for year + month, etc.)"""
+        res = 1
+        if not self.month_unknown():
+            res += 1
+        if not self.day_unknown():
+            res += 1
+        if self._time is not None:
+            res += 1
+            if not self.minute_unknown():
+                res += 1
+            if not self.second_unknown():
+                res += 1
+        return res
+
     def _comparison_check(self, other):
         if type(self) != type(other):
             raise TypeError(f"Cannot compare type of \'{type(self)}\' with type of \'{type(other)}\'")
-        if self.is_partial() or other.is_partial():
-            raise ValueError("Cannot compare partial datetimes.")
 
     def __ge__(self, other: 'ISODateTime'):
         self._comparison_check(other)
