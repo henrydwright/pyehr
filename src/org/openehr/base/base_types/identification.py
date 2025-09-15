@@ -284,7 +284,6 @@ class ArchetypeID(ObjectID):
         if parts[7] is not None:
             self._specialisation = parts[7][1:]
         self._version_id = parts[8][1:]
-        print(parts)
         super().__init__(value, **kwargs)
 
     def qualified_rm_entity(self) -> str:

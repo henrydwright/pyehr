@@ -4,7 +4,7 @@ ARCHETYPED, and LINK"""
 from abc import abstractmethod
 from typing import Optional
 
-from org.openehr.base.base_types.identification import UIDBasedID
+from org.openehr.base.base_types.identification import UIDBasedID, ArchetypeID, TemplateID
 from org.openehr.base.foundation_types.any import AnyClass
 from org.openehr.rm.data_types.text import DVText
 
@@ -63,9 +63,41 @@ class Link(AnyClass):
         return super().is_equal(other)
 
 class Archetyped(AnyClass):
+    """Archetypes act as the configuration basis for the particular structures of instances 
+    defined by the reference model. To enable archetypes to be used to create valid data, key 
+    classes in the reference model act as root points for archetyping; accordingly, these classes 
+    have the archetype_details attribute set.
+
+    An instance of the class ARCHETYPED contains the relevant archetype identification information, 
+    allowing generating archetypes to be matched up with data instances."""
     
-    def is_equal(self, other):
-        return super().is_equal(other)
+    archetype_id : ArchetypeID
+    """Globally unique archetype identifier."""
+
+    template_id: Optional[TemplateID]
+    """Globally unique template identifier, if a template was active at this point in the structure. 
+    Normally, a template would only be used at the top of a top-level structure, but the possibility 
+    exists for templates at lower levels."""
+
+    rm_version: str
+    """Version of the openEHR reference model used to create this object. Expressed in terms of the 
+    release version string, e.g. 1.0 , 1.2.4."""
+
+    def __init__(self, archetype_id: ArchetypeID, rm_version: str, template_id: Optional[TemplateID] = None, **kwargs):
+        self.archetype_id = archetype_id
+        if (len(rm_version) == 0):
+            raise ValueError("rm_version cannot be empty (invariant: rm_version_valid)")
+        self.rm_version = rm_version
+        self.template_id = template_id
+        super().__init__(**kwargs)
+
+    def is_equal(self, other: 'Archetyped'):
+        return (
+            type(self) == type(other) and
+            self.archetype_id.is_equal(other.archetype_id) and
+            ((self.template_id is None and other.template_id is None) or (self.template_id.is_equal(other.template_id))) and
+            self.rm_version == other.rm_version
+        )
 
 class Locatable(Pathable):
     """Root class of all information model classes that can be archetyped. Most classes 

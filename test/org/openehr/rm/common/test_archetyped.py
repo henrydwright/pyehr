@@ -1,5 +1,6 @@
 import pytest
 
+from org.openehr.base.base_types.identification import ArchetypeID
 from org.openehr.rm.common.archetyped import Pathable, Locatable, Link, Archetyped
 from org.openehr.rm.data_types.text import DVText
 
@@ -49,9 +50,9 @@ def test_locatable_links_valid():
 
 def test_locatable_archetyped_valid():
     # is_archetype_root xor archetype_details = Void
-    l = _TstLocatableImpl(DVText("Gender"), "openEHR-EHR-EVALUATION.gender.v1", archetype_details=Archetyped())
+    l = _TstLocatableImpl(DVText("Gender"), "openEHR-EHR-EVALUATION.gender.v1", archetype_details=Archetyped(ArchetypeID("openEHR-EHR-EVALUATION.gender.v1"), "1.1.0"))
     assert l.is_archetype_root() == True
-    l = _TstLocatableImpl(DVText("Gender"), "openEHR-EHR-EVALUATION.gender.v1")
+    l = _TstLocatableImpl(DVText("Administrative gender"), "at0022")
     assert l.is_archetype_root() == False
 
 def test_locatable_archetype_node_id_valid():
@@ -61,3 +62,8 @@ def test_locatable_archetype_node_id_valid():
     with pytest.raises(ValueError):
         l = _TstLocatableImpl(DVText("Gender"), "")
 
+def test_archetyped_rm_version_valid():
+    a = Archetyped(ArchetypeID("openEHR-EHR-EVALUATION.gender.v1"), "1.1.0")
+    # not OK (rm_version empty)
+    with pytest.raises(ValueError):
+        a = Archetyped(ArchetypeID("openEHR-EHR-EVALUATION.gender.v1"), "")
