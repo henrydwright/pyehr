@@ -3,6 +3,7 @@ import pytest
 from org.openehr.base.base_types.identification import ArchetypeID
 from org.openehr.rm.common.archetyped import Pathable, Locatable, Link, Archetyped
 from org.openehr.rm.data_types.text import DVText
+from org.openehr.rm.data_types.uri import DVEHRUri
 
 class _TstLocatableImpl(Locatable):
     def __init__(self, name, archetype_node_id, uid = None, links = None, archetype_details = None, feeder_audit = None, **kwargs):
@@ -43,7 +44,7 @@ def test_locatable_links_valid():
     # OK (no links list)
     l = _TstLocatableImpl(DVText("Gender"), "openEHR-EHR-EVALUATION.gender.v1")
     # OK (links list not empty)
-    l = _TstLocatableImpl(DVText("Gender"), "openEHR-EHR-EVALUATION.gender.v1", links=[Link()])
+    l = _TstLocatableImpl(DVText("Blood pressure reading"), "openEHR-EHR-OBSERVATION.blood_pressure.v2", links=[Link(DVText("in response to"), DVText("order"), DVEHRUri("ehr:tasks/380daa09-028f-4beb-9803-4aef91644c2a"))])
     # not OK (links list empty)
     with pytest.raises(ValueError):
         l = _TstLocatableImpl(DVText("Gender"), "openEHR-EHR-EVALUATION.gender.v1", links=[])
