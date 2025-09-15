@@ -6,8 +6,14 @@ from typing import Optional
 
 from org.openehr.base.base_types.identification import UIDBasedID, ArchetypeID, TemplateID
 from org.openehr.base.foundation_types.any import AnyClass
+from org.openehr.base.foundation_types.structure import is_equal_value
+from org.openehr.rm.common.generic import PartyIdentified
+from org.openehr.rm.data_types.basic import DVIdentifier
+from org.openehr.rm.data_types.encapsulated import DVEncapsulated
 from org.openehr.rm.data_types.text import DVText
 from org.openehr.rm.data_types.uri import DVEHRUri
+from org.openehr.rm.data_types.quantity.date_time import DVDateTime
+from org.openehr.rm.data_structures.item_structure import ItemStructure
 
 class Pathable(AnyClass):
     """The PATHABLE class defines the pathing capabilities used by nearly all 
@@ -55,8 +61,121 @@ class Pathable(AnyClass):
         structure."""
         pass
 
+class FeederAuditDetails(AnyClass):
+    """Audit details for any system in a feeder system chain. Audit details here means the general notion 
+    of who/where/when the information item to which the audit is attached was created. None of the 
+    attributes is defined as mandatory, however, in different scenarios, various combinations of attributes 
+    will usually be mandatory. This can be controlled by specifying feeder audit details in legacy archetypes."""
+
+    system_id: str
+    """Identifier of the system which handled the information item. This is the IT system owned by the organisation 
+    legally responsible for handling the data, and at which the data were previously created or passed by an earlier 
+    system."""
+
+    location: Optional[PartyIdentified]
+    """Identifier of the particular site/facility within an organisation which handled the item. For computability, 
+    this identifier needs to be e.g. a PKI identifier which can be included in the identifier list of the 
+    PARTY_IDENTIFIED object."""
+
+    subject: Optional[PartyIdentified]
+    """Identifiers for subject of the received information item."""
+
+    provider: Optional[PartyIdentified]
+    """Optional provider(s) who created, committed, forwarded or otherwise handled the item."""
+
+    time: Optional[DVDateTime]
+    """Time of handling the item. For an originating system, this will be time of creation, for an intermediate 
+    feeder system, this will be a time of accession or other time of handling, where available."""
+
+    version_id: Optional[str]
+    """Any identifier used in the system such as "interim", "final", or numeric versions if available."""
+
+    other_details: Optional[ItemStructure]
+    """Optional attribute to carry any custom meta-data. May be archetyped."""
+
+    def __init__(
+        self,
+        system_id: str,
+        location: Optional[PartyIdentified] = None,
+        subject: Optional[PartyIdentified] = None,
+        provider: Optional[PartyIdentified] = None,
+        time: Optional[DVDateTime] = None,
+        version_id: Optional[str] = None,
+        other_details: Optional[ItemStructure] = None,
+        **kwargs
+    ):
+        if len(system_id) == 0:
+            raise ValueError("system_id cannot be an empty string (invariant: system_id_valid)")
+        self.system_id = system_id
+        self.location = location
+        self.subject = subject
+        self.provider = provider
+        self.time = time
+        self.version_id = version_id
+        self.other_details = other_details
+        super().__init__(**kwargs)
+
+    def is_equal(self, other):
+        return (
+            type(self) == type(other) and
+            self.system_id == other.system_id and
+            is_equal_value(self.location, other.location) and
+            is_equal_value(self.subject, other.subject) and
+            is_equal_value(self.provider, other.provider) and
+            is_equal_value(self.time, other.time) and
+            self.version_id == other.version_id and
+            is_equal_value(self.other_details, other.other_details)
+        )
+
 class FeederAudit(AnyClass):
-    pass
+    """The FEEDER_AUDIT class defines the semantics of an audit trail which is constructed to describe 
+    the origin of data that have been transformed into openEHR form and committed to the system."""
+
+    originating_system_item_ids: Optional[list[DVIdentifier]]
+    """Identifiers used for the item in the originating system, e.g. filler and placer ids."""
+
+    feeder_system_item_ids: Optional[list[DVIdentifier]]
+    """Identifiers used for the item in the feeder system, where the feeder system is distinct from 
+    the originating system."""
+
+    original_content: Optional[DVEncapsulated]
+    """Optional inline inclusion of or reference to original content corresponding to the openEHR 
+    content at this node. Typically a URI reference to a document or message in a persistent store 
+    associated with the EHR."""
+
+    originating_system_audit: FeederAuditDetails
+    """Any audit information for the information item from the originating system."""
+
+    feeder_system_audit: Optional[FeederAuditDetails]
+    """Any audit information for the information item from the feeder system, if different from the 
+    originating system."""
+
+    def __init__(
+        self,
+        originating_system_audit: FeederAuditDetails,
+        originating_system_item_ids: Optional[list[DVIdentifier]] = None,
+        feeder_system_item_ids: Optional[list[DVIdentifier]] = None,
+        original_content: Optional[DVEncapsulated] = None,
+        feeder_system_audit: Optional[FeederAuditDetails] = None,
+        **kwargs
+    ):
+        self.originating_system_item_ids = originating_system_item_ids
+        self.feeder_system_item_ids = feeder_system_item_ids
+        self.original_content = original_content
+        self.originating_system_audit = originating_system_audit
+        self.feeder_system_audit = feeder_system_audit
+        super().__init__(**kwargs)
+
+    def is_equal(self, other: 'FeederAudit'):
+        return (
+            type(self) == type(other) and
+            is_equal_value(self.originating_system_item_ids, other.originating_system_item_ids) and
+            is_equal_value(self.feeder_system_item_ids, other.feeder_system_item_ids) and
+            is_equal_value(self.original_content, other.original_content) and
+            is_equal_value(self.originating_system_audit, other.originating_system_audit) and
+            is_equal_value(self.feeder_system_audit, other.feeder_system_audit)
+        )
+
 
 class Link(AnyClass):
     """The LINK type defines a logical relationship between two items, such as two ENTRYs or an 
@@ -97,8 +216,13 @@ class Link(AnyClass):
         self.target = target
         super().__init__(**kwargs)
     
-    def is_equal(self, other):
-        return super().is_equal(other)
+    def is_equal(self, other: 'Link'):
+        return (
+            type(self) == type(other) and
+            self.meaning.is_equal(other.meaning) and
+            self.link_type.is_equal(other.link_type) and
+            self.target.is_equal(other.target)
+        )
 
 class Archetyped(AnyClass):
     """Archetypes act as the configuration basis for the particular structures of instances 

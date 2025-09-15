@@ -1,7 +1,7 @@
 import pytest
 
 from org.openehr.base.base_types.identification import ArchetypeID
-from org.openehr.rm.common.archetyped import Pathable, Locatable, Link, Archetyped
+from org.openehr.rm.common.archetyped import Pathable, Locatable, Link, Archetyped, FeederAuditDetails
 from org.openehr.rm.data_types.text import DVText
 from org.openehr.rm.data_types.uri import DVEHRUri
 
@@ -68,3 +68,8 @@ def test_archetyped_rm_version_valid():
     # not OK (rm_version empty)
     with pytest.raises(ValueError):
         a = Archetyped(ArchetypeID("openEHR-EHR-EVALUATION.gender.v1"), "")
+
+def test_feeder_audit_details_system_id_valid():
+    fad = FeederAuditDetails("test-lims.example.net")
+    with pytest.raises(ValueError):
+        fad = FeederAuditDetails("")
