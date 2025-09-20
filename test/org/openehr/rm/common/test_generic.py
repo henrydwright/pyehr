@@ -1,8 +1,14 @@
 import pytest
 
-from org.openehr.base.base_types.identification import PartyRef, ObjectID
-from org.openehr.rm.common.generic import PartyIdentified
+from common import PythonTerminologyService, TERMINOLOGY_OPENEHR
+from org.openehr.base.base_types.identification import PartyRef, ObjectID, TerminologyID
+from org.openehr.rm.common.generic import PartyIdentified, PartyRelated
 from org.openehr.rm.data_types.basic import DVIdentifier
+from org.openehr.rm.data_types.text import DVCodedText, CodePhrase
+from org.openehr.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
+
+ts_ok = PythonTerminologyService(code_sets=[], terminologies=[TERMINOLOGY_OPENEHR])
+ts_empty = PythonTerminologyService(code_sets=[], terminologies=[])
 
 def test_party_identified_basic_validity():
     # OK (one of three not void)
@@ -29,3 +35,24 @@ def test_party_identified_identifiers_valid():
     # not OK (identifiers empty)
     with pytest.raises(ValueError):
         pi = PartyIdentified(identifiers=[])
+
+def test_party_related_relationship_valid():
+    PartyRelated(
+        relationship=DVCodedText("mum", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "10", "mother")),
+        terminology_service=ts_ok,
+        name="Ms. A Example"
+        )
+    # not OK (term svc without openehr)
+    with pytest.raises(ValueError):
+        PartyRelated(
+            relationship=DVCodedText("mum", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "10", "mother")),
+            terminology_service=ts_empty,
+            name="Ms. A Example"
+            )
+    # not OK (code not in terminology group)
+    with pytest.raises(ValueError):
+        PartyRelated(
+            relationship=DVCodedText("mum", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "1000", "mum")),
+            terminology_service=ts_ok,
+            name="Ms. A Example"
+            )

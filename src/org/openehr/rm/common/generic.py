@@ -11,6 +11,8 @@ from org.openehr.base.foundation_types.any import AnyClass
 from org.openehr.base.resource import is_equal_value
 from org.openehr.base.base_types.identification import PartyRef
 from org.openehr.rm.data_types.basic import DVIdentifier
+from org.openehr.rm.data_types.text import DVCodedText
+from org.openehr.rm.support.terminology import TerminologyService, util_verify_code_in_openehr_terminology_group_or_error, OpenEHRTerminologyGroupIdentifiers
 
 class PartyProxy(AnyClass):
     """Abstract concept of a proxy description of a party, including an optional link 
@@ -79,3 +81,30 @@ class PartyIdentified(PartyProxy):
             self.name == other.name and
             is_equal_value(self.identifiers, other.identifiers)
         )
+
+class PartyRelated(PartyIdentified):
+    """Proxy type for identifying a party and its relationship to the subject of the record. 
+    Use where the relationship between the party and the subject of the record must be known."""
+
+    _terminology_service: TerminologyService
+
+    relationship: DVCodedText
+    """Relationship of subject of this ENTRY to the subject of the record. May be coded. 
+    If it is the patient, coded as self."""
+
+    def __init__(self,
+                 relationship: DVCodedText,
+                 terminology_service: TerminologyService, 
+                 external_ref : Optional[PartyRef] = None, 
+                 name : Optional[str] = None, 
+                 identifiers : Optional[list[DVIdentifier]] = None, **kwargs):
+        self._terminology_service = terminology_service
+
+        util_verify_code_in_openehr_terminology_group_or_error(
+            code=relationship.defining_code,
+            terminology_group_id=OpenEHRTerminologyGroupIdentifiers.GROUP_ID_SUBJECT_RELATIONSHIP,
+            terminology_service=terminology_service,
+            invariant_name_for_error="relationship_valid"
+        )
+        self.relationship = relationship
+        super().__init__(external_ref, name, identifiers, **kwargs)

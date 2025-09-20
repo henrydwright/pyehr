@@ -845,6 +845,44 @@ GROUPLIST_OPENEHR_TERM_MAPPING_PURPOSES = [
     CodePhrase(TERMINOLOGYID_OPENEHR, "670", "reimbursement"),
     CodePhrase(TERMINOLOGYID_OPENEHR, "671", "research study")
 ]
+GROUPLIST_OPENEHR_SUBJECT_RELATIONSHIP = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "0", "self"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "3", "foetus"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "10", "mother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "9", "father"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "6", "donor"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "253", "unknown"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "261", "adopted daughter"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "260", "adopted son"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "259", "adoptive father"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "258", "adoptive mother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "256", "biological father"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "255", "biological mother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "23", "brother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "28", "child"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "265", "cohabitee"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "257", "cousin"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "29", "daughter"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "264", "guardian"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "39", "maternal aunt"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "8", "maternal grandfather"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "7", "maternal grandmother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "38", "maternal uncle"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "189", "neonate"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "254", "parent"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "22", "partner/spouse"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "41", "paternal aunt"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "36", "paternal grandfather"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "37", "paternal grandmother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "40", "paternal uncle"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "27", "sibling"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "24", "sister"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "31", "son"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "263", "step father"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "262", "step mother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "25", "step or half brother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "26", "step or half sister")
+]
 
 CODESET_OPENEHR_CHARACTER_SETS = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_CHARACTER_SETS.name(), "en", CODELIST_OPENEHR_CHARACTER_SETS)
 CODESET_OPENEHR_COUNTRIES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_COUNTRIES.name(), "en", CODELIST_OPENEHR_COUNTRIES)
@@ -855,5 +893,6 @@ CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS = ListCodeSetAccess(TERMINOLOGYID_OPE
 CODESET_OPENEHR_NORMAL_STATUSES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_NORMAL_STATUSES.name(), "en", CODELIST_OPENEHR_NORMAL_STATUSES)
 
 TERMINOLOGY_OPENEHR = DictTerminologyAccess("openehr", "en", {
-    ("term_mapping_purpose", "term mapping purpose"): GROUPLIST_OPENEHR_TERM_MAPPING_PURPOSES
+    ("term_mapping_purpose", "term mapping purpose"): GROUPLIST_OPENEHR_TERM_MAPPING_PURPOSES,
+    ("subject_relationship", "subject relationship"): GROUPLIST_OPENEHR_SUBJECT_RELATIONSHIP
 })
