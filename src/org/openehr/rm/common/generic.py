@@ -168,3 +168,60 @@ class Participation(AnyClass):
                 is_equal_value(self.mode, other.mode) and
                 is_equal_value(self.performer, other.performer) and
                 is_equal_value(self.time, other.time))
+    
+class AuditDetails(AnyClass):
+    """The set of attributes required to document the committal of an information item to a 
+    repository."""
+
+    system_id: str
+    """Identifier of the logical EHR system where the change was committed. This is almost 
+    always owned by the organisation legally responsible for the EHR, and is distinct from 
+    any application, or any hosting infrastructure."""
+
+    time_committed: DVDateTime
+    """Time of committal of the item."""
+
+    change_type: DVCodedText
+    """Type of change. Coded using the openEHR Terminology audit change type group."""
+
+    description: Optional[DVText]
+    """Reason for committal. This may be used to qualify the value in the change_type 
+    field. For example, if the change affects only the EHR directory, this field might 
+    be used to indicate 'Folder "episode 2018-02-16" added' or similar."""
+
+    committer: PartyProxy
+    """Identity and optional reference into identity management service, of user who 
+    committed the item."""
+
+    def __init__(self, 
+                 system_id: str, 
+                 time_committed: DVDateTime, 
+                 change_type: DVCodedText, 
+                 committer: PartyProxy, 
+                 terminology_service: TerminologyService,
+                 description: Optional[DVText] = None, 
+                 **kwargs):
+        if len(system_id) == 0:
+            raise ValueError("system_id cannot be empty (invariant: system_id_valid)")
+        self.system_id = system_id
+        self.time_committed = time_committed
+        util_verify_code_in_openehr_terminology_group_or_error(
+            code=change_type.defining_code,
+            terminology_group_id=OpenEHRTerminologyGroupIdentifiers.GROUP_ID_AUDIT_CHANGE_TYPE,
+            terminology_service=terminology_service,
+            invariant_name_for_error="change_type_valid"
+        )
+        self.change_type = change_type
+        self.committer = committer
+        self.description = description
+        super().__init__(**kwargs)
+
+    def is_equal(self, other: 'AuditDetails'):
+        return (
+            type(self) == type(other) and
+            self.system_id == other.system_id and
+            is_equal_value(self.time_committed, other.time_committed) and
+            is_equal_value(self.change_type, other.change_type) and
+            is_equal_value(self.description, other.description) and
+            is_equal_value(self.committer, other.committer)
+        )

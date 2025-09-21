@@ -2,9 +2,10 @@ import pytest
 
 from common import PythonTerminologyService, TERMINOLOGY_OPENEHR
 from org.openehr.base.base_types.identification import PartyRef, ObjectID, TerminologyID
-from org.openehr.rm.common.generic import PartyIdentified, PartyRelated, Participation
+from org.openehr.rm.common.generic import PartyIdentified, PartyRelated, Participation, AuditDetails
 from org.openehr.rm.data_types.basic import DVIdentifier
 from org.openehr.rm.data_types.text import DVCodedText, CodePhrase, DVText
+from org.openehr.rm.data_types.quantity.date_time import DVDateTime
 from org.openehr.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
 ts_ok = PythonTerminologyService(code_sets=[], terminologies=[TERMINOLOGY_OPENEHR])
@@ -110,3 +111,50 @@ def test_participation_mode_valid():
             function=DVText("observer"), 
             performer=PartyIdentified(name="Ms. A Student"),
             mode=DVCodedText("physically present", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "219", "physically present")))
+        
+def test_audit_details_system_id_valid():
+    # OK
+    AuditDetails(
+        system_id="example_hospital_ehr",
+        time_committed=DVDateTime("2025-09-21T15:58:02.128Z"),
+        change_type=DVCodedText("creation", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "249", "creation")),
+        committer=PartyIdentified(external_ref=PartyRef("local_active_directory", "PERSON", ObjectID("TU999"))),
+        terminology_service=ts_ok
+    )
+    # not OK (system_id empty string)
+    with pytest.raises(ValueError):
+        AuditDetails(
+            system_id="",
+            time_committed=DVDateTime("2025-09-21T15:58:02.128Z"),
+            change_type=DVCodedText("creation", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "249", "creation")),
+            committer=PartyIdentified(external_ref=PartyRef("local_active_directory", "PERSON", ObjectID("TU999"))),
+            terminology_service=ts_ok
+        )
+
+def test_audit_details_change_type_valid():
+    # OK
+    AuditDetails(
+        system_id="example_hospital_ehr",
+        time_committed=DVDateTime("2025-09-21T15:58:02.128Z"),
+        change_type=DVCodedText("creation", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "249", "creation")),
+        committer=PartyIdentified(external_ref=PartyRef("local_active_directory", "PERSON", ObjectID("TU999"))),
+        terminology_service=ts_ok
+    )
+    # not OK (invalid code)
+    with pytest.raises(ValueError):
+        AuditDetails(
+            system_id="example_hospital_ehr",
+            time_committed=DVDateTime("2025-09-21T15:58:02.128Z"),
+            change_type=DVCodedText("creation", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "524", "initial")),
+            committer=PartyIdentified(external_ref=PartyRef("local_active_directory", "PERSON", ObjectID("TU999"))),
+            terminology_service=ts_ok
+        )
+    # not OK (empty ts)
+    with pytest.raises(ValueError):
+        AuditDetails(
+            system_id="example_hospital_ehr",
+            time_committed=DVDateTime("2025-09-21T15:58:02.128Z"),
+            change_type=DVCodedText("creation", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "524", "initial")),
+            committer=PartyIdentified(external_ref=PartyRef("local_active_directory", "PERSON", ObjectID("TU999"))),
+            terminology_service=ts_empty
+        )

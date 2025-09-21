@@ -920,6 +920,17 @@ GROUPLIST_OPENEHR_PARTICIPATION_MODE = [
     CodePhrase(TERMINOLOGYID_OPENEHR, "219", "physically present"),
     CodePhrase(TERMINOLOGYID_OPENEHR, "220", "physically remote")
 ]
+GROUPLIST_OPENEHR_AUDIT_CHANGE_TYPE = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "249", "creation"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "250", "amendment"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "251", "modification"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "252", "synthesis"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "523", "deleted"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "666", "attestation"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "816", "restoration"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "817", "format conversion"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "253", "unknown")
+]
 
 CODESET_OPENEHR_CHARACTER_SETS = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_CHARACTER_SETS.name(), "en", CODELIST_OPENEHR_CHARACTER_SETS)
 CODESET_OPENEHR_COUNTRIES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_COUNTRIES.name(), "en", CODELIST_OPENEHR_COUNTRIES)
@@ -933,5 +944,6 @@ TERMINOLOGY_OPENEHR = DictTerminologyAccess("openehr", "en", {
     ("term_mapping_purpose", "term mapping purpose"): GROUPLIST_OPENEHR_TERM_MAPPING_PURPOSES,
     ("subject_relationship", "subject relationship"): GROUPLIST_OPENEHR_SUBJECT_RELATIONSHIP,
     ("participation_function", "participation function"): GROUPLIST_OPENEHR_PARTICIPATION_FUNCTION,
-    ("participation_mode", "participation mode"): GROUPLIST_OPENEHR_PARTICIPATION_MODE
+    ("participation_mode", "participation mode"): GROUPLIST_OPENEHR_PARTICIPATION_MODE,
+    ("audit_change_type", "audit change type"): GROUPLIST_OPENEHR_AUDIT_CHANGE_TYPE
 })
