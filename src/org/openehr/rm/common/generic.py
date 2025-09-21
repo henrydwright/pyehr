@@ -9,7 +9,7 @@ from typing import Optional
 
 from org.openehr.base.foundation_types.any import AnyClass
 from org.openehr.base.resource import is_equal_value
-from org.openehr.base.base_types.identification import PartyRef
+from org.openehr.base.base_types.identification import PartyRef, ObjectVersionID
 from org.openehr.rm.data_types.basic import DVIdentifier
 from org.openehr.rm.data_types.encapsulated import DVMultimedia
 from org.openehr.rm.data_types.quantity import DVInterval
@@ -282,3 +282,50 @@ class Attestation(AuditDetails):
             raise ValueError("If items is provided it must not be an empty list (invariant: items_valid)")
         self.items = items
         super().__init__(system_id, time_committed, change_type, committer, terminology_service, description, **kwargs)
+
+class RevisionHistoryItem(AnyClass):
+    """An entry in a revision history, corresponding to a version from a versioned container. Consists of 
+    AUDIT_DETAILS instances with revision identifier of the revision to which the AUDIT_DETAILS instance belongs."""
+
+    version_id: ObjectVersionID
+    """Version identifier for this revision."""
+
+    audits: list[AuditDetails]
+    """The audits for this revision; there will always be at least one commit audit (which may itself be an ATTESTATION),
+    there may also be further attestations."""
+
+    def __init__(self, version_id: ObjectVersionID, audits: list[AuditDetails], **kwargs):
+        self.version_id = version_id
+        self.audits = audits
+        super().__init__(**kwargs)
+
+    def is_equal(self, other: 'RevisionHistoryItem'):
+        return (type(self) == type(other) and
+                is_equal_value(self.version_id, other.version_id) and
+                is_equal_value(self.audits, other.audits))
+
+class RevisionHistory(AnyClass):
+    """Defines the notion of a revision history of audit items, each associated with the version for which that 
+    audit was committed. The list is in most-recent-first order."""
+
+    # TODO: the specification has a class description and parameter description that are exact opposites (most-recent-first vs. most-recent-last)
+    #        need to report this, but in meantime take parameter definition of most-recent-last...
+    items: list[RevisionHistoryItem]
+    """The items in this history in most-recent-last order."""
+
+    def __init__(self, items: list[RevisionHistoryItem], **kwargs):
+        self.items = items
+        super().__init__(**kwargs)
+
+    def most_recent_version(self) -> str:
+        """The version id of the most recent item, as a String."""
+        return self.items[-1].version_id.value
+
+    def most_recent_version_time_committed(self) -> str:
+        """The commit date/time of the most recent item, as a String."""
+        return self.items[-1].audits[-1].time_committed.as_string()
+
+    def is_equal(self, other: 'RevisionHistory'):
+        return (
+            type(self) == type(other) and
+            is_equal_value(self.items, other.items))

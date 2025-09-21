@@ -1,8 +1,8 @@
 import pytest
 
 from common import PythonTerminologyService, TERMINOLOGY_OPENEHR
-from org.openehr.base.base_types.identification import PartyRef, ObjectID, TerminologyID
-from org.openehr.rm.common.generic import PartyIdentified, PartyRelated, Participation, AuditDetails, Attestation
+from org.openehr.base.base_types.identification import PartyRef, ObjectID, TerminologyID, ObjectVersionID
+from org.openehr.rm.common.generic import PartyIdentified, PartyRelated, Participation, AuditDetails, Attestation, RevisionHistory, RevisionHistoryItem
 from org.openehr.rm.data_types.basic import DVIdentifier
 from org.openehr.rm.data_types.text import DVCodedText, CodePhrase, DVText
 from org.openehr.rm.data_types.quantity.date_time import DVDateTime
@@ -228,3 +228,44 @@ def test_attestation_reason_valid():
             is_pending=False,
             terminology_service=ts_empty
         )
+
+valid_rh_example = RevisionHistory([
+        RevisionHistoryItem(
+            version_id=ObjectVersionID("1d34aa7a-9e2c-49ff-a539-53c926107df6::ehr.example.net::1"),
+            audits=[
+                AuditDetails(
+                    system_id="ehr.example.net",
+                    time_committed=DVDateTime("2025-09-21T18:20:00Z"),
+                    change_type=DVCodedText("created initial draft", CodePhrase(TerminologyID("openehr"), "249", "creation")),
+                    committer=PartyIdentified(name="Dr A General-Practitioner"),
+                    terminology_service=ts_ok
+                    ),
+                Attestation(
+                    system_id="ehr.example.net",
+                    time_committed=DVDateTime("2025-09-21T18:22:00Z"),
+                    change_type=DVCodedText("signed DNACPR section", CodePhrase(TerminologyID("openehr"), "666", "attestation")),
+                    committer=PartyIdentified(name="Dr A General-Practitioner"),
+                    reason=DVCodedText("signed", CodePhrase(TerminologyID("openehr"), "240", "signed")),
+                    is_pending=False,
+                    terminology_service=ts_ok
+                )
+            ]),
+        RevisionHistoryItem(
+            version_id=ObjectVersionID("1d34aa7a-9e2c-49ff-a539-53c926107df6::ehr.example.net::2"),
+            audits=[
+                AuditDetails(
+                    system_id="ehr.example.net",
+                    time_committed=DVDateTime("2025-09-21T18:32:00Z"),
+                    change_type=DVCodedText("amended preferred name", CodePhrase(TerminologyID("openehr"), "250", "amendment")),
+                    committer=PartyIdentified(name="Ms C Test"),
+                    terminology_service=ts_ok
+                )
+            ]
+        )
+    ])
+
+def test_revision_history_most_recent_version():
+    assert valid_rh_example.most_recent_version() == "1d34aa7a-9e2c-49ff-a539-53c926107df6::ehr.example.net::2"
+
+def test_revision_history_most_recent_version_time_committed():
+    assert valid_rh_example.most_recent_version_time_committed() == "2025-09-21T18:32:00Z"
