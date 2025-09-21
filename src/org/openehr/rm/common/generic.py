@@ -11,9 +11,11 @@ from org.openehr.base.foundation_types.any import AnyClass
 from org.openehr.base.resource import is_equal_value
 from org.openehr.base.base_types.identification import PartyRef
 from org.openehr.rm.data_types.basic import DVIdentifier
+from org.openehr.rm.data_types.encapsulated import DVMultimedia
 from org.openehr.rm.data_types.quantity import DVInterval
 from org.openehr.rm.data_types.quantity.date_time import DVDateTime
 from org.openehr.rm.data_types.text import DVCodedText, DVText
+from org.openehr.rm.data_types.uri import DVEHRUri
 from org.openehr.rm.support.terminology import TerminologyService, util_verify_code_in_openehr_terminology_group_or_error, OpenEHRTerminologyGroupIdentifiers
 
 class PartyProxy(AnyClass):
@@ -225,3 +227,58 @@ class AuditDetails(AnyClass):
             is_equal_value(self.description, other.description) and
             is_equal_value(self.committer, other.committer)
         )
+    
+class Attestation(AuditDetails):
+    """Record an attestation of a party (the committer) to item(s) of record content. An attestation 
+    is an explicit signing by one healthcare agent of particular content for various particular purposes, 
+    including:
+      * for authorisation of a controlled substance or procedure (e.g. sectioning of patient under mental health act);
+      * witnessing of content by senior clinical professional;
+      * indicating acknowledgement of content by intended recipient, e.g. GP who ordered a test result."""
+    
+    attested_view: Optional[DVMultimedia]
+    """Optional visual representation of content attested e.g. screen image."""
+
+    proof: Optional[str]
+    """Proof of attestation."""
+
+    items: Optional[list[DVEHRUri]]
+    """Items attested, expressed as fully qualified runtime paths to the items in question. Although not 
+    recommended, these may include fine-grained items which have been attested in some other system. Otherwise 
+    it is assumed to be for the entire VERSION with which it is associated."""
+
+    reason: DVText
+    """Reason of this attestation. Optionally coded by the openEHR Terminology group attestation reason; 
+    includes values like authorisation, witness etc."""
+
+    is_pending: bool
+    """True if this attestation is outstanding; False means it has been completed."""
+
+    def __init__(self, 
+                 system_id: str, 
+                 time_committed: DVDateTime, 
+                 change_type: DVCodedText, 
+                 committer: PartyProxy, 
+                 reason: DVText,
+                 is_pending: bool,
+                 terminology_service: TerminologyService,
+                 description: Optional[DVText] = None, 
+                 attested_view: Optional[DVMultimedia] = None,
+                 proof: Optional[str] = None,
+                 items: Optional[list[DVEHRUri]] = None,
+                 **kwargs):
+        if (isinstance(reason, DVCodedText)):
+            util_verify_code_in_openehr_terminology_group_or_error(
+                code=reason.defining_code,
+                terminology_group_id=OpenEHRTerminologyGroupIdentifiers.GROUP_ID_ATTESTATION_REASON,
+                terminology_service=terminology_service,
+                invariant_name_for_error="reason_valid"
+            )
+        self.reason = reason
+        self.is_pending = is_pending
+        self.attested_view = attested_view
+        self.proof = proof
+        if (items is not None and len(items) == 0):
+            raise ValueError("If items is provided it must not be an empty list (invariant: items_valid)")
+        self.items = items
+        super().__init__(system_id, time_committed, change_type, committer, terminology_service, description, **kwargs)

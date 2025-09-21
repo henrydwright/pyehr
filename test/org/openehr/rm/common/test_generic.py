@@ -2,10 +2,11 @@ import pytest
 
 from common import PythonTerminologyService, TERMINOLOGY_OPENEHR
 from org.openehr.base.base_types.identification import PartyRef, ObjectID, TerminologyID
-from org.openehr.rm.common.generic import PartyIdentified, PartyRelated, Participation, AuditDetails
+from org.openehr.rm.common.generic import PartyIdentified, PartyRelated, Participation, AuditDetails, Attestation
 from org.openehr.rm.data_types.basic import DVIdentifier
 from org.openehr.rm.data_types.text import DVCodedText, CodePhrase, DVText
 from org.openehr.rm.data_types.quantity.date_time import DVDateTime
+from org.openehr.rm.data_types.uri import DVEHRUri
 from org.openehr.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
 ts_ok = PythonTerminologyService(code_sets=[], terminologies=[TERMINOLOGY_OPENEHR])
@@ -156,5 +157,74 @@ def test_audit_details_change_type_valid():
             time_committed=DVDateTime("2025-09-21T15:58:02.128Z"),
             change_type=DVCodedText("creation", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "524", "initial")),
             committer=PartyIdentified(external_ref=PartyRef("local_active_directory", "PERSON", ObjectID("TU999"))),
+            terminology_service=ts_empty
+        )
+
+def test_attestation_items_valid():
+    # OK (non-empty items)
+    Attestation(
+        system_id="example_hospital_ehr",
+        time_committed=DVDateTime("2025-09-21T15:58:02.128Z"),
+        change_type=DVCodedText("attestation", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "666", "attestation")),
+        committer=PartyIdentified(external_ref=PartyRef("local_active_directory", "PERSON", ObjectID("TU999"))),
+        reason=DVText("signing prescription"),
+        is_pending=False,
+        terminology_service=ts_ok,
+        items=[DVEHRUri("ehr:tasks/380daa09-028f-4beb-9803-4aef91644c2a")]
+    )
+    # not OK (empty items list)
+    with pytest.raises(ValueError):
+        Attestation(
+            system_id="example_hospital_ehr",
+            time_committed=DVDateTime("2025-09-21T15:58:02.128Z"),
+            change_type=DVCodedText("attestation", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "666", "attestation")),
+            committer=PartyIdentified(external_ref=PartyRef("local_active_directory", "PERSON", ObjectID("TU999"))),
+            reason=DVText("signing prescription"),
+            is_pending=False,
+            terminology_service=ts_ok,
+            items=[]
+        )
+
+def test_attestation_reason_valid():
+    # OK (non-coded text for reason)
+    Attestation(
+        system_id="example_hospital_ehr",
+        time_committed=DVDateTime("2025-09-21T15:58:02.128Z"),
+        change_type=DVCodedText("attestation", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "666", "attestation")),
+        committer=PartyIdentified(external_ref=PartyRef("local_active_directory", "PERSON", ObjectID("TU999"))),
+        reason=DVText("signed prescription"),
+        is_pending=False,
+        terminology_service=ts_ok
+    )
+    # OK (coded text for reason, valid code)
+    Attestation(
+        system_id="example_hospital_ehr",
+        time_committed=DVDateTime("2025-09-21T15:58:02.128Z"),
+        change_type=DVCodedText("attestation", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "666", "attestation")),
+        committer=PartyIdentified(external_ref=PartyRef("local_active_directory", "PERSON", ObjectID("TU999"))),
+        reason=DVCodedText("signed prescription", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "240", "signed")),
+        is_pending=False,
+        terminology_service=ts_ok
+    )
+    # not OK (coded text for reason, wrong terminology)
+    with pytest.raises(ValueError):
+        Attestation(
+            system_id="example_hospital_ehr",
+            time_committed=DVDateTime("2025-09-21T15:58:02.128Z"),
+            change_type=DVCodedText("attestation", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "666", "attestation")),
+            committer=PartyIdentified(external_ref=PartyRef("local_active_directory", "PERSON", ObjectID("TU999"))),
+            reason=DVCodedText("signed advance decision to refuse treatment", CodePhrase(TerminologyID("SNOMED-CT"), "711281000000107", "Advance decision to refuse treatment signed")),
+            is_pending=False,
+            terminology_service=ts_ok
+        )
+    # not OK (empty TS)
+    with pytest.raises(ValueError):
+        Attestation(
+            system_id="example_hospital_ehr",
+            time_committed=DVDateTime("2025-09-21T15:58:02.128Z"),
+            change_type=DVCodedText("attestation", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "666", "attestation")),
+            committer=PartyIdentified(external_ref=PartyRef("local_active_directory", "PERSON", ObjectID("TU999"))),
+            reason=DVCodedText("signed prescription", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "240", "signed")),
+            is_pending=False,
             terminology_service=ts_empty
         )

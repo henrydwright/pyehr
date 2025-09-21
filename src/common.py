@@ -931,6 +931,10 @@ GROUPLIST_OPENEHR_AUDIT_CHANGE_TYPE = [
     CodePhrase(TERMINOLOGYID_OPENEHR, "817", "format conversion"),
     CodePhrase(TERMINOLOGYID_OPENEHR, "253", "unknown")
 ]
+GROUPLIST_OPENEHR_ATTESTATION_REASON = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "240", "signed"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "648", "witnessed")
+]
 
 CODESET_OPENEHR_CHARACTER_SETS = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_CHARACTER_SETS.name(), "en", CODELIST_OPENEHR_CHARACTER_SETS)
 CODESET_OPENEHR_COUNTRIES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_COUNTRIES.name(), "en", CODELIST_OPENEHR_COUNTRIES)
@@ -945,5 +949,6 @@ TERMINOLOGY_OPENEHR = DictTerminologyAccess("openehr", "en", {
     ("subject_relationship", "subject relationship"): GROUPLIST_OPENEHR_SUBJECT_RELATIONSHIP,
     ("participation_function", "participation function"): GROUPLIST_OPENEHR_PARTICIPATION_FUNCTION,
     ("participation_mode", "participation mode"): GROUPLIST_OPENEHR_PARTICIPATION_MODE,
-    ("audit_change_type", "audit change type"): GROUPLIST_OPENEHR_AUDIT_CHANGE_TYPE
+    ("audit_change_type", "audit change type"): GROUPLIST_OPENEHR_AUDIT_CHANGE_TYPE,
+    ("attestation_reason", "attestation reason"): GROUPLIST_OPENEHR_ATTESTATION_REASON
 })
