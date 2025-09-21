@@ -2,9 +2,9 @@ import pytest
 
 from common import PythonTerminologyService, TERMINOLOGY_OPENEHR
 from org.openehr.base.base_types.identification import PartyRef, ObjectID, TerminologyID
-from org.openehr.rm.common.generic import PartyIdentified, PartyRelated
+from org.openehr.rm.common.generic import PartyIdentified, PartyRelated, Participation
 from org.openehr.rm.data_types.basic import DVIdentifier
-from org.openehr.rm.data_types.text import DVCodedText, CodePhrase
+from org.openehr.rm.data_types.text import DVCodedText, CodePhrase, DVText
 from org.openehr.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
 ts_ok = PythonTerminologyService(code_sets=[], terminologies=[TERMINOLOGY_OPENEHR])
@@ -56,3 +56,57 @@ def test_party_related_relationship_valid():
             terminology_service=ts_ok,
             name="Ms. A Example"
             )
+
+def test_participation_function_valid():
+    # OK (text, not coded)
+    Participation(DVText("observer"), PartyIdentified(name="Ms. A Student"))
+    # OK (coded text, uses right coding, provides TS)
+    Participation(
+        function=DVCodedText("unknown", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "253", "unknown")),
+        performer=PartyIdentified(name="MRS J TEST"),
+        terminology_service=ts_ok)
+    # not OK (coded text, uses wrong coding)
+    with pytest.raises(ValueError):
+        Participation(
+            function=DVCodedText("anesthesia nurse", CodePhrase(TerminologyID("HL7v3"), "ANRS")),
+            performer=PartyIdentified(name="MRS J TEST"),
+            terminology_service=ts_ok)
+    # not OK (terminology service empty)
+    with pytest.raises(ValueError):
+        Participation(
+            function=DVCodedText("unknown", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "253", "unknown")),
+            performer=PartyIdentified(name="MRS J TEST"),
+            terminology_service=ts_empty)
+    # not OK (no term svc)
+    with pytest.raises(ValueError):
+        Participation(
+            function=DVCodedText("unknown", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "253", "unknown")),
+            performer=PartyIdentified(name="MRS J TEST"))
+        
+def test_participation_mode_valid():
+    # OK (coded text, uses right coding, provides ts)
+    Participation(
+        function=DVText("observer"), 
+        performer=PartyIdentified(name="Ms. A Student"),
+        mode=DVCodedText("physically present", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "219", "physically present")),
+        terminology_service=ts_ok)
+    # not OK (uses invalid code)
+    with pytest.raises(ValueError):
+        Participation(
+            function=DVText("observer"), 
+            performer=PartyIdentified(name="Ms. A Student"),
+            mode=DVCodedText("physically present", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "524", "initial")),
+            terminology_service=ts_ok)
+    # not OK (empty ts)
+    with pytest.raises(ValueError):
+        Participation(
+            function=DVText("observer"), 
+            performer=PartyIdentified(name="Ms. A Student"),
+            mode=DVCodedText("physically present", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "219", "physically present")),
+            terminology_service=ts_empty)
+    # not OK (no termsvc)
+    with pytest.raises(ValueError):
+        Participation(
+            function=DVText("observer"), 
+            performer=PartyIdentified(name="Ms. A Student"),
+            mode=DVCodedText("physically present", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "219", "physically present")))

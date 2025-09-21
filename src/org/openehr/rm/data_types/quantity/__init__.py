@@ -157,7 +157,7 @@ class DVOrdered(DataValue):
     def __str__(self):
         return str(self._value)
 
-class DVInterval(DataValue):
+class DVInterval[T](DataValue):
     """Generic class defining an interval (i.e. range) of a comparable type. An interval is a 
     contiguous subrange of a comparable base type. Used to define intervals of dates, times, 
     quantities (whose units match) and so on. The type parameter, T, must be a descendant of the 
@@ -174,7 +174,7 @@ class DVInterval(DataValue):
     # invariant limits_consistent met because all subclasses of Interval check that lower and upper
     #  bounds have the same type
 
-    value: Interval[DVOrdered]
+    value: Interval[T]
 
     def _attempt_set_value(self, value: Interval[DVOrdered]):
         if ((value.lower is not None) and (not isinstance(value.lower, DVOrdered))) or ((value.upper is not None) and (not isinstance(value.upper, DVOrdered))):

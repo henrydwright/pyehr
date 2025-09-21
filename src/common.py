@@ -883,6 +883,43 @@ GROUPLIST_OPENEHR_SUBJECT_RELATIONSHIP = [
     CodePhrase(TERMINOLOGYID_OPENEHR, "25", "step or half brother"),
     CodePhrase(TERMINOLOGYID_OPENEHR, "26", "step or half sister")
 ]
+GROUPLIST_OPENEHR_PARTICIPATION_FUNCTION = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "253", "unknown")
+]
+GROUPLIST_OPENEHR_PARTICIPATION_MODE = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "193", "not specified"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "216", "face-to-face communication"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "223", "interpreted face-to-face communication"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "217", "signing (face-to-face)"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "195", "live audiovisual; videoconference; videophone"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "198", "videoconferencing"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "197", "videophone"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "218", "signing over video"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "224", "interpreted video communication"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "194", "asynchronous audiovisual; recorded video"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "196", "recorded video"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "202", "live audio-only; telephone; internet phone; teleconference"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "204", "telephone"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "203", "teleconference"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "205", "internet telephone"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "222", "interpreted audio-only"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "199", "asynchronous audio-only; dictated; voice mail"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "200", "dictated"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "201", "voice-mail"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "212", "live text-only; internet chat; SMS chat; interactive written note"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "213", "internet chat"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "214", "SMS chat"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "215", "interactive written note"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "206", "asynchronous text; email; fax; letter; handwritten note; SMS message"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "211", "handwritten note"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "210", "printed/typed letter"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "207", "email"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "208", "facsimile/telefax"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "221", "translated text"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "209", "SMS message"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "219", "physically present"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "220", "physically remote")
+]
 
 CODESET_OPENEHR_CHARACTER_SETS = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_CHARACTER_SETS.name(), "en", CODELIST_OPENEHR_CHARACTER_SETS)
 CODESET_OPENEHR_COUNTRIES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_COUNTRIES.name(), "en", CODELIST_OPENEHR_COUNTRIES)
@@ -894,5 +931,7 @@ CODESET_OPENEHR_NORMAL_STATUSES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_NORMAL
 
 TERMINOLOGY_OPENEHR = DictTerminologyAccess("openehr", "en", {
     ("term_mapping_purpose", "term mapping purpose"): GROUPLIST_OPENEHR_TERM_MAPPING_PURPOSES,
-    ("subject_relationship", "subject relationship"): GROUPLIST_OPENEHR_SUBJECT_RELATIONSHIP
+    ("subject_relationship", "subject relationship"): GROUPLIST_OPENEHR_SUBJECT_RELATIONSHIP,
+    ("participation_function", "participation function"): GROUPLIST_OPENEHR_PARTICIPATION_FUNCTION,
+    ("participation_mode", "participation mode"): GROUPLIST_OPENEHR_PARTICIPATION_MODE
 })
