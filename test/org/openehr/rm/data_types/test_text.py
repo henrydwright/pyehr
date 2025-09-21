@@ -19,24 +19,24 @@ def test_code_phrase_code_string_valid():
         code = CodePhrase(term_id, "", "Respiratory tuberculosis, bacteriologically and histologically confirmed")
 
 def test_term_mapping_purpose_valid():
-    tmp = DVCodedText("research study", CodePhrase("openehr", "671", "research study"))
-    invalid_tmp = DVCodedText("organisational policy", CodePhrase("openehr", "100000", "organisational policy"))
+    tmp = DVCodedText("research study", CodePhrase(TerminologyID("openehr"), "671", "research study"))
+    invalid_tmp = DVCodedText("organisational policy", CodePhrase(TerminologyID("openehr"), "100000", "organisational policy"))
 
     # should be OK
-    tm = TermMapping('>', CodePhrase("SNOMED-CT", "159412009", "Manager - supermarket (occupation)"))
-    tm = TermMapping('>', CodePhrase("SNOMED-CT", "159412009", "Manager - supermarket (occupation)"), purpose=tmp, terminology_service=test_ts)
+    tm = TermMapping('>', CodePhrase(TerminologyID("SNOMED-CT"), "159412009", "Manager - supermarket (occupation)"))
+    tm = TermMapping('>', CodePhrase(TerminologyID("SNOMED-CT"), "159412009", "Manager - supermarket (occupation)"), purpose=tmp, terminology_service=test_ts)
 
     # not OK (no terminology service provided)
     with pytest.raises(ValueError):
-        tm = TermMapping('>', CodePhrase("SNOMED-CT", "159412009", "Manager - supermarket (occupation)"), purpose=tmp)
+        tm = TermMapping('>', CodePhrase(TerminologyID("SNOMED-CT"), "159412009", "Manager - supermarket (occupation)"), purpose=tmp)
 
     # not OK (terminology service doesn't have OpenEHR)
     with pytest.raises(ValueError):
-        tm = TermMapping('>', CodePhrase("SNOMED-CT", "159412009", "Manager - supermarket (occupation)"), purpose=tmp, terminology_service=test_ts_empty)
+        tm = TermMapping('>', CodePhrase(TerminologyID("SNOMED-CT"), "159412009", "Manager - supermarket (occupation)"), purpose=tmp, terminology_service=test_ts_empty)
 
     # not OK (invalid purpose code provided)
     with pytest.raises(ValueError):
-        tm = TermMapping('>', CodePhrase("SNOMED-CT", "159412009", "Manager - supermarket (occupation)"), purpose=invalid_tmp, terminology_service=test_ts)
+        tm = TermMapping('>', CodePhrase(TerminologyID("SNOMED-CT"), "159412009", "Manager - supermarket (occupation)"), purpose=invalid_tmp, terminology_service=test_ts)
 
 def test_term_mapping_is_valid_code():
     tmp = TermMapping('?', CodePhrase("SNOMED-CT", "257256000", "Supermarket shopping cart (physical object)"))

@@ -845,6 +845,96 @@ GROUPLIST_OPENEHR_TERM_MAPPING_PURPOSES = [
     CodePhrase(TERMINOLOGYID_OPENEHR, "670", "reimbursement"),
     CodePhrase(TERMINOLOGYID_OPENEHR, "671", "research study")
 ]
+GROUPLIST_OPENEHR_SUBJECT_RELATIONSHIP = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "0", "self"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "3", "foetus"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "10", "mother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "9", "father"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "6", "donor"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "253", "unknown"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "261", "adopted daughter"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "260", "adopted son"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "259", "adoptive father"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "258", "adoptive mother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "256", "biological father"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "255", "biological mother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "23", "brother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "28", "child"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "265", "cohabitee"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "257", "cousin"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "29", "daughter"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "264", "guardian"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "39", "maternal aunt"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "8", "maternal grandfather"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "7", "maternal grandmother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "38", "maternal uncle"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "189", "neonate"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "254", "parent"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "22", "partner/spouse"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "41", "paternal aunt"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "36", "paternal grandfather"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "37", "paternal grandmother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "40", "paternal uncle"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "27", "sibling"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "24", "sister"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "31", "son"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "263", "step father"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "262", "step mother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "25", "step or half brother"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "26", "step or half sister")
+]
+GROUPLIST_OPENEHR_PARTICIPATION_FUNCTION = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "253", "unknown")
+]
+GROUPLIST_OPENEHR_PARTICIPATION_MODE = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "193", "not specified"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "216", "face-to-face communication"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "223", "interpreted face-to-face communication"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "217", "signing (face-to-face)"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "195", "live audiovisual; videoconference; videophone"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "198", "videoconferencing"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "197", "videophone"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "218", "signing over video"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "224", "interpreted video communication"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "194", "asynchronous audiovisual; recorded video"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "196", "recorded video"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "202", "live audio-only; telephone; internet phone; teleconference"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "204", "telephone"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "203", "teleconference"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "205", "internet telephone"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "222", "interpreted audio-only"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "199", "asynchronous audio-only; dictated; voice mail"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "200", "dictated"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "201", "voice-mail"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "212", "live text-only; internet chat; SMS chat; interactive written note"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "213", "internet chat"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "214", "SMS chat"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "215", "interactive written note"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "206", "asynchronous text; email; fax; letter; handwritten note; SMS message"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "211", "handwritten note"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "210", "printed/typed letter"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "207", "email"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "208", "facsimile/telefax"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "221", "translated text"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "209", "SMS message"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "219", "physically present"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "220", "physically remote")
+]
+GROUPLIST_OPENEHR_AUDIT_CHANGE_TYPE = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "249", "creation"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "250", "amendment"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "251", "modification"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "252", "synthesis"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "523", "deleted"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "666", "attestation"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "816", "restoration"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "817", "format conversion"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "253", "unknown")
+]
+GROUPLIST_OPENEHR_ATTESTATION_REASON = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "240", "signed"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "648", "witnessed")
+]
 
 CODESET_OPENEHR_CHARACTER_SETS = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_CHARACTER_SETS.name(), "en", CODELIST_OPENEHR_CHARACTER_SETS)
 CODESET_OPENEHR_COUNTRIES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_COUNTRIES.name(), "en", CODELIST_OPENEHR_COUNTRIES)
@@ -855,5 +945,10 @@ CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS = ListCodeSetAccess(TERMINOLOGYID_OPE
 CODESET_OPENEHR_NORMAL_STATUSES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_NORMAL_STATUSES.name(), "en", CODELIST_OPENEHR_NORMAL_STATUSES)
 
 TERMINOLOGY_OPENEHR = DictTerminologyAccess("openehr", "en", {
-    ("term_mapping_purpose", "term mapping purpose"): GROUPLIST_OPENEHR_TERM_MAPPING_PURPOSES
+    ("term_mapping_purpose", "term mapping purpose"): GROUPLIST_OPENEHR_TERM_MAPPING_PURPOSES,
+    ("subject_relationship", "subject relationship"): GROUPLIST_OPENEHR_SUBJECT_RELATIONSHIP,
+    ("participation_function", "participation function"): GROUPLIST_OPENEHR_PARTICIPATION_FUNCTION,
+    ("participation_mode", "participation mode"): GROUPLIST_OPENEHR_PARTICIPATION_MODE,
+    ("audit_change_type", "audit change type"): GROUPLIST_OPENEHR_AUDIT_CHANGE_TYPE,
+    ("attestation_reason", "attestation reason"): GROUPLIST_OPENEHR_ATTESTATION_REASON
 })

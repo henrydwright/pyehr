@@ -43,6 +43,7 @@ class OpenEHRTerminologyGroupIdentifiers:
     GROUP_ID_NULL_FLAVOURS = "null_flavours"
     GROUP_ID_PROPERTY = "property"
     GROUP_ID_PARTICIPATION_FUNCTION = "participation_function"
+    GROUP_ID_PARTICIPATION_MODE = "participation_mode"
     GROUP_ID_SETTING = "setting"
     GROUP_ID_TERM_MAPPING_PURPOSE = "term_mapping_purpose"
     GROUP_ID_SUBJECT_RELATIONSHIP = "subject_relationship"
@@ -62,6 +63,7 @@ class OpenEHRTerminologyGroupIdentifiers:
             (an_id == OpenEHRTerminologyGroupIdentifiers.GROUP_ID_NULL_FLAVOURS) or
             (an_id == OpenEHRTerminologyGroupIdentifiers.GROUP_ID_PROPERTY) or
             (an_id == OpenEHRTerminologyGroupIdentifiers.GROUP_ID_PARTICIPATION_FUNCTION) or
+            (an_id == OpenEHRTerminologyGroupIdentifiers.GROUP_ID_PARTICIPATION_MODE) or
             (an_id == OpenEHRTerminologyGroupIdentifiers.GROUP_ID_SETTING) or
             (an_id == OpenEHRTerminologyGroupIdentifiers.GROUP_ID_TERM_MAPPING_PURPOSE) or
             (an_id == OpenEHRTerminologyGroupIdentifiers.GROUP_ID_SUBJECT_RELATIONSHIP) or
@@ -202,6 +204,8 @@ def util_verify_code_in_openehr_terminology_group_or_error(code: CodePhrase, ter
     if (not terminology_service.has_terminology(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR)):
         raise ValueError(f"Access to a TerminologyService with OpenEHR terminology must also be given to check validity {"(invariant: " + invariant_name_for_error + ")" if invariant_name_for_error else ""}")
     else:
+        if not code.terminology_id.name() == OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR:
+            raise ValueError(f"Provided code used the terminology \'{code.terminology_id.name()}\' rather then 'openehr' {"(invariant: " + invariant_name_for_error + ")" if invariant_name_for_error else ""}")
         openehr_terminology = terminology_service.terminology(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR)
         if not openehr_terminology.has_code_for_group_id(code.code_string, terminology_group_id):
             raise ValueError(f"Provided code \'{code.code_string}\' was not in the OpenEHR \'{terminology_group_id}\' terminology group {"(invariant: " + invariant_name_for_error + ")" if invariant_name_for_error else ""}")
