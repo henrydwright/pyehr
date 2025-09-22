@@ -935,6 +935,13 @@ GROUPLIST_OPENEHR_ATTESTATION_REASON = [
     CodePhrase(TERMINOLOGYID_OPENEHR, "240", "signed"),
     CodePhrase(TERMINOLOGYID_OPENEHR, "648", "witnessed")
 ]
+GROUPLIST_OPENEHR_VERSION_LIFECYCLE_STATE = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "532", "complete"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "553", "incomplete"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "523", "deleted"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "800", "inactive"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "801", "abandoned")
+]
 
 CODESET_OPENEHR_CHARACTER_SETS = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_CHARACTER_SETS.name(), "en", CODELIST_OPENEHR_CHARACTER_SETS)
 CODESET_OPENEHR_COUNTRIES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_COUNTRIES.name(), "en", CODELIST_OPENEHR_COUNTRIES)
@@ -950,5 +957,6 @@ TERMINOLOGY_OPENEHR = DictTerminologyAccess("openehr", "en", {
     ("participation_function", "participation function"): GROUPLIST_OPENEHR_PARTICIPATION_FUNCTION,
     ("participation_mode", "participation mode"): GROUPLIST_OPENEHR_PARTICIPATION_MODE,
     ("audit_change_type", "audit change type"): GROUPLIST_OPENEHR_AUDIT_CHANGE_TYPE,
-    ("attestation_reason", "attestation reason"): GROUPLIST_OPENEHR_ATTESTATION_REASON
+    ("attestation_reason", "attestation reason"): GROUPLIST_OPENEHR_ATTESTATION_REASON,
+    ("version_lifecycle_state", "version lifecycle state"): GROUPLIST_OPENEHR_VERSION_LIFECYCLE_STATE
 })
