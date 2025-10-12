@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Union
 
 class AnyClass(ABC):
     """
@@ -14,4 +15,10 @@ class AnyClass(ABC):
         Returns `True` if this and other are equal in value; typically
          defined in descendants
         """
+        pass
+
+    @abstractmethod
+    def as_json(self) -> Union[dict, str]:
+        """Returns a JSON encodable representation of this class compliant with
+        OpenEHR JSON ITS"""
         pass

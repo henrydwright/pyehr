@@ -1,4 +1,5 @@
 from abc import abstractmethod
+import json
 from typing import Optional, Union
 
 import numpy as np
@@ -129,6 +130,31 @@ class Interval[T : ordered](AnyClass):
         str_rep += str(self.upper) if self.upper is not None else "+INF"
         str_rep += "]" if self.upper_included else ")"
         return str_rep
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types/Interval.json
+        draft = {
+            "_type": "INTERVAL",
+            "lower_unbounded": self.lower_unbounded,
+            "upper_unbounded": self.upper_unbounded,
+            "lower_included": self.lower_included,
+            "upper_included": self.upper_included
+        }
+        if self.lower is not None:
+            if isinstance(self._lower, AnyClass):
+                draft["lower"] = self._lower.as_json()
+            else:
+                draft["lower"] = {
+                    "value": str(self._lower)
+                }
+        if self.upper is not None:
+            if isinstance(self._upper, AnyClass):
+                draft["upper"] = self._upper.as_json()
+            else:
+                draft["upper"] = {
+                    "value": str(self._upper)
+                }
+        return draft
 
 
 class PointInterval[T : ordered](Interval[T]):

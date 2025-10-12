@@ -85,3 +85,17 @@ class DVIdentifier(DataValue):
             self.id == other.id and
             self.type == other.type
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_IDENTIFIER.json
+        draft = {
+            "_type": "DV_IDENTIFIER",
+            "id": self.id
+        }
+        if self.issuer is not None:
+            draft["issuer"] = self.issuer
+        if self.type is not None:
+            draft["type"] = self.type
+        if self.assigner is not None:
+            draft["assigner"] = self.assigner
+        return draft

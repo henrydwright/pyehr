@@ -45,6 +45,13 @@ class DVUri(DataValue):
         """Query string to send to application implied by scheme and path. Enables queries to applications, including databases to be included in the URI. Supports any query meaningful to the server, including SQL."""
         return urisplit(self.value).query or ""
     
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_URI.json
+        return {
+            "_type": "DV_URI",
+            "value": self.value
+        }
+    
 class DVEHRUri(DVUri):
     """A DV_EHR_URI is a DV_URI which has the scheme name 'ehr', and which can only reference items in EHRs.
 
