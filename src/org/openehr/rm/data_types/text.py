@@ -78,15 +78,19 @@ class TermMapping(AnyClass):
         # import here to avoid circular reference
         from org.openehr.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers, util_verify_code_in_openehr_terminology_group_or_error
 
+        self.target = target
+
         # invariant: match_valid
         if not self.is_valid_match_code(match):
             raise ValueError(f"Match code must be one of '>', '=', '<' or '?', but \'{match}\' was given (invariant: match_valid)")
+        self.match = match
         
         # invariant: purpose_valid
         if purpose is not None:
             if (terminology_service is None):
                 raise ValueError("If purpose is provided, access to a TerminologyService with OpenEHR terminology must also be given to check validity (invariant: purpose_valid)")
-            util_verify_code_in_openehr_terminology_group_or_error(purpose.defining_code, OpenEHRTerminologyGroupIdentifiers.GROUP_ID_TERM_MAPPING_PURPOSE, terminology_service, invariant_name_for_error="purpose_valid")            
+            util_verify_code_in_openehr_terminology_group_or_error(purpose.defining_code, OpenEHRTerminologyGroupIdentifiers.GROUP_ID_TERM_MAPPING_PURPOSE, terminology_service, invariant_name_for_error="purpose_valid")   
+        self.purpose = purpose         
 
     def is_equal(self, other: 'TermMapping'):
         return (
@@ -120,6 +124,16 @@ class TermMapping(AnyClass):
             (c == '<') or
             (c == '?')
         )
+    
+    def as_json(self):
+        draft = {
+            "_type": "TERM_MAPPING",
+            "match": str(self.match),
+            "target": self.target.as_json()
+        }
+        if self.purpose is not None:
+            draft["purpose"] = self.purpose.as_json()
+        return draft
 
 class DVText(DataValue):
     """A text item, which may contain any amount of legal characters arranged as e.g. words, sentences etc (i.e. one DV_TEXT may be more than one word). Visual formatting and hyperlinks may be included via markdown.
@@ -225,7 +239,7 @@ class DVText(DataValue):
         if self.mappings is not None:
             mappings = []
             for mapping in self.mappings:
-                mappings += mapping.as_json()
+                mappings.append(mapping.as_json())
             draft["mappings"] = mappings
         return draft
 
@@ -247,6 +261,13 @@ class DVCodedText(DVText):
             self.defining_code == other.defining_code and
             super().is_equal(other)
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_CODED_TEXT.json
+        draft = super().as_json()
+        draft["_type"] = "DV_CODED_TEXT"
+        draft["defining_code"] = self.defining_code.as_json()
+        return draft
 
 class DVParagraph(DataValue):
     """DEPRECATED: use markdown formatted DV_TEXT instead.

@@ -4,16 +4,21 @@ import json
 import jsonschema
 import numpy as np
 
+from common import PythonTerminologyService, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, TERMINOLOGY_OPENEHR
 from org.openehr.base.foundation_types.interval import PointInterval, ProperInterval, MultiplicityInterval
 from org.openehr.base.base_types.identification import TerminologyID
 from org.openehr.its.json_tools import OpenEHREncoder
 
 from org.openehr.base.base_types.identification import TerminologyID, ISOOID, UUID, InternetID, VersionTreeID, HierObjectID, ObjectVersionID, ArchetypeID, TemplateID, GenericID, ObjectRef, PartyRef
-from org.openehr.rm.data_types.text import DVText, DVUri
-from org.openehr.rm.data_types.basic import DVIdentifier
+from org.openehr.rm.data_types.text import DVText, DVUri, DVCodedText, CodePhrase, TermMapping
+from org.openehr.rm.data_types.basic import DVIdentifier, DVBoolean
+from org.openehr.rm.data_types.quantity.date_time import DVDate, DVTime, DVDuration
+from org.openehr.rm.data_types.encapsulated import DVParsable
 
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
+
+test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS], [TERMINOLOGY_OPENEHR])
 
 def validate(json_obj):
     _schema = json.loads(open("test/org/openehr/its/schemas/openehr_rm_1.1.0_alltypes_strict.json").read())
@@ -126,3 +131,44 @@ def test_its_json_rm_data_type_dv_identifier():
     t_dvi = DVIdentifier("9990548609", issuer="NHS Digital", id_type="NHS Number").as_json()
 
     validate(t_dvi)
+
+def test_its_json_rm_data_type_dv_date():
+    t_dvd = DVDate("2025-10-27").as_json()
+
+    validate(t_dvd)
+
+def test_its_json_rm_data_type_dv_coded_text():
+    t_dvct = DVCodedText(
+        "Asthma",
+        defining_code=CodePhrase(TerminologyID("SNOMED-CT"), "195967001", "Asthma (disorder)"),
+        mappings=[
+            TermMapping('=', CodePhrase(TerminologyID("ICD-10"), "J45", "Asthma"))
+        ]).as_json()
+
+    validate(t_dvct)
+
+def test_its_json_rm_data_type_dv_time():
+    t_dvt = DVTime(
+        "13:00",
+        accuracy=DVDuration("PT15M")
+    ).as_json()
+
+    validate(t_dvt)
+
+def test_its_json_rm_data_type_dv_boolean():
+    t_dvb = DVBoolean(False).as_json()
+
+    validate(t_dvb)
+
+def test_its_json_rm_data_type_code_phrase():
+    cd_phrse = CodePhrase(TerminologyID("SNOMED-CT"), "1069221000000106", "Does not shop at supermarket (finding)").as_json()
+
+    validate(cd_phrse)
+
+def test_its_json_rm_data_type_dv_parsable():
+    t_dvp = DVParsable("{\"val\":\"test\"}", 
+                       formalism="json",
+                       charset=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
+                       terminology_service=test_ts).as_json()
+
+    validate(t_dvp)

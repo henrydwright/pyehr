@@ -47,6 +47,15 @@ class DVEncapsulated(DataValue):
             is_equal_value(self.charset, other.charset) and
             is_equal_value(self.language, other.language)
         )
+    
+    def as_json(self):
+        # relevant parts of https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_PARSABLE.json
+        draft = {}
+        if self.charset is not None:
+            draft["charset"] = self.charset.as_json()
+        if self.language is not None:
+            draft["language"] = self.charset.as_json()
+        return draft
 
 class DVMultimedia(DVEncapsulated):
     """A specialisation of `DV_ENCAPSULATED` for audiovisual and bio-signal types. Includes further metadata relating to multimedia types which are not applicable
@@ -168,3 +177,11 @@ class DVParsable(DVEncapsulated):
         """Size in bytes of value."""
         b = self.value.encode()
         return len(b)
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_PARSABLE.json
+        draft = super().as_json()
+        draft["_type"] = "DV_PARSABLE"
+        draft["value"] = self.value
+        draft["formalism"] = self.formalism
+        return draft

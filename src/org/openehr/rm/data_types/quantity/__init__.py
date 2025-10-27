@@ -156,6 +156,22 @@ class DVOrdered(DataValue):
 
     def __str__(self):
         return str(self._value)
+    
+    def as_json(self):
+        # relevant sections taken from https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_DATE.json
+        draft = {
+            "value": str(self._value)
+        }
+        if self.normal_status is not None:
+            draft["normal_status"] = self.normal_status.as_json()
+        if self.normal_range is not None:
+            draft["normal_range"] = self.normal_range.as_json()
+        if self.other_reference_ranges is not None:
+            orr_list = []
+            for other_reference_range in self.other_reference_ranges:
+                orr_list += other_reference_range.as_json()
+        return draft
+
 
 class DVInterval[T](DataValue):
     """Generic class defining an interval (i.e. range) of a comparable type. An interval is a 
@@ -385,6 +401,16 @@ class DVQuantified(DVOrdered):
     
     def is_strictly_comparable_to(self, other):
         return super().is_strictly_comparable_to(other)
+    
+    def as_json(self):
+        # relevant sections taken from https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_DATE.json
+        draft = super().as_json()
+        if self.magnitude_status is not None:
+            draft["magnitude_status"] = self.magnitude_status
+        if self.accuracy is not None:
+            draft["accuracy"] = self.accuracy.as_json()
+        return draft
+
 
 
 class DVAmount(DVQuantified):
@@ -892,3 +918,6 @@ class DVAbsoluteQuantity(DVQuantified):
     @abstractmethod
     def __sub__(self, other: Union[DVAmount, 'DVAbsoluteQuantity']) -> Union['DVAbsoluteQuantity', DVAmount]:
         pass
+
+    def as_json(self):
+        return super().as_json()

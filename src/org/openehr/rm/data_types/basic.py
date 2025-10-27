@@ -24,6 +24,12 @@ class DVBoolean(DataValue):
             type(self) == type(other) and
             self.value == other.value
         )
+    
+    def as_json(self):
+        return {
+            "_type": "DV_BOOLEAN",
+            "value": self.value
+        }
 
 class DVState(DataValue):
     """For representing state values which obey a defined state machine, such as a variable representing the states of an instruction or care process.

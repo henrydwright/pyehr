@@ -65,6 +65,24 @@
                 },
                 {
                     "$ref": "#/definitions/DV_IDENTIFIER"
+                },
+                {
+                    "$ref": "#/definitions/DV_DATE"
+                },
+                {
+                    "$ref": "#/definitions/DV_CODED_TEXT"
+                },
+                {
+                    "$ref": "#/definitions/DV_TIME"
+                },
+                {
+                    "$ref": "#/definitions/DV_BOOLEAN"
+                },
+                {
+                    "$ref": "#/definitions/CODE_PHRASE"
+                },
+                {
+                    "$ref": "#/definitions/DV_PARSABLE"
                 }
             ]
         }

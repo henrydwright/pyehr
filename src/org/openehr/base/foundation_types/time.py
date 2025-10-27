@@ -448,6 +448,13 @@ class ISODate(ISOType):
         else:
             return ISODate(f"{new_year:04d}-{new_month:02d}")
 
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types/Date.json
+        return {
+            "_type": "DATE",
+            "value": self.as_string()
+        }
+
 class ISOTime(ISOType):
     """Represents an ISO 8601 time, including partial and extended forms. Value may be:
     * hh:mm:ss[(,|.)sss][Z|±hh[:mm]] (extended, preferred) or
@@ -584,6 +591,13 @@ class ISOTime(ISOType):
     def __lt__(self, other: 'ISOTime'):
         self._comparison_check(other)
         return (self.to_python_time() < other.to_python_time())
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types/Time.json
+        return {
+            "_type": "TIME",
+            "value": self.as_string()
+        }
 
 class ISODateTime(ISOType):
     """Represents an ISO 8601 date/time, including partial and extended forms. Value may be:
@@ -976,6 +990,13 @@ class ISODuration(ISOType):
     def __lt__(self, other: 'ISODuration'):
         self._comparison_check(other)
         return (self.to_python_timedelta() < other.to_python_timedelta())
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types/Duration.json
+        return {
+            "_type": "DURATION",
+            "value": self.as_string()
+        }
 
 class ISOTimeZone(ISOType):
     """ISO8601 timezone string, in format:
