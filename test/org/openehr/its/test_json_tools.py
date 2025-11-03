@@ -4,21 +4,25 @@ import json
 import jsonschema
 import numpy as np
 
-from common import PythonTerminologyService, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, TERMINOLOGY_OPENEHR
+from common import PythonTerminologyService, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR
 from org.openehr.base.foundation_types.interval import PointInterval, ProperInterval, MultiplicityInterval
 from org.openehr.base.base_types.identification import TerminologyID
 from org.openehr.its.json_tools import OpenEHREncoder
 
 from org.openehr.base.base_types.identification import TerminologyID, ISOOID, UUID, InternetID, VersionTreeID, HierObjectID, ObjectVersionID, ArchetypeID, TemplateID, GenericID, ObjectRef, PartyRef
-from org.openehr.rm.data_types.text import DVText, DVUri, DVCodedText, CodePhrase, TermMapping
-from org.openehr.rm.data_types.basic import DVIdentifier, DVBoolean
-from org.openehr.rm.data_types.quantity.date_time import DVDate, DVTime, DVDuration
-from org.openehr.rm.data_types.encapsulated import DVParsable
+from org.openehr.rm.data_types.text import DVText, DVUri, DVCodedText, CodePhrase, TermMapping, DVParagraph
+from org.openehr.rm.data_types.basic import DVIdentifier, DVBoolean, DVState
+from org.openehr.rm.data_types.uri import DVEHRUri
+from org.openehr.rm.data_types.quantity import DVCount, DVQuantity, DVInterval, DVOrdinal, DVProportion, ProportionKind, DVScale, ReferenceRange
+from org.openehr.rm.data_types.quantity.date_time import DVDate, DVTime, DVDuration, DVDateTime
+from org.openehr.rm.data_types.encapsulated import DVParsable, DVMultimedia
+from org.openehr.rm.data_types.time_specification import DVGeneralTimeSpecification, DVPeriodicTimeSpecification
+from org.openehr.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
 
-test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS], [TERMINOLOGY_OPENEHR])
+test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES], [TERMINOLOGY_OPENEHR])
 
 def validate(json_obj):
     _schema = json.loads(open("test/org/openehr/its/schemas/openehr_rm_1.1.0_alltypes_strict.json").read())
@@ -172,3 +176,129 @@ def test_its_json_rm_data_type_dv_parsable():
                        terminology_service=test_ts).as_json()
 
     validate(t_dvp)
+
+def test_its_json_rm_data_type_term_mapping():
+    t_dtm = TermMapping('=', CodePhrase(TerminologyID("ICD-10"), "J45", "Asthma")).as_json()
+    
+    validate(t_dtm)
+
+def test_its_json_rm_data_type_dv_ehr_uri():
+    t_dveu = DVEHRUri("ehr:tasks/380daa09-028f-4beb-9803-4aef91644c2a").as_json()
+
+    validate(t_dveu)
+
+def test_its_json_rm_data_type_dv_uri():
+    t_dvu = DVUri("https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_URI.json").as_json()
+
+    validate(t_dvu)
+
+def test_its_json_rm_data_type_dv_count():
+    t_dvc = DVCount(3000, accuracy=0.05, accuracy_is_percent=True).as_json()
+
+    validate(t_dvc)
+
+# accepts warning until DV_GENERAL_TIME_SPECIFICATION is fully implemented
+@pytest.mark.filterwarnings("ignore: DVGeneralTimeSpecification does not")
+def test_its_json_rm_data_type_dv_general_time_specification():
+    t_dvgts = DVGeneralTimeSpecification(DVParsable("WAKE+[50m;1h]", "HL7:GTS")).as_json()
+
+    validate(t_dvgts)
+
+def test_its_json_rm_data_type_dv_multimedia():
+    test_json = "{\"key\":\"value\"}"
+    test_json_bytes = test_json.encode()
+
+    # inline
+    t_dvmi = DVMultimedia(
+        media_type=CodePhrase(TerminologyID("IANA_media-types"), "application/json"), 
+        size=len(test_json_bytes),
+        terminology_service=test_ts,
+        data=test_json_bytes).as_json()
+    
+    validate(t_dvmi)
+    
+    # external
+    t_dvme = DVMultimedia(
+        media_type=CodePhrase(TerminologyID("IANA_media-types"), "application/pdf"),
+        size=549453,
+        terminology_service=test_ts,
+        uri=DVUri("https://ruh.nhs.uk/patients/patient_information/HTH024_Wrist_Exercises.pdf")
+    ).as_json()
+
+    validate(t_dvme)
+
+def test_its_json_rm_data_type_dv_date_time():
+    t_dvdt = DVDateTime("20251102T194100Z").as_json()
+
+    validate(t_dvdt)
+
+def test_its_json_rm_data_type_dv_quantity():
+    t_dvq = DVQuantity(200.6, 
+                       units="cm",
+                       units_display_name="cm",
+                       precision=1,
+                       magnitude_status="=").as_json()
+    
+    validate(t_dvq)
+
+def test_its_json_rm_data_type_dv_duration():
+    t_dvd = DVDuration("P3D",
+                       magnitude_status="~",
+                       normal_status=CodePhrase(TerminologyID("openehr_normal_statuses"), "L"),
+                       terminology_service=test_ts).as_json()
+    
+    validate(t_dvd)
+
+def test_its_json_rm_data_type_dv_interval():
+    low = DVQuantity(97.5, "cm")
+    high = DVQuantity(122.0, "cm")
+    t_dvi = DVInterval(ProperInterval[DVQuantity](lower=low, upper=high, lower_included=True, upper_included=True)).as_json()
+
+    validate(t_dvi)
+
+def test_its_json_rm_data_type_dv_ordinal():
+    t_dvo = DVOrdinal(3, 
+                      symbol=DVCodedText("Canadian Study of Health and Aging Clinical Frailty Scale level 3 - managing well (finding)",
+                                         defining_code=CodePhrase(TerminologyID("SNOMED-CT"), "1129351000000108"))).as_json()
+    
+    validate(t_dvo)
+
+def test_its_json_rm_data_type_dv_paragraph():
+    t_dvp = DVParagraph([
+        DVText("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."),
+        DVText("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.")
+    ]).as_json()
+
+    validate(t_dvp)
+
+def test_its_json_rm_data_type_dv_state():
+    t_dvs = DVState(
+                    value=DVCodedText("planned", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "526", "planned")),
+                    is_terminal=False).as_json()
+    
+    validate(t_dvs)
+
+def test_its_json_rm_data_type_dv_periodic_time_specification():
+    t_dvpts = DVPeriodicTimeSpecification(DVParsable("[20250914;]/(PT1M)@DM", "HL7:PIVL")).as_json()
+
+    validate(t_dvpts)
+
+def test_its_json_rm_data_type_dv_proportion():
+    t_dvp = DVProportion(95.0, 100.0, ProportionKind.PK_PERCENT).as_json()
+
+    validate(t_dvp)
+
+def test_its_json_rm_data_type_dv_scale():
+    t_dvs = DVScale(0.5, DVCodedText("Borg Breathlessness Score: 0.5 very, very slight (just noticeable) (finding)", 
+                                     defining_code=CodePhrase(TerminologyID("SNOMED-CT"), "401323002"))).as_json()
+    
+    validate(t_dvs)
+
+def test_its_json_rm_data_type_reference_range():
+    t_rr = ReferenceRange(meaning=DVText("Reduced healthy BMI range due to Asian family background"), 
+                          range=DVInterval(value=ProperInterval[DVQuantity](
+                                                                            lower=DVQuantity(18.5, "kg/m2"),
+                                                                            upper=DVQuantity(23.0, "kg/m2"),
+                                                                            lower_included=True,
+                                                                            upper_included=False))).as_json()
+    validate(t_rr)

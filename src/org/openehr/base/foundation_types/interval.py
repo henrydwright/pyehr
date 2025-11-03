@@ -1,6 +1,7 @@
 from abc import abstractmethod
 import json
 from typing import Optional, Union
+import warnings
 
 import numpy as np
 from pydantic import ValidationError, field_validator
@@ -370,3 +371,11 @@ class Cardinality(AnyClass):
         """True if the semantics of this cardinality represent a set, 
         i.e. unordered, unique membership."""
         return self.is_unique and not self.is_ordered
+    
+    def as_json(self):
+        warnings.warn("Cardinality does not have a valid ITS JSON schema, potentially non-standard JSON emitted.", RuntimeWarning)
+        return {
+            "interval": self.interval.as_json(),
+            "is_ordered": self.is_ordered,
+            "is_unique": self.is_unique
+        }

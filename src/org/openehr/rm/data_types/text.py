@@ -285,9 +285,20 @@ class DVParagraph(DataValue):
     def __init__(self, items: list[DVText]):
         if len(items) == 0:
             raise ValueError("List of items cannot be an empty list (invariant: items_valid)")
+        self.items = items
         
     def is_equal(self, other: 'DVParagraph'):
         return (
             type(self) == type(other) and
             is_equal_value(self.items, other.items)
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_PARAGRAPH.json
+        json_items = []
+        for item in self.items:
+            json_items.append(item.as_json())
+        return {
+            "_type": "DV_PARAGRAPH",
+            "items": json_items
+        }

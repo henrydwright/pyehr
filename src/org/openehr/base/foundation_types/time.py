@@ -779,6 +779,13 @@ class ISODateTime(ISOType):
     def __lt__(self, other: 'ISODateTime'):
         self._comparison_check(other)
         return (self._python_datetime < other._python_datetime)
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types/Date_time.json
+        return {
+            "_type": "DATE_TIME",
+            "value": self.as_string()
+        }
 
 
 class ISODuration(ISOType):
@@ -1112,6 +1119,10 @@ class ISOTimeZone(ISOType):
         val_self = self._sign * ((self._hour * 60) + self._minute)
         val_other = other._sign * ((other._hour * 60) + other._minute)
         return (val_self < val_other)
+    
+    def as_json(self):
+        # no JSON schema, so just return the string
+        return self.as_string()
     
 temporal = ISOType
 """Abstract ancestor of time-related classes."""

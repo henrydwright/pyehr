@@ -53,6 +53,14 @@ class DVState(DataValue):
             self.value == other.value and
             self.is_terminal == other.is_terminal
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_STATE.json
+        return {
+            "_type": "DV_STATE",
+            "value": self.value.as_json(),
+            "is_terminal": self.is_terminal
+        }
 
 class DVIdentifier(DataValue):
     """Type for representing identifiers of real-world entities. Typical identifiers include drivers licence number, social security number, veterans affairs number, prescription id, order id, and so on.

@@ -129,6 +129,7 @@ class DVDuration(DVAmount):
     def as_json(self):
         draft = super().as_json()
         draft["_type"] = "DV_DURATION"
+        draft["value"] = self.as_string()
         return draft
     
 class DVTemporal(DVAbsoluteQuantity):
@@ -528,3 +529,9 @@ class DVDateTime(DVTemporal):
 
     def __str__(self) -> str:
         return self._value.value
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_DATE_TIME.json
+        draft = super().as_json()
+        draft["_type"] = "DV_DATE_TIME"
+        return draft

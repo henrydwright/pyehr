@@ -2,6 +2,7 @@
 structure is defined outside the EHR model, such as multimedia and parsable data."""
 
 from abc import ABC, abstractmethod
+import base64
 from typing import Optional
 
 import numpy as np
@@ -153,6 +154,31 @@ class DVMultimedia(DVEncapsulated):
     def has_integrity_check(self) -> bool:
         """Computed from the value of the _integrity_check_algorithm_ attribute: True if an integrity check has been computed."""
         return (self.integrity_check_algorithm is not None)
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_MULTIMEDIA.json
+        draft = super().as_json()
+        draft["_type"] = "DV_MULTIMEDIA"
+        draft["media_type"] = self.media_type.as_json()
+        draft["size"] = int(self.size)
+        if self.alternate_text is not None:
+            draft["alternate_text"] = self.alternate_text
+        if self.uri is not None:
+            draft["uri"] = self.uri.as_json()
+        if self.data is not None:
+            draft["data"] = base64.b64encode(self.data).decode()
+        if self.compression_algorithm is not None:
+            draft["compression_algorithm"] = self.compression_algorithm.as_json()
+        if self.integrity_check is not None:
+            draft["integrity_check"] = base64.b64encode(self.integrity_check).decode()
+        if self.integrity_check_algorithm is not None:
+            draft["integrity_check_algorithm"] = self.integrity_check_algorithm.as_json()
+        if self.thumbnail is not None:
+            draft["thumbnail"] = self.thumbnail.as_json()
+        return draft
+        
+
+
 
 class DVParsable(DVEncapsulated):
     """Encapsulated data expressed as a parsable String. The internal model of the data item 

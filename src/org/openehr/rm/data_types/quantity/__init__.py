@@ -159,9 +159,7 @@ class DVOrdered(DataValue):
     
     def as_json(self):
         # relevant sections taken from https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_DATE.json
-        draft = {
-            "value": str(self._value)
-        }
+        draft = dict()
         if self.normal_status is not None:
             draft["normal_status"] = self.normal_status.as_json()
         if self.normal_range is not None:
@@ -233,6 +231,21 @@ class DVInterval[T](DataValue):
     def contains(self, other: 'DVInterval'):
         return self.value.contains(other.value)
     
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_INTERVAL.json
+        draft = {
+            "_type": "DV_INTERVAL",
+            "lower_unbounded": self.value.lower_unbounded,
+            "upper_unbounded": self.value.upper_unbounded,
+            "lower_included": self.value.lower_included,
+            "upper_included": self.value.upper_included,
+        }
+        if self.value.lower is not None:
+            draft["lower"] = self.value.lower.as_json()
+        if self.value.upper is not None:
+            draft["upper"] = self.value.upper.as_json()
+        return draft
+    
 
 class ReferenceRange(AnyClass):
     """Defines a named range to be associated with any DV_ORDERED datum. Each such range is particular 
@@ -262,6 +275,14 @@ class ReferenceRange(AnyClass):
     def is_in_range(self, v: DVOrdered):
         """Indicates if the value v is inside the range."""
         return self.range.has(v)
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/REFERENCE_RANGE.json
+        return {
+            "_type" : "REFERENCE_RANGE",
+            "range": self.range.as_json(),
+            "meaning": self.meaning.as_json()
+        }
 
 class DVOrdinal(DVOrdered):
     """A data type that represents integral score values, e.g. pain, Apgar values, etc, where there is:
@@ -300,6 +321,14 @@ class DVOrdinal(DVOrdered):
     def is_strictly_comparable_to(self, other):
         return super().is_strictly_comparable_to(other)
     
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_ORDINAL.json
+        draft = super().as_json()
+        draft["_type"] = "DV_ORDINAL"
+        draft["value"] = int(self.value)
+        draft["symbol"] = self.symbol.as_json()
+        return draft
+    
 class DVScale(DVOrdered):
     """A data type that represents scale values, where there is:
 
@@ -335,6 +364,14 @@ class DVScale(DVOrdered):
 
     def is_strictly_comparable_to(self, other):
         return super().is_strictly_comparable_to(other)
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_SCALE.json
+        draft = super().as_json()
+        draft["_type"] = "DV_SCALE"
+        draft["value"] = self.value
+        draft["symbol"] = self.symbol.as_json()
+        return draft
     
 
 class DVQuantified(DVOrdered):
@@ -408,7 +445,10 @@ class DVQuantified(DVOrdered):
         if self.magnitude_status is not None:
             draft["magnitude_status"] = self.magnitude_status
         if self.accuracy is not None:
-            draft["accuracy"] = self.accuracy.as_json()
+            if isinstance(self.accuracy, AnyClass):
+                draft["accuracy"] = self.accuracy.as_json()
+            else:
+                draft["accuracy"] = self.accuracy
         return draft
 
 
@@ -521,6 +561,12 @@ class DVAmount(DVQuantified):
         new_value = self._value / other
 
         return DVAmount(new_value, self.normal_status, self.normal_range, self.other_reference_ranges, self.magnitude_status, self.accuracy, self.accuracy_is_percent, self._terminology_service)
+    
+    def as_json(self):
+        draft = super().as_json()
+        if self.accuracy_is_percent is not None:
+            draft["accuracy_is_percent"] = self.accuracy_is_percent
+        return draft
     
 
 class DVQuantity(DVAmount):
@@ -660,6 +706,21 @@ class DVQuantity(DVAmount):
         """True if precision = 0, meaning that the magnitude is a whole number."""
         return self.precision == 0
     
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_QUANTITY.json
+        draft = super().as_json()
+        draft["_type"] = "DV_QUANTITY"
+        draft["magnitude"] = self._value
+        draft["units"] = self.units
+        if self.precision is not None:
+            draft["precision"] = int(self.precision)
+        if self.units_system is not None:
+            draft["units_system"] = self.units_system
+        if self.units_display_name is not None:
+            draft["units_display_name"] = self.units_display_name
+        return draft
+
+    
 class DVCount(DVAmount):
     """Countable quantities. Used for countable types such as pregnancies and steps (taken by a physiotherapy patient), number of cigarettes smoked in a day.
 
@@ -685,6 +746,13 @@ class DVCount(DVAmount):
             converted_value = np.int64(value)
         
         super().__init__(converted_value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, accuracy_is_percent, terminology_service)
+
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_COUNT.json
+        draft = super().as_json()
+        draft["_type"] = "DV_COUNT"
+        draft["magnitude"] = int(self._value)
+        return draft
 
 class ProportionKind(IntEnum):
     """Class of enumeration constants defining types of proportion for the DV_PROPORTION class."""
@@ -873,6 +941,17 @@ class DVProportion(DVAmount):
             else:
                 return str(int(self.numerator)) + "/" + str(int(self.denominator))
             
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_PROPORTION.json
+        draft = super().as_json()
+        draft["_type"] = "DV_PROPORTION"
+        draft["numerator"] = self.numerator
+        draft["denominator"] = self.denominator
+        draft["type"] = int(self.proportion_type)
+        if self.precision is not None:
+            draft["precision"] = int(self.precision)
+        return draft
+            
 class DVAbsoluteQuantity(DVQuantified):
     """Abstract class defining the concept of quantified entities whose values are absolute with respect to an origin. 
     Dates and Times are the main example."""
@@ -920,4 +999,6 @@ class DVAbsoluteQuantity(DVQuantified):
         pass
 
     def as_json(self):
-        return super().as_json()
+        draft = super().as_json()
+        draft["value"] = str(self._value)
+        return draft

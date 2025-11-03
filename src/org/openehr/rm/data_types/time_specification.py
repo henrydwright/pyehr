@@ -109,6 +109,12 @@ class DVTimeSpecification(DataValue):
             type(self) == type(other) and
             self.value.is_equal(other.value)
         )
+    
+    def as_json(self):
+        # taken from relevant parts of https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_PERIODIC_TIME_SPECIFICATION.json
+        return {
+            "value": self.value.as_json()
+        }
 
 class DVPeriodicTimeSpecification(DVTimeSpecification):
     """Specifies periodic points in time, linked to the calendar (phase-linked), or a real 
@@ -214,6 +220,12 @@ class DVPeriodicTimeSpecification(DVTimeSpecification):
         """Extracted from value for PIVL otherwise None"""
         return self._institution_specified
     
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_PERIODIC_TIME_SPECIFICATION.json
+        draft = super().as_json()
+        draft["_type"] = "DV_PERIODIC_TIME_SPECIFICATION"
+        return draft
+    
 class DVGeneralTimeSpecification(DVTimeSpecification):
     """Specifies points in time in a general syntax. Based on the HL7v3 GTS data type."""
 
@@ -231,3 +243,9 @@ class DVGeneralTimeSpecification(DVTimeSpecification):
     
     def institution_specified(self):
         raise NotImplementedError("DVGeneralTimeSpecification has not implemented parsing its input value, so institution_specified() is not supported")
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_GENERAL_TIME_SPECIFICATION.json
+        draft = super().as_json()
+        draft["_type"] = "DV_GENERAL_TIME_SPECIFICATION"
+        return draft

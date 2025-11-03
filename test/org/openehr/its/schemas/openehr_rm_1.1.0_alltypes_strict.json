@@ -83,6 +83,57 @@
                 },
                 {
                     "$ref": "#/definitions/DV_PARSABLE"
+                },
+                {
+                    "$ref": "#/definitions/TERM_MAPPING"
+                },
+                {
+                    "$ref": "#/definitions/DV_EHR_URI"
+                },
+                {
+                    "$ref": "#/definitions/DV_URI"
+                },
+                {
+                    "$ref": "#/definitions/DV_COUNT"
+                },
+                {
+                    "$ref": "#/definitions/DV_GENERAL_TIME_SPECIFICATION"
+                },
+                {
+                    "$ref": "#/definitions/DV_MULTIMEDIA"
+                },
+                {
+                    "$ref": "#/definitions/DV_DATE_TIME"
+                },
+                {
+                    "$ref": "#/definitions/DV_QUANTITY"
+                },
+                {
+                    "$ref": "#/definitions/DV_DURATION"
+                },
+                {
+                    "$ref": "#/definitions/DV_INTERVAL"
+                },
+                {
+                    "$ref": "#/definitions/DV_ORDINAL"
+                },
+                {
+                    "$ref": "#/definitions/DV_PARAGRAPH"
+                },
+                {
+                    "$ref": "#/definitions/DV_STATE"
+                },
+                {
+                    "$ref": "#/definitions/DV_PERIODIC_TIME_SPECIFICATION"
+                },
+                {
+                    "$ref": "#/definitions/DV_PROPORTION"
+                },
+                {
+                    "$ref": "#/definitions/DV_SCALE"
+                },
+                {
+                    "$ref": "#/definitions/REFERENCE_RANGE"
                 }
             ]
         }
