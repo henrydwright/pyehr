@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 import re
+import warnings
 
 from org.openehr.base.foundation_types import AnyClass
 
@@ -136,6 +137,13 @@ class ObjectID(AnyClass):
             self.value.lower() == other.value.lower()
             )
     
+    def as_json(self):
+        # TODO: no schema for this despite spec saying not abstract, need to report this
+        warnings.warn("ObjectID does not have a valid JSON schema. Potentially non-standard JSON emitted.")
+        return {
+            "value": self.value
+        }
+    
 class UIDBasedID(ObjectID):
     """Abstract model of UID-based identifiers consisting of a root part and an 
     optional extension; lexical form: `root '::' extension`."""
@@ -143,6 +151,7 @@ class UIDBasedID(ObjectID):
     _root : UID
     _extension : str = ""
 
+    @abstractmethod
     def __init__(self, value: str, **kwargs):
         root = ""
         extension = ""
