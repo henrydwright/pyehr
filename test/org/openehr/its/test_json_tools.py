@@ -12,6 +12,7 @@ from org.openehr.base.foundation_types.primitive_types import Uri
 from org.openehr.base.foundation_types.terminology import TerminologyCode, TerminologyTerm
 from org.openehr.base.base_types.identification import TerminologyID
 from org.openehr.base.base_types.identification import TerminologyID, ISOOID, UUID, InternetID, VersionTreeID, HierObjectID, ObjectVersionID, ArchetypeID, TemplateID, GenericID, ObjectRef, PartyRef
+from org.openehr.base.resource import TranslationDetails, ResourceDescriptionItem, ResourceDescription, AuthoredResource
 
 from org.openehr.its.json_tools import OpenEHREncoder
 
@@ -36,7 +37,7 @@ def validate(json_obj):
     jsonschema.validate(json_obj, _schema)
 
 # ==========
-# FOUNDATION: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types
+# BASE.foundation_types: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types
 
 def test_its_json_foundation_date():
     dt = ISODate("2025-11-03").as_json()
@@ -87,7 +88,7 @@ def test_its_json_foundation_date_time():
     validate(dt)
 
 # ==========
-# BASE: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Base_types
+# BASE.base_types: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Base_types
 
 def test_its_json_base_internet_id():
     ii_json = InternetID("org.example.ehr").as_json()
@@ -162,6 +163,53 @@ def test_its_json_base_terminology_id():
     t_json = TerminologyID("SNOMED-CT").as_json()
 
     validate(t_json)
+
+# ==========
+# BASE.resource: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Resource
+
+def test_its_json_base_translation_details():
+    t_td = TranslationDetails(
+        language=TerminologyCode("ISO639-1", "de"),
+        author={"name": "Herr H. Potter"},
+        version_last_translated="1.2.0"
+    ).as_json()
+
+    validate(t_td)
+
+def test_its_json_base_resource_description_item():
+    t_rdi = ResourceDescriptionItem(
+        language=TerminologyCode("ISO639-1", "en"),
+        purpose="To record details about the gender of an individual",
+        keywords=["sex", "male", "female"],
+        use="Use to record details about the individual's gender, including administrative and legal gender and assigned sex at birth, in addition to gender identity, expression and preferred pronoun.",
+        misuse="Not to be used for recording information relating to the sexual orientation or sexual activity of an individual."
+    ).as_json()
+
+    validate(t_rdi)
+
+class TestAuthoredResourceImplementation(AuthoredResource):
+    __test__ = False
+
+    def __init__(self, original_language, uid = None, is_controlled = None, annotations = None):
+        super().__init__(original_language, uid, is_controlled, annotations)
+
+    def current_revision(self) -> str:
+        return "(uncontrolled)"
+    
+    def as_json(self):
+        return super().as_json()
+
+def test_its_json_base_resource_description():
+    res = TestAuthoredResourceImplementation(TerminologyCode("ISO639-1", "en"), uid=UUID("139940b4-8435-463e-93e6-d9e13b02c282"))
+    t_rd = ResourceDescription(
+        original_author={"Author name": "Joe Bloggs", "Organisation": "Anytown NHS Trust", "Email": "joe@example.net", "Date originally authored": "2017-11-30"},
+        lifecycle_state=TerminologyCode("openehr", "532"),
+        parent_resource=res,
+        custodian_namespace="org.openehr",
+        custodian_organisation="openEHR Foundation"
+    ).as_json()
+
+    validate(t_rd)
 
 # ==========
 # RM.data_types: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types
