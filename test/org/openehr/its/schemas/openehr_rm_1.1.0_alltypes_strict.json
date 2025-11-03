@@ -10,7 +10,25 @@
         {
             "oneOf": [
                 {
+                    "$ref": "#/definitions/DATE"
+                },
+                {
                     "$ref": "#/definitions/INTERVAL"
+                },
+                {
+                    "$ref": "#/definitions/TIME"
+                },
+                {
+                    "$ref": "#/definitions/DURATION"
+                },
+                {
+                    "$ref": "#/definitions/TERMINOLOGY_CODE"
+                },
+                {
+                    "$ref": "#/definitions/TERMINOLOGY_TERM"
+                },
+                {
+                    "$ref": "#/definitions/DATE_TIME"
                 },
                 {
                     "$ref": "#/definitions/INTERNET_ID"
@@ -5994,8 +6012,7 @@
             "type": "object",
             "required": [
                 "terminology_id",
-                "code_string",
-                "uri"
+                "code_string"
             ],
             "properties": {
                 "terminology_id": {

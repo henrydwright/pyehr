@@ -5,11 +5,16 @@ import jsonschema
 import numpy as np
 
 from common import PythonTerminologyService, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR
+
+from org.openehr.base.foundation_types.time import ISODate, ISOTime, ISODuration, ISODateTime
 from org.openehr.base.foundation_types.interval import PointInterval, ProperInterval, MultiplicityInterval
+from org.openehr.base.foundation_types.primitive_types import Uri
+from org.openehr.base.foundation_types.terminology import TerminologyCode, TerminologyTerm
 from org.openehr.base.base_types.identification import TerminologyID
+from org.openehr.base.base_types.identification import TerminologyID, ISOOID, UUID, InternetID, VersionTreeID, HierObjectID, ObjectVersionID, ArchetypeID, TemplateID, GenericID, ObjectRef, PartyRef
+
 from org.openehr.its.json_tools import OpenEHREncoder
 
-from org.openehr.base.base_types.identification import TerminologyID, ISOOID, UUID, InternetID, VersionTreeID, HierObjectID, ObjectVersionID, ArchetypeID, TemplateID, GenericID, ObjectRef, PartyRef
 from org.openehr.rm.data_types.text import DVText, DVUri, DVCodedText, CodePhrase, TermMapping, DVParagraph
 from org.openehr.rm.data_types.basic import DVIdentifier, DVBoolean, DVState
 from org.openehr.rm.data_types.uri import DVEHRUri
@@ -33,6 +38,13 @@ def validate(json_obj):
 # ==========
 # FOUNDATION: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types
 
+def test_its_json_foundation_date():
+    dt = ISODate("2025-11-03").as_json()
+    
+    validate(dt)
+
+# ARRAY just uses a numpy array so would never be serialised as an object
+
 def test_its_json_foundation_interval():
     pi_json = PointInterval[np.int32](np.int32(0)).as_json()
     validate(pi_json)
@@ -43,6 +55,36 @@ def test_its_json_foundation_interval():
     mi_json = MultiplicityInterval(lower=np.int32(0), upper=np.int32(1)).as_json()
     validate(mi_json)
 
+def test_its_json_foundation_time():
+    tm = ISOTime("08:48").as_json()
+
+    validate(tm)
+
+def test_its_json_foundation_duration():
+    dur = ISODuration("P2Y").as_json()
+
+    validate(dur)
+
+# URI is just represented as a string so would never be serialised as an object
+
+def test_its_json_foundation_terminology_code():
+    # TODO: specification and JSON specification disagree on whether Uri is required or not
+    #  trusting spec, and modifying JSON spec to pass test
+    tc = TerminologyCode("SNOMED-CT", "71341001").as_json()
+
+    validate(tc)
+
+# set and list are represented as built in Python/JSON objects so would never be serialised as an object
+
+def test_its_json_foundation_terminology_term():
+    tt = TerminologyTerm(TerminologyCode("SNOMED-CT", "71341001"), "Bone structure of femur (body structure)").as_json()
+
+    validate(tt)
+
+def test_its_json_foundation_date_time():
+    dt = ISODateTime("2025-11-03T09:03:00Z").as_json()
+
+    validate(dt)
 
 # ==========
 # BASE: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Base_types
