@@ -36,18 +36,18 @@ def test_internet_id_only_valid_allowed():
         x = InternetID("ababasd")
     x = InternetID("abc123-bar-qwerty.foo.com")
 
-def test_uid_based_id_valid_root():
-    x = UIDBasedID("51d52cf1-83c9-4f02-b117-703ecb728b74::shazam")
-    x = UIDBasedID("51d52cf1-83c9-4f02-b117-703ecb728b74")
+def test_hier_object_id_valid_root():
+    x = HierObjectID("51d52cf1-83c9-4f02-b117-703ecb728b74::shazam")
+    x = HierObjectID("51d52cf1-83c9-4f02-b117-703ecb728b74")
     with pytest.raises(ValueError):
-        x = UIDBasedID("foo--bar.com::basd")
+        x = HierObjectID("foo--bar.com::basd")
 
-def test_uid_based_id_other_methods():
-    x = UIDBasedID("51d52cf1-83c9-4f02-b117-703ecb728b74::shazam")
+def test_hier_object_id_other_methods():
+    x = HierObjectID("51d52cf1-83c9-4f02-b117-703ecb728b74::shazam")
     assert x.root().value == "51d52cf1-83c9-4f02-b117-703ecb728b74"
     assert x.extension() == "shazam"
     assert x.has_extension()
-    y = UIDBasedID("87284370-2D4B-4e3d-A3F3-F303D2F4F34B::uk.nhs.ehr1::2")
+    y = HierObjectID("87284370-2D4B-4e3d-A3F3-F303D2F4F34B::uk.nhs.ehr1::2")
     assert y.extension() == "uk.nhs.ehr1::2"
 
 def test_version_tree_id_only_valid_allowed():
@@ -150,7 +150,7 @@ def test_generic_id_scheme_words():
 def test_object_ref_only_valid_allowed():
     o = ObjectRef("local", "PARTY", ObjectVersionID("87284370-2D4B-4e3d-A3F3-F303D2F4F34B::uk.nhs.ehr1::2"))
     with pytest.raises(ValueError):
-        o = ObjectRef("09ehr", "PERSON", UIDBasedID("uk.nhs::test")) # invalid namespace
+        o = ObjectRef("09ehr", "PERSON", HierObjectID("uk.nhs::test")) # invalid namespace
 
 def test_object_ref_other_methods_correct():
     o = ObjectRef("local", "PARTY", ObjectVersionID("87284370-2D4B-4e3d-A3F3-F303D2F4F34B::uk.nhs.ehr1::2"))
@@ -169,8 +169,8 @@ def test_composite_ids_equivalence_rule():
     x = ObjectID("tremendous")
     y = ObjectID("TREMENDOUS")
     assert x.is_equal(y)
-    x = UIDBasedID("51d52cf1-83c9-4f02-b117-703ecb728b74::shazam")
-    y = UIDBasedID("51d52Cf1-83c9-4f02-b117-703ecb728b74::shazam")
+    x = HierObjectID("51d52cf1-83c9-4f02-b117-703ecb728b74::shazam")
+    y = HierObjectID("51d52Cf1-83c9-4f02-b117-703ecb728b74::shazam")
     assert x.is_equal(y)
     x = ObjectVersionID("87284370-2D4B-4e3d-A3F3-F303D2F4F34B::uk.nhs.ehr1::2")
     y = ObjectVersionID("87284370-2d4b-4e3d-a3f3-f303d2f4f34b::UK.NHS.EHR1::2")

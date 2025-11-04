@@ -36,6 +36,13 @@ class PartyProxy(AnyClass):
     def is_equal(self, other: 'PartyProxy'):
         return (type(self) == type(other) and
                 self.external_ref.is_equal(other.external_ref))
+    
+    def as_json(self):
+        # relevant parts taken from https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common/PARTY_IDENTIFIED.json
+        draft = dict()
+        if self.external_ref is not None:
+            draft["external_ref"] = self.external_ref.as_json()
+        return draft
 
 class PartySelf(PartyProxy):
     """Party proxy representing the subject of the record. Used to indicate that the 
@@ -46,6 +53,12 @@ class PartySelf(PartyProxy):
 
     def is_equal(self, other):
         return super().is_equal(other)
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common/PARTY_SELF.json
+        draft = super().as_json()
+        draft["_type"] = "PARTY_SELF"
+        return draft
 
 class PartyIdentified(PartyProxy):
     """Proxy data for an identified party other than the subject of the record, minimally 
@@ -85,6 +98,16 @@ class PartyIdentified(PartyProxy):
             self.name == other.name and
             is_equal_value(self.identifiers, other.identifiers)
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common/PARTY_IDENTIFIED.json
+        draft = super().as_json()
+        draft["_type"] = "PARTY_IDENTIFIED"
+        if self.name is not None:
+            draft["name"] = self.name
+        if self.identifiers is not None:
+            draft["identifiers"] = self.identifiers
+        return draft
 
 class PartyRelated(PartyIdentified):
     """Proxy type for identifying a party and its relationship to the subject of the record. 
@@ -112,6 +135,13 @@ class PartyRelated(PartyIdentified):
         )
         self.relationship = relationship
         super().__init__(external_ref, name, identifiers, **kwargs)
+
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common/PARTY_RELATED.json
+        draft = super().as_json()
+        draft["_type"] = "PARTY_RELATED"
+        draft["relationship"] = self.relationship.as_json()
+        return draft
 
 class Participation(AnyClass):
     """Model of a participation of a Party (any Actor or Role) in an activity. Used to represent 
@@ -171,6 +201,19 @@ class Participation(AnyClass):
                 is_equal_value(self.performer, other.performer) and
                 is_equal_value(self.time, other.time))
     
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common/PARTICIPATION.json
+        draft = {
+            "_type": "PARTICIPATION",
+            "function": self.function.as_json(),
+            "performer": self.performer.as_json()
+        }
+        if self.mode is not None:
+            draft["mode"] = self.mode.as_json()
+        if self.time is not None:
+            draft["time"] = self.time.as_json()
+        return draft
+    
 class AuditDetails(AnyClass):
     """The set of attributes required to document the committal of an information item to a 
     repository."""
@@ -228,6 +271,19 @@ class AuditDetails(AnyClass):
             is_equal_value(self.committer, other.committer)
         )
     
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common/AUDIT_DETAILS.json
+        draft = {
+            "_type": "AUDIT_DETAILS",
+            "system_id": self.system_id,
+            "time_committed": self.time_committed.as_json(),
+            "change_type": self.change_type.as_json(),
+            "committer": self.committer.as_json()
+        }
+        if self.description is not None:
+            draft["description"] = self.description.as_json()
+        return draft
+    
 class Attestation(AuditDetails):
     """Record an attestation of a party (the committer) to item(s) of record content. An attestation 
     is an explicit signing by one healthcare agent of particular content for various particular purposes, 
@@ -283,6 +339,21 @@ class Attestation(AuditDetails):
         self.items = items
         super().__init__(system_id, time_committed, change_type, committer, terminology_service, description, **kwargs)
 
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common/ATTESTATION.json
+        draft = super().as_json()
+        draft["_type"] = "ATTESTATION"
+        draft["reason"] = self.reason.as_json()
+        draft["is_pending"] = self.is_pending
+        if self.attested_view is not None:
+            draft["attested_view"] = self.attested_view.as_json()
+        if self.proof is not None:
+            draft["proof"] = self.proof
+        if self.items is not None:
+            draft["items"] = self.items
+        return draft
+
+
 class RevisionHistoryItem(AnyClass):
     """An entry in a revision history, corresponding to a version from a versioned container. Consists of 
     AUDIT_DETAILS instances with revision identifier of the revision to which the AUDIT_DETAILS instance belongs."""
@@ -303,6 +374,14 @@ class RevisionHistoryItem(AnyClass):
         return (type(self) == type(other) and
                 is_equal_value(self.version_id, other.version_id) and
                 is_equal_value(self.audits, other.audits))
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common/REVISION_HISTORY_ITEM.json
+        return {
+            "_type": "REVISION_HISTORY_ITEM",
+            "version_id": self.version_id.as_json(),
+            "audits": [audit_detail.as_json() for audit_detail in self.audits]
+        }
 
 class RevisionHistory(AnyClass):
     """Defines the notion of a revision history of audit items, each associated with the version for which that 
@@ -329,3 +408,10 @@ class RevisionHistory(AnyClass):
         return (
             type(self) == type(other) and
             is_equal_value(self.items, other.items))
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common/REVISION_HISTORY.json
+        return {
+            "_type": "REVISION_HISTORY",
+            "items": [item.as_json() for item in self.items]
+        }

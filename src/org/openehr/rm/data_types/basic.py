@@ -24,6 +24,12 @@ class DVBoolean(DataValue):
             type(self) == type(other) and
             self.value == other.value
         )
+    
+    def as_json(self):
+        return {
+            "_type": "DV_BOOLEAN",
+            "value": self.value
+        }
 
 class DVState(DataValue):
     """For representing state values which obey a defined state machine, such as a variable representing the states of an instruction or care process.
@@ -47,6 +53,14 @@ class DVState(DataValue):
             self.value == other.value and
             self.is_terminal == other.is_terminal
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_STATE.json
+        return {
+            "_type": "DV_STATE",
+            "value": self.value.as_json(),
+            "is_terminal": self.is_terminal
+        }
 
 class DVIdentifier(DataValue):
     """Type for representing identifiers of real-world entities. Typical identifiers include drivers licence number, social security number, veterans affairs number, prescription id, order id, and so on.
@@ -85,3 +99,17 @@ class DVIdentifier(DataValue):
             self.id == other.id and
             self.type == other.type
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_IDENTIFIER.json
+        draft = {
+            "_type": "DV_IDENTIFIER",
+            "id": self.id
+        }
+        if self.issuer is not None:
+            draft["issuer"] = self.issuer
+        if self.type is not None:
+            draft["type"] = self.type
+        if self.assigner is not None:
+            draft["assigner"] = self.assigner
+        return draft

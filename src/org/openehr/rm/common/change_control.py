@@ -160,6 +160,7 @@ class OriginalVersion[T](Version[T]):
             )
     
     def canonical_form(self):
+        # TODO: implement a better canonical form
         return pickle.dumps(self)
 
     def is_branch(self):

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 import re
+import warnings
 
 from org.openehr.base.foundation_types import AnyClass
 
@@ -49,6 +50,10 @@ class UID(AnyClass, ABC):
             type(self) == type(other) and
             self.value == other.value
             )
+    
+    @abstractmethod
+    def as_json(self):
+        pass
 
 class ISOOID(UID):
     """Model of ISO's Object Identifier (oid) as defined by the standard 
@@ -60,6 +65,13 @@ class ISOOID(UID):
 
     def _is_UID_format_valid(self, value: str):
         return re.match(ISOOID.ISO_OID_REGEX, value) or False
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Base_types/ISO_OID.json
+        return {
+            "_type": "ISO_OID",
+            "value": self.value
+        }
 
 class UUID(UID):
     """Model of the DCE Universal Unique Identifier or UUID 
@@ -73,6 +85,13 @@ class UUID(UID):
     def _is_UID_format_valid(self, value: str):
         return re.match(UUID.UUID_REGEX, value) or False
     
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Base_types/UUID.json
+        return {
+            "_type": "UUID",
+            "value": self.value
+        }
+    
 class InternetID(UID):
     """Model of a reverse internet domain, as used to uniquely identify 
     an internet domain. In the form of a dot-separated string in the 
@@ -81,6 +100,13 @@ class InternetID(UID):
 
     def _is_UID_format_valid(self, value: str):
         return re.match(InternetID.INTERNET_ID_REGEX, value) or False
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Base_types/INTERNET_ID.json
+        return {
+            "_type": "INTERNET_ID",
+            "value": self.value
+        }
 
 class ObjectID(AnyClass):
     """Ancestor class of identifiers of informational objects. Ids may 
@@ -111,6 +137,13 @@ class ObjectID(AnyClass):
             self.value.lower() == other.value.lower()
             )
     
+    def as_json(self):
+        # TODO: no schema for this despite spec saying not abstract, need to report this
+        warnings.warn("ObjectID does not have a valid JSON schema. Potentially non-standard JSON emitted.")
+        return {
+            "value": self.value
+        }
+    
 class UIDBasedID(ObjectID):
     """Abstract model of UID-based identifiers consisting of a root part and an 
     optional extension; lexical form: `root '::' extension`."""
@@ -118,6 +151,7 @@ class UIDBasedID(ObjectID):
     _root : UID
     _extension : str = ""
 
+    @abstractmethod
     def __init__(self, value: str, **kwargs):
         root = ""
         extension = ""
@@ -155,7 +189,16 @@ class UIDBasedID(ObjectID):
 class HierObjectID(UIDBasedID):
     """Concrete type corresponding to hierarchical identifiers of the form defined 
     by UIDBasedID."""
-    pass
+    
+    def __init__(self, value, **kwargs):
+        super().__init__(value, **kwargs)
+
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Base_types/HIER_OBJECT_ID.json
+        return {
+            "_type": "HIER_OBJECT_ID",
+            "value": self.value
+        }
 
 class VersionTreeID(AnyClass):
     """Version tree identifier for one version. 
@@ -199,6 +242,13 @@ class VersionTreeID(AnyClass):
             type(self) == type(other) and
             self.value == other.value
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Base_types/VERSION_TREE_ID.json
+        return {
+            "_type": "VERSION_TREE_ID",
+            "value": self.value
+        }
     
     def trunk_version(self) -> str:
         """Trunk version number; numbering starts at 1."""
@@ -257,6 +307,13 @@ class ObjectVersionID(UIDBasedID):
     def is_branch(self) -> bool:
         """True if this version identifier represents a branch."""
         return self._version_tree_id.is_branch()
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Base_types/OBJECT_VERSION_ID.json
+        return {
+            "_type": "OBJECT_VERSION_ID",
+            "value": self.value
+        }
     
 class ArchetypeID(ObjectID):
     """Identifier for archetypes. Ideally these would identify globally unique archetypes.
@@ -320,10 +377,26 @@ class ArchetypeID(ObjectID):
     def version_id(self) -> str:
         """Version of this archetype."""
         return self._version_id
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Base_types/ARCHETYPE_ID.json
+        return {
+            "_type": "ARCHETYPE_ID",
+            "value": self.value
+        }
 
 class TemplateID(ObjectID):
     """Identifier for templates. Lexical form to be determined."""
-    pass
+    
+    def __init__(self, value, **kwargs):
+        super().__init__(value, **kwargs)
+
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Base_types/TEMPLATE_ID.json
+        return {
+            "_type": "TEMPLATE_ID",
+            "value": self.value
+        }
 
 class TerminologyID(ObjectID):
     """Identifier for terminologies such as accessed via a terminology 
@@ -362,6 +435,14 @@ class TerminologyID(ObjectID):
             return ""
         else:
             return self._version
+        
+    def as_json(self) -> dict:
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Base_types/TERMINOLOGY_ID.json
+        return {
+            "_type": "TERMINOLOGY_ID",
+            "value": self.value
+        }
+
 
 class GenericID(ObjectID):
     """Generic identifier type for identifiers whose format is otherwise 
@@ -389,6 +470,14 @@ class GenericID(ObjectID):
             self._scheme == other._scheme and
             super().is_equal(other)
             )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Base_types/GENERIC_ID.json
+        return {
+            "_type": "GENERIC_ID",
+            "value": self.value,
+            "scheme": self.scheme
+        }
 
 class ObjectRef(AnyClass):
     """Class describing a reference to another object, which may exist locally or 
@@ -453,6 +542,15 @@ class ObjectRef(AnyClass):
             self._type == other._type and
             self._id.is_equal(other._id)
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Base_types/OBJECT_REF.json
+        return {
+            "_type": "OBJECT_REF",
+            "id": self._id.as_json(),
+            "namespace": self.namespace,
+            "type": self.ref_type
+        }
 
 class PartyRef(ObjectRef):
     """Identifier for parties in a demographic or identity service. There are typically a 
@@ -466,6 +564,11 @@ class PartyRef(ObjectRef):
         if type not in {"PERSON", "ORGANISATION", "GROUP", "AGENT", "ROLE", "PARTY", "ACTOR"}:
             raise ValueError("A party reference must refer to one of the following types: PERSON, ORGANISATION, GROUP, AGENT, ROLE, PARTY, ACTOR")
         super().__init__(namespace, type, id, **kwargs)
+
+    def as_json(self):
+        oref_json = super().as_json()
+        oref_json["_type"] = "PARTY_REF"
+        return oref_json
 
 class LocatableRef(ObjectRef):
     """Purpose Reference to a `LOCATABLE` instance inside the top-level content structure 
@@ -494,4 +597,7 @@ class LocatableRef(ObjectRef):
         * scheme, e.g. ehr:, derived from namespace
         * id.value
         * / + path, where path is non-empty"""
+        raise NotImplementedError("Locatable refs are not yet implemented (as I don't understand them!)")
+    
+    def as_json(self):
         raise NotImplementedError("Locatable refs are not yet implemented (as I don't understand them!)")

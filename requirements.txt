@@ -1,9 +1,12 @@
 annotated-types==0.6.0
+attrs==25.3.0
 certifi==2025.8.3
 charset-normalizer==3.4.3
 compress-pickle==2.1.0
 idna==3.10
 iniconfig==2.0.0
+jsonschema==4.25.1
+jsonschema-specifications==2025.9.1
 lz4==4.3.3
 numpy==1.26.3
 packaging==23.2
@@ -11,7 +14,9 @@ pluggy==1.4.0
 pydantic==2.6.0
 pydantic_core==2.16.1
 pytest==8.0.0
+referencing==0.36.2
 requests==2.32.4
+rpds-py==0.27.1
 ruamel.yaml==0.18.5
 ruamel.yaml.clib==0.2.8
 semver==3.0.2

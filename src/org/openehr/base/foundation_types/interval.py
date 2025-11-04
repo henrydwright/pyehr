@@ -1,5 +1,7 @@
 from abc import abstractmethod
+import json
 from typing import Optional, Union
+import warnings
 
 import numpy as np
 from pydantic import ValidationError, field_validator
@@ -129,6 +131,31 @@ class Interval[T : ordered](AnyClass):
         str_rep += str(self.upper) if self.upper is not None else "+INF"
         str_rep += "]" if self.upper_included else ")"
         return str_rep
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types/Interval.json
+        draft = {
+            "_type": "INTERVAL",
+            "lower_unbounded": self.lower_unbounded,
+            "upper_unbounded": self.upper_unbounded,
+            "lower_included": self.lower_included,
+            "upper_included": self.upper_included
+        }
+        if self.lower is not None:
+            if isinstance(self._lower, AnyClass):
+                draft["lower"] = self._lower.as_json()
+            else:
+                draft["lower"] = {
+                    "value": str(self._lower)
+                }
+        if self.upper is not None:
+            if isinstance(self._upper, AnyClass):
+                draft["upper"] = self._upper.as_json()
+            else:
+                draft["upper"] = {
+                    "value": str(self._upper)
+                }
+        return draft
 
 
 class PointInterval[T : ordered](Interval[T]):
@@ -344,3 +371,11 @@ class Cardinality(AnyClass):
         """True if the semantics of this cardinality represent a set, 
         i.e. unordered, unique membership."""
         return self.is_unique and not self.is_ordered
+    
+    def as_json(self):
+        warnings.warn("Cardinality does not have a valid ITS JSON schema, potentially non-standard JSON emitted.", RuntimeWarning)
+        return {
+            "interval": self.interval.as_json(),
+            "is_ordered": self.is_ordered,
+            "is_unique": self.is_unique
+        }
