@@ -161,6 +161,42 @@
                 },
                 {
                     "$ref": "#/definitions/REFERENCE_RANGE"
+                },
+                {
+                    "$ref": "#/definitions/ATTESTATION"
+                },
+                {
+                    "$ref": "#/definitions/FEEDER_AUDIT"
+                },
+                {
+                    "$ref": "#/definitions/LINK"
+                },
+                {
+                    "$ref": "#/definitions/ARCHETYPED"
+                },
+                {
+                    "$ref": "#/definitions/PARTY_RELATED"
+                },
+                {
+                    "$ref": "#/definitions/REVISION_HISTORY_ITEM"
+                },
+                {
+                    "$ref": "#/definitions/FEEDER_AUDIT_DETAILS"
+                },
+                {
+                    "$ref": "#/definitions/PARTICIPATION"
+                },
+                {
+                    "$ref": "#/definitions/PARTY_SELF"
+                },
+                {
+                    "$ref": "#/definitions/REVISION_HISTORY"
+                },
+                {
+                    "$ref": "#/definitions/AUDIT_DETAILS"
+                },
+                {
+                    "$ref": "#/definitions/PARTY_IDENTIFIED"
                 }
             ]
         }

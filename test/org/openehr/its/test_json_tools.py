@@ -23,7 +23,11 @@ from org.openehr.rm.data_types.quantity import DVCount, DVQuantity, DVInterval, 
 from org.openehr.rm.data_types.quantity.date_time import DVDate, DVTime, DVDuration, DVDateTime
 from org.openehr.rm.data_types.encapsulated import DVParsable, DVMultimedia
 from org.openehr.rm.data_types.time_specification import DVGeneralTimeSpecification, DVPeriodicTimeSpecification
+
 from org.openehr.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
+
+from org.openehr.rm.common.archetyped import FeederAudit, FeederAuditDetails, Link, Archetyped
+from org.openehr.rm.common.generic import Attestation, PartyIdentified, PartyRelated, PartySelf, PartyRef, RevisionHistoryItem, RevisionHistory, AuditDetails, Participation
 
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
@@ -392,3 +396,130 @@ def test_its_json_rm_data_type_reference_range():
                                                                             lower_included=True,
                                                                             upper_included=False))).as_json()
     validate(t_rr)
+
+# ==========
+# RM.common - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common
+
+def test_its_json_rm_common_attestation():
+    t_att = Attestation(
+        system_id="net.example.ehr",
+        time_committed=DVDateTime("20251104T181000Z"),
+        change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
+        committer=PartyIdentified(name="Dr T Test"),
+        reason=DVText("Initial version created"),
+        is_pending=False,
+        terminology_service=test_ts).as_json()
+    
+    validate(t_att)
+
+# TODO: Contribution after change_control implemented
+
+def test_its_json_rm_common_feeder_audit():
+    t_fa = FeederAudit(
+        originating_system_audit=FeederAuditDetails(
+            system_id="net.example.legacy_ehr",
+            time=DVDateTime("20251104T183900Z")
+        )
+    ).as_json()
+
+    validate(t_fa)
+
+def test_its_json_rm_common_link():
+    t_lnk = Link(
+        meaning=DVText("previous issue"),
+        link_type=DVText("history"),
+        target=DVEHRUri("ehr:tasks/380daa09-028f-4beb-9803-4aef91644c2a")
+    ).as_json()
+
+    validate(t_lnk)
+
+# TODO: OriginalVersion after change_control implemented
+
+# TODO: VersionedObject after change_control implemented
+
+def test_its_json_rm_common_archetyped():
+    t_ach = Archetyped(
+        archetype_id=ArchetypeID("openEHR-EHR-OBSERVATION.blood_pressure.v2"),
+        rm_version="1.1.0"
+    ).as_json()
+
+    validate(t_ach)
+
+def test_its_json_rm_common_party_related():
+    t_pr = PartyRelated(
+        relationship=DVCodedText("brother", CodePhrase(TerminologyID("openehr"), "23")),
+        terminology_service=test_ts,
+        name="Brian Bloggs"
+    ).as_json()
+
+    validate(t_pr)
+
+def test_its_json_rm_common_revision_history_item():
+    t_rhi = RevisionHistoryItem(
+        version_id=ObjectVersionID("5f99cf14-3494-4a47-9051-91822d59468f::net.example.ehr::3"),
+        audits=[
+            AuditDetails(system_id="net.example.ehr", 
+                         time_committed=DVDateTime("2025-11-04T20:49:02Z"), 
+                         change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
+                         committer=PartySelf(),
+                         terminology_service=test_ts)
+        ]
+    ).as_json()
+
+    validate(t_rhi)
+
+# TODO: Folder after directory implemented
+
+def test_its_json_rm_common_feeder_audit_details():
+    t_fad = FeederAuditDetails(
+            system_id="net.example.legacy_ehr",
+            time=DVDateTime("20251104T183900Z")
+        ).as_json()
+    
+    validate(t_fad)
+
+def test_its_json_rm_common_participation():
+    t_ptc = Participation(
+        function=DVText("observer"), 
+        performer=PartyIdentified(name="Ms. A Student"),
+        mode=DVCodedText("physically present", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "219", "physically present")),
+        terminology_service=test_ts).as_json()
+    
+    validate(t_ptc)
+
+# TODO: ImportedVersion after change_control implemented
+
+def test_its_json_rm_common_party_self():
+    t_ps = PartySelf().as_json()
+
+    validate(t_ps)
+
+def test_its_json_rm_common_revision_history():
+    t_rs = RevisionHistory([
+        RevisionHistoryItem(
+            version_id=ObjectVersionID("5f99cf14-3494-4a47-9051-91822d59468f::net.example.ehr::3"),
+            audits=[
+                AuditDetails(system_id="net.example.ehr", 
+                            time_committed=DVDateTime("2025-11-04T20:49:02Z"), 
+                            change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
+                            committer=PartySelf(),
+                            terminology_service=test_ts)
+            ]
+        )
+    ]).as_json()
+
+    validate(t_rs)
+
+def test_its_json_rm_common_audit_details():
+    t_ad = AuditDetails(system_id="net.example.ehr", 
+                            time_committed=DVDateTime("2025-11-04T20:49:02Z"), 
+                            change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
+                            committer=PartySelf(),
+                            terminology_service=test_ts).as_json()
+    
+    validate(t_ad)
+
+def test_its_json_rm_common_party_identified():
+    t_pi = PartyIdentified(external_ref=PartyRef("net.example.employees", "PARTY", GenericID("5928123", "employee_number"))).as_json()
+
+    validate(t_pi)

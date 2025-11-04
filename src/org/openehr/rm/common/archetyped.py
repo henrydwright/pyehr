@@ -61,6 +61,10 @@ class Pathable(AnyClass):
         structure."""
         pass
 
+    @abstractmethod
+    def as_json(self):
+        pass
+
 class FeederAuditDetails(AnyClass):
     """Audit details for any system in a feeder system chain. Audit details here means the general notion 
     of who/where/when the information item to which the audit is attached was created. None of the 
@@ -126,6 +130,27 @@ class FeederAuditDetails(AnyClass):
             self.version_id == other.version_id and
             is_equal_value(self.other_details, other.other_details)
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common/FEEDER_AUDIT_DETAILS.json
+        draft = {
+            "_type": "FEEDER_AUDIT_DETAILS",
+            "system_id": self.system_id,
+        }
+        if self.location is not None:
+            draft["location"] = self.location.as_json()
+        if self.provider is not None:
+            draft["provider"] = self.provider.as_json()
+        if self.subject is not None:
+            draft["subject"] = self.subject.as_json()
+        if self.time is not None:
+            draft["time"] = self.time.as_json()
+        if self.version_id is not None:
+            draft["version_id"] = self.version_id
+        if self.other_details is not None:
+            draft["other_details"] = self.other_details.as_json()
+        
+        return draft
 
 class FeederAudit(AnyClass):
     """The FEEDER_AUDIT class defines the semantics of an audit trail which is constructed to describe 
@@ -165,7 +190,7 @@ class FeederAudit(AnyClass):
         self.originating_system_audit = originating_system_audit
         self.feeder_system_audit = feeder_system_audit
         super().__init__(**kwargs)
-
+        
     def is_equal(self, other: 'FeederAudit'):
         return (
             type(self) == type(other) and
@@ -175,6 +200,24 @@ class FeederAudit(AnyClass):
             is_equal_value(self.originating_system_audit, other.originating_system_audit) and
             is_equal_value(self.feeder_system_audit, other.feeder_system_audit)
         )
+        
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common/FEEDER_AUDIT.json
+        draft = {
+            "_type": "FEEDER_AUDIT",
+            "originating_system_audit": self.originating_system_audit.as_json()
+        }
+        
+        if self.originating_system_item_ids is not None:
+            draft["originating_system_item_ids"] = [id.as_json() for id in self.originating_system_item_ids]
+        if self.feeder_system_item_ids is not None:
+            draft["feeder_system_item_ids"] = [id.as_json() for id in self.feeder_system_item_ids]
+        if self.original_content is not None:
+            draft["original_content"] = self.original_content.as_json()
+        if self.feeder_system_audit is not None:
+            draft["feeder_system_audit"] = self.feeder_system_audit.as_json()
+            
+        return draft
 
 
 class Link(AnyClass):
@@ -223,6 +266,15 @@ class Link(AnyClass):
             self.link_type.is_equal(other.link_type) and
             self.target.is_equal(other.target)
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common/LINK.json
+        return {
+            "_type": "LINK",
+            "meaning": self.meaning.as_json(),
+            "type": self.link_type.as_json(),
+            "target": self.target.as_json()
+        }
 
 class Archetyped(AnyClass):
     """Archetypes act as the configuration basis for the particular structures of instances 
@@ -260,6 +312,17 @@ class Archetyped(AnyClass):
             ((self.template_id is None and other.template_id is None) or (self.template_id.is_equal(other.template_id))) and
             self.rm_version == other.rm_version
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common/ARCHETYPED.json
+        draft = {
+            "_type": "ARCHETYPED",
+            "archetype_id": self.archetype_id.as_json(),
+            "rm_version": self.rm_version
+        }
+        if self.template_id is not None:
+            draft["template_id"] = self.template_id.as_json()
+        return draft
 
 class Locatable(Pathable):
     """Root class of all information model classes that can be archetyped. Most classes 
@@ -324,4 +387,20 @@ class Locatable(Pathable):
     def is_archetype_root(self) -> bool:
         """True if this node is the root of an archetyped structure."""
         return not (self.archetype_details is None)
+    
+    def as_json(self):
+        # TODO: check this JSON is correct for a subclass with a JSON schema
+        draft = {
+            "name": self.name.as_json(),
+            "archetype_node_id": self.archetype_node_id
+        }
+        if self.uid is not None:
+            draft["uid"] = self.uid.as_json()
+        if self.links is not None:
+            draft["links"] = [link.as_json() for link in self.links]
+        if self.archetype_details is not None:
+            draft["archetype_details"] = self.archetype_details.as_json()
+        if self.feeder_audit is not None:
+            draft["feeder_audit"] = self.feeder_audit.as_json()
+        return draft
 
