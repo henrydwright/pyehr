@@ -28,6 +28,7 @@ from org.openehr.rm.support.terminology import OpenEHRTerminologyGroupIdentifier
 
 from org.openehr.rm.common.archetyped import FeederAudit, FeederAuditDetails, Link, Archetyped
 from org.openehr.rm.common.generic import Attestation, PartyIdentified, PartyRelated, PartySelf, PartyRef, RevisionHistoryItem, RevisionHistory, AuditDetails, Participation
+from org.openehr.rm.common.change_control import OriginalVersion, ImportedVersion
 
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
@@ -433,7 +434,22 @@ def test_its_json_rm_common_link():
 
     validate(t_lnk)
 
-# TODO: OriginalVersion after change_control implemented
+def test_its_json_rm_common_original_version():
+    t_ov = OriginalVersion[DVText](
+        contribution=ObjectRef("net.example.ehr", "CONTRIBUTION", HierObjectID("1826ea47-e98b-4779-b201-80db3af5de92")),
+        commit_audit=AuditDetails(
+            system_id="net.example.ehr",
+            time_committed=DVDateTime("2025-09-22T15:41:00Z"),
+            change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
+            committer=PartyIdentified(name="Mr A Example"),
+            terminology_service=test_ts),
+        uid=ObjectVersionID("154b1047-23aa-4d4d-8713-df848fd4d60a::net.example.ehr::1"),
+        lifecycle_state=DVCodedText("complete", CodePhrase(TerminologyID("openehr"), "532")),
+        terminology_service=test_ts,
+        data=DVText("Hello, world! This is some example text")
+    ).as_json()
+
+    validate(t_ov)
 
 # TODO: VersionedObject after change_control implemented
 
@@ -487,7 +503,34 @@ def test_its_json_rm_common_participation():
     
     validate(t_ptc)
 
-# TODO: ImportedVersion after change_control implemented
+def test_its_json_rm_common_imported_version():
+    ov = OriginalVersion[DVText](
+        contribution=ObjectRef("net.example.ehr", "CONTRIBUTION", HierObjectID("1826ea47-e98b-4779-b201-80db3af5de92")),
+        commit_audit=AuditDetails(
+            system_id="net.example.ehr",
+            time_committed=DVDateTime("2025-09-22T15:41:00Z"),
+            change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
+            committer=PartyIdentified(name="Mr A Example"),
+            terminology_service=test_ts),
+        uid=ObjectVersionID("154b1047-23aa-4d4d-8713-df848fd4d60a::net.example.ehr::1"),
+        lifecycle_state=DVCodedText("complete", CodePhrase(TerminologyID("openehr"), "532")),
+        terminology_service=test_ts,
+        data=DVText("Hello, world! This is some example text")
+    )
+    t_iv = ImportedVersion[DVText](
+        contribution=ObjectRef("org.example.ehr.prod", "CONTRIBUTION", HierObjectID("7ad8dcdc-62f1-41f6-b7bd-c1171f50aba5")),
+        commit_audit=AuditDetails(
+            system_id="net.example.ehr",
+            time_committed=DVDateTime("2025-11-09T11:58:02Z"),
+            change_type=DVCodedText("format conversion", CodePhrase(TerminologyID("openehr"), "817")),
+            committer=PartyIdentified(name="Anytown NHS Trust ehrBridge"),
+            terminology_service=test_ts
+        ),
+        item=ov
+    ).as_json()
+
+    validate(t_iv)
+
 
 def test_its_json_rm_common_party_self():
     t_ps = PartySelf().as_json()

@@ -1,8 +1,8 @@
 import pytest
 
 from common import PythonTerminologyService, TERMINOLOGY_OPENEHR
-from org.openehr.base.base_types.identification import ObjectRef, TerminologyID, ObjectVersionID
-from org.openehr.rm.common.change_control import OriginalVersion
+from org.openehr.base.base_types.identification import ObjectRef, TerminologyID, ObjectVersionID, HierObjectID
+from org.openehr.rm.common.change_control import OriginalVersion, ImportedVersion
 from org.openehr.rm.common.generic import AuditDetails, PartyIdentified, Attestation
 from org.openehr.rm.data_types.quantity.date_time import DVDateTime
 from org.openehr.rm.data_types.text import DVCodedText, DVText, CodePhrase
@@ -14,7 +14,7 @@ ts_ok = PythonTerminologyService(code_sets=[], terminologies=[TERMINOLOGY_OPENEH
 ts_empty = PythonTerminologyService([], [])
 
 ov = OriginalVersion[DVText](
-    contribution=ObjectRef("net.example.ehr", "CONTRIBUTION", "1826ea47-e98b-4779-b201-80db3af5de92"),
+    contribution=ObjectRef("net.example.ehr", "CONTRIBUTION", HierObjectID("1826ea47-e98b-4779-b201-80db3af5de92")),
     commit_audit=AuditDetails(
         system_id="net.example.ehr",
         time_committed=DVDateTime("2025-09-22T15:41:00Z"),
@@ -25,6 +25,18 @@ ov = OriginalVersion[DVText](
     lifecycle_state=DVCodedText("complete", CodePhrase(OPENEHR_TID, "532")),
     terminology_service=ts_ok,
     data=DVText("Hello, world! This is some example text")
+)
+
+iv = ImportedVersion[DVText](
+    contribution=ObjectRef("org.example.ehr.prod", "CONTRIBUTION", HierObjectID("7ad8dcdc-62f1-41f6-b7bd-c1171f50aba5")),
+    commit_audit=AuditDetails(
+        system_id="net.example.ehr",
+        time_committed=DVDateTime("2025-11-09T11:58:02Z"),
+        change_type=DVCodedText("format conversion", CodePhrase(OPENEHR_TID, "817")),
+        committer=PartyIdentified(name="Anytown NHS Trust ehrBridge"),
+        terminology_service=ts_ok
+    ),
+    item=ov
 )
 
 def test_original_version_lifecycle_state_valid():
@@ -72,7 +84,6 @@ def test_original_version_lifecycle_state_valid():
             terminology_service=ts_ok,
             data=DVText("Hello, world! This is some example text")
         )
-
 
 def test_original_version_uid_derived_methods():
     assert ov.uid().value == "154b1047-23aa-4d4d-8713-df848fd4d60a::net.example.ehr::1"
@@ -179,4 +190,15 @@ def test_original_version_other_input_version_uids_valid():
             other_input_version_uids=[]
         )
 
+def test_original_version_inherited_version_methods_correct():
+    assert ov.data().is_equal(DVText("Hello, world! This is some example text"))
+    assert ov.lifecycle_state().is_equal(DVCodedText("complete", CodePhrase(OPENEHR_TID, "532")))
 
+def test_imported_version_inherited_version_methods_correct():
+    # these all just take the values from the encapsulated item member
+    assert iv.uid().is_equal(ObjectVersionID("154b1047-23aa-4d4d-8713-df848fd4d60a::net.example.ehr::1"))
+    assert iv.preceding_version_uid() is None
+    assert iv.lifecycle_state().is_equal(DVCodedText("complete", CodePhrase(OPENEHR_TID, "532")))
+    assert iv.data().is_equal(DVText("Hello, world! This is some example text"))
+    assert iv.owner_id().value == "154b1047-23aa-4d4d-8713-df848fd4d60a"
+    assert iv.is_branch() == False

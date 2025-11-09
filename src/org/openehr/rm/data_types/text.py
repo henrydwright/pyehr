@@ -258,7 +258,7 @@ class DVCodedText(DVText):
 
     def is_equal(self, other: 'DVCodedText'):
         return (
-            self.defining_code == other.defining_code and
+            self.defining_code.is_equal(other.defining_code) and
             super().is_equal(other)
         )
     

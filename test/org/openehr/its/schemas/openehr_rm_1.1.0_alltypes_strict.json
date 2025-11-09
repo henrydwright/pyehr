@@ -172,6 +172,9 @@
                     "$ref": "#/definitions/LINK"
                 },
                 {
+                    "$ref": "#/definitions/ORIGINAL_VERSION"
+                },
+                {
                     "$ref": "#/definitions/ARCHETYPED"
                 },
                 {
@@ -185,6 +188,9 @@
                 },
                 {
                     "$ref": "#/definitions/PARTICIPATION"
+                },
+                {
+                    "$ref": "#/definitions/IMPORTED_VERSION"
                 },
                 {
                     "$ref": "#/definitions/PARTY_SELF"

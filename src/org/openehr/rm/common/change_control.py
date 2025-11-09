@@ -5,7 +5,7 @@ the formal specification of these features in openEHR."""
 
 from abc import abstractmethod
 from typing import Optional, Union
-import pickle
+import json
 
 import numpy as np
 
@@ -17,7 +17,7 @@ from org.openehr.rm.data_types.quantity.date_time import DVDateTime
 from org.openehr.rm.data_types.text import DVCodedText
 from org.openehr.rm.support.terminology import TerminologyService, util_verify_code_in_openehr_terminology_group_or_error, OpenEHRTerminologyGroupIdentifiers
 
-class Version[T](AnyClass):
+class Version[T: AnyClass](AnyClass):
     """Abstract model of one Version within a Version container, containing data, commit audit 
     trail, and the identifier of its Contribution."""
 
@@ -60,12 +60,14 @@ class Version[T](AnyClass):
         """Lifecycle state of this version; coded by openEHR vocabulary `version lifecycle state`."""
         pass
 
-    @abstractmethod
     def canonical_form(self) -> str:
         """A canonical serial form of this Version, suitable for generating reliable hashes and
         signatures. Canonical form of Version object, created by serialising all attributes 
         except signature."""
-        pass
+        self_json = self.as_json()
+        # remove signature from serialisation
+        del self_json["signature"]
+        return json.dumps(self_json)
 
     @abstractmethod
     def owner_id(self) -> HierObjectID:
@@ -86,9 +88,18 @@ class Version[T](AnyClass):
             is_equal_value(self.signature, other.signature) and
             is_equal_value(self.commit_audit, other.commit_audit)
         )
+    
+    def as_json(self):
+        draft = {
+            "contribution": self.contribution.as_json(),
+            "commit_audit": self.commit_audit.as_json()
+        }
+        if self.signature is not None:
+            draft["signature"] = self.signature
+        return draft
 
 
-class OriginalVersion[T](Version[T]):
+class OriginalVersion[T: AnyClass](Version[T]):
     """A Version containing locally created content and optional attestations."""
 
     uid_var: ObjectVersionID
@@ -158,10 +169,6 @@ class OriginalVersion[T](Version[T]):
             is_equal_value(self.attestations, other.attestations) and
             is_equal_value(self.data_var, other.data_var)
             )
-    
-    def canonical_form(self):
-        # TODO: implement a better canonical form
-        return pickle.dumps(self)
 
     def is_branch(self):
         return self.uid_var.version_tree_id().is_branch()
@@ -178,8 +185,22 @@ class OriginalVersion[T](Version[T]):
     def uid(self):
         return self.uid_var
     
+    def as_json(self):
+        draft = super().as_json()
+        draft["uid"] = self.uid_var.as_json()
+        draft["lifecycle_state"] = self.lifecycle_state_var.as_json()
+        if self.preceding_version_uid_var is not None:
+            draft["preceding_version_uid"] = self.preceding_version_uid_var.as_json()
+        if self.other_input_version_uids is not None:
+            draft["other_input_version_uids"] = [other_input_version_uid.as_json() for other_input_version_uid in self.other_input_version_uids]
+        if self.attestations is not None:
+            draft["attestations"] = [attestation.as_json() for attestation in self.attestations]
+        if self.data_var is not None:
+            draft["data"] = self.data_var.as_json()
+        draft["_type"] = "ORIGINAL_VERSION"
+        return draft
 
-class ImportedVersion[T](Version[T]):
+class ImportedVersion[T: AnyClass](Version[T]):
     """Versions whose content is an ORIGINAL_VERSION copied from another location; this 
     class inherits commit_audit and contribution from VERSION<T>, providing imported versions 
     with their own audit trail and Contribution, distinct from those of the imported ORIGINAL_VERSION."""
@@ -197,22 +218,40 @@ class ImportedVersion[T](Version[T]):
 
     def uid(self) -> ObjectVersionID:
         """Computed version of inheritance precursor, derived as item.uid."""
-        pass
+        return self.item.uid()
 
     def preceding_version_uid(self):
         """Computed version of inheritance precursor, derived as item.preceding_version_uid."""
-        pass
+        return self.item.preceding_version_uid()
 
     def lifecycle_state(self):
         """Lifecycle state of the content item in wrapped ORIGINAL_VERSION, derived as 
         item.lifecycle_state; coded by openEHR vocabulary version lifecycle state."""
-        pass
+        return self.item.lifecycle_state()
 
     def data(self) -> T:
         """Original content of this Version."""
-        pass
+        return self.item.data()
 
-class VersionedObject[T](AnyClass):
+    def is_branch(self):
+        return self.item.is_branch()
+
+    def is_equal(self, other):
+        return (
+            super().is_equal(other) and
+            is_equal_value(self.item, other.item)
+        )
+    
+    def owner_id(self):
+        return self.item.owner_id()
+
+    def as_json(self):
+        draft = super().as_json()
+        draft["item"] = self.item.as_json()
+        draft["_type"] = "IMPORTED_VERSION"
+        return draft
+
+class VersionedObject[T: AnyClass](AnyClass):
     """Version control abstraction, defining semantics for versioning one complex object."""
 
     uid: HierObjectID
