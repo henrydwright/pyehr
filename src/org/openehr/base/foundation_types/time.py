@@ -463,7 +463,7 @@ class ISOTime(ISOType):
     
     See `TimeDefinitions.valid_iso8601_time()` for validity."""
 
-    ISO8601_TIME_REGEX= "^(\\d\\d(\\d\\d(\\d\\d(.\\d\\d?\\d?\\d?\\d?\\d?)?)?)?)?([Z]|([+-])(\\d\\d)(\\d\\d)?)?$"
+    ISO8601_TIME_REGEX= "^(\\d\\d(\\d\\d(\\d\\d(\\.\\d\\d?\\d?\\d?\\d?\\d?)?)?)?)?([Z]|([+-])(\\d\\d)(\\d\\d)?)?$"
 
     _time : time
     _minute_unknown : bool = True
@@ -536,10 +536,13 @@ class ISOTime(ISOType):
 
     def as_string(self) -> str:
         """Return string value in extended format."""
-        if self.is_extended():
-            return self.value
+        dr = ""
+        if self.has_fractional_second():
+            dr = self._time.isoformat(timespec="milliseconds")
         else:
-            return self._time.isoformat()
+            dr = self._time.isoformat()
+        dr = dr.replace("+00:00", "Z")
+        return dr
 
     def __str__(self) -> str:
         return self.as_string()

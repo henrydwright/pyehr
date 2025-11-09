@@ -98,12 +98,13 @@ def test_valid_iso8601_time():
     assert td.valid_iso8601_time("02:02:00Z")
     assert td.valid_iso8601_time("02:02:00+01:00")
     assert td.valid_iso8601_time("02:02:00+14:00")
-    assert td.valid_iso8601_time("02:02:00-1300")
-    assert td.valid_iso8601_time("02:02:00+1500")
     # rejects wrong times
     assert not td.valid_iso8601_time("abacus")
     assert not td.valid_iso8601_time("24:00:00")
     assert not td.valid_iso8601_time("25:00:00")
+    # rejects invalid timezones
+    assert not td.valid_iso8601_time("02:02:00-1300")
+    assert not td.valid_iso8601_time("02:02:00+1500")
 
 def test_valid_iso8601_date_time():
     assert td.valid_iso8601_date_time("2024-02-04T00:01:02.293+01:00")
@@ -319,7 +320,7 @@ def test_iso_time_add():
     t1 = ISOTime("002000.125+0200")
     du = ISODuration("P1DT2H")
     t2 = t1 + du
-    assert str(t2) == "02:20:00.125000+02:00"
+    assert str(t2) == "02:20:00.125+02:00"
 
 def test_iso_time_diff():
     t1 = ISOTime("13:00:00")
@@ -335,11 +336,21 @@ def test_iso_time_subtract():
     t2 = t1 - du
     assert str(t2) == "10:30:30Z"
 
+def test_iso_time_has_fractional_second():
+    t1 = ISOTime("12:30:00")
+    assert t1.has_fractional_second() == False
+    t2 = ISOTime("12:30:00+01:00")
+    assert t2.has_fractional_second() == False
+    t3 = ISOTime("12:30:00.000+01:00")
+    assert t3.has_fractional_second() == True
+    t4 = ISOTime("12:30:00.123+01:00")
+    assert t4.has_fractional_second() == True
+
 def test_iso_date_time_add():
     td1 = ISODateTime("2024-02-04T00:01:02.293+01:00")
     du = ISODuration("PT2H")
     td2 = td1 + du
-    assert str(td2) == "2024-02-04T02:01:02.293000+01:00"
+    assert str(td2) == "2024-02-04T02:01:02.293+01:00"
 
 def test_iso_date_time_subtract():
     du = ISODuration("P30D")
