@@ -28,7 +28,7 @@ from org.openehr.rm.support.terminology import OpenEHRTerminologyGroupIdentifier
 
 from org.openehr.rm.common.archetyped import FeederAudit, FeederAuditDetails, Link, Archetyped
 from org.openehr.rm.common.generic import Attestation, PartyIdentified, PartyRelated, PartySelf, PartyRef, RevisionHistoryItem, RevisionHistory, AuditDetails, Participation
-from org.openehr.rm.common.change_control import OriginalVersion, ImportedVersion
+from org.openehr.rm.common.change_control import OriginalVersion, ImportedVersion, VersionedObject
 
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
@@ -451,7 +451,14 @@ def test_its_json_rm_common_original_version():
 
     validate(t_ov)
 
-# TODO: VersionedObject after change_control implemented
+def test_its_json_rm_common_versioned_object():
+    t_vo = VersionedObject[DVText](
+        uid=HierObjectID("14304fd8-e37f-4ee8-9f39-5566a745ea99"),
+        owner_id=ObjectRef("net.example.ehr", "EHR", HierObjectID("2e372186-480e-4555-97ae-1c639829caf4")),
+        time_created=DVDateTime("20251109T201900Z")
+    ).as_json()
+
+    validate(t_vo)
 
 def test_its_json_rm_common_archetyped():
     t_ach = Archetyped(

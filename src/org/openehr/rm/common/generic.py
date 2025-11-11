@@ -35,7 +35,7 @@ class PartyProxy(AnyClass):
     @abstractmethod
     def is_equal(self, other: 'PartyProxy'):
         return (type(self) == type(other) and
-                self.external_ref.is_equal(other.external_ref))
+                is_equal_value(self.external_ref, other.external_ref))
     
     def as_json(self):
         # relevant parts taken from https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common/PARTY_IDENTIFIED.json
@@ -385,7 +385,7 @@ class RevisionHistoryItem(AnyClass):
 
 class RevisionHistory(AnyClass):
     """Defines the notion of a revision history of audit items, each associated with the version for which that 
-    audit was committed. The list is in most-recent-first order."""
+    audit was committed. The list is in most-recent-last order."""
 
     # TODO: the specification has a class description and parameter description that are exact opposites (most-recent-first vs. most-recent-last)
     #        need to report this, but in meantime take parameter definition of most-recent-last...

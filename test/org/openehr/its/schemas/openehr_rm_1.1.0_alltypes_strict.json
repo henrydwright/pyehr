@@ -175,6 +175,9 @@
                     "$ref": "#/definitions/ORIGINAL_VERSION"
                 },
                 {
+                    "$ref": "#/definitions/VERSIONED_OBJECT"
+                },
+                {
                     "$ref": "#/definitions/ARCHETYPED"
                 },
                 {
