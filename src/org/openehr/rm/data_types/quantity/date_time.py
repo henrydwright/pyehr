@@ -126,6 +126,12 @@ class DVDuration(DVAmount):
             self._value.value == other._value.value
         )
     
+    def as_json(self):
+        draft = super().as_json()
+        draft["_type"] = "DV_DURATION"
+        draft["value"] = self.as_string()
+        return draft
+    
 class DVTemporal(DVAbsoluteQuantity):
     """Specialised temporal variant of DV_ABSOLUTE_QUANTITY whose diff type is DV_DURATION."""
 
@@ -161,6 +167,9 @@ class DVTemporal(DVAbsoluteQuantity):
     @abstractmethod
     def __sub__(self, other: Union[DVDuration, 'DVTemporal']) -> Union['DVTemporal', DVDuration]:
         pass
+
+    def as_json(self):
+        return super().as_json()
 
 
 class DVDate(DVTemporal):
@@ -250,6 +259,12 @@ class DVDate(DVTemporal):
         
     def __str__(self):
         return self._value.value
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_DATE.json
+        draft = super().as_json()
+        draft["_type"] = "DV_DATE"
+        return draft
 
 class DVTime(DVTemporal):
     """Represents an absolute point in time from an origin usually interpreted as meaning 
@@ -376,6 +391,11 @@ class DVTime(DVTemporal):
     
     def __str__(self) -> str:
         return self._value.value
+    
+    def as_json(self):
+        draft = super().as_json()
+        draft["_type"] = "DV_TIME"
+        return draft
     
 class DVDateTime(DVTemporal):
     """Represents an absolute point in time, specified to the second. Semantics defined 
@@ -509,3 +529,9 @@ class DVDateTime(DVTemporal):
 
     def __str__(self) -> str:
         return self._value.value
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_DATE_TIME.json
+        draft = super().as_json()
+        draft["_type"] = "DV_DATE_TIME"
+        return draft

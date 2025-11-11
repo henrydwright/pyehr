@@ -21,6 +21,14 @@ class TerminologyTerm(AnyClass):
         self.concept = concept
         self.text = text
 
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types/Terminology_term.json
+        return {
+            "_type": "TERMINOLOGY_TERM",
+            "text": self.text,
+            "concept": self.concept.as_json()
+        }
+
 class TerminologyCode(AnyClass):
     """Primitive type representing a standalone reference to a terminology concept, 
     in the form of a terminology identifier, optional version, and a code or code string 
@@ -55,6 +63,24 @@ class TerminologyCode(AnyClass):
     def __str__(self) -> str:
         return self.terminology_id + ": " + self.code_string
     
-    def __init__(self, terminology_id: str, code_string: str):
+    def __init__(self, terminology_id: str, code_string: str, terminology_version: Optional[str] = None, uri: Optional[Uri] = None):
         self.terminology_id = terminology_id
         self.code_string = code_string
+        self.terminology_version = terminology_version
+        self.uri = uri
+
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types/Terminology_code.json
+        draft = {
+            "_type": "TERMINOLOGY_CODE",
+            "terminology_id": self.terminology_id,
+            "code_string": self.code_string
+        }
+        if self.terminology_version is not None:
+            draft["terminology_version"] = self.terminology_version
+        if self.uri is not None:
+            draft["uri"] = {
+                "_type": "URI",
+                "value": self.uri
+            }
+        return draft

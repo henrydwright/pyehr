@@ -45,6 +45,13 @@ class DVUri(DataValue):
         """Query string to send to application implied by scheme and path. Enables queries to applications, including databases to be included in the URI. Supports any query meaningful to the server, including SQL."""
         return urisplit(self.value).query or ""
     
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_URI.json
+        return {
+            "_type": "DV_URI",
+            "value": self.value
+        }
+    
 class DVEHRUri(DVUri):
     """A DV_EHR_URI is a DV_URI which has the scheme name 'ehr', and which can only reference items in EHRs.
 
@@ -56,3 +63,9 @@ class DVEHRUri(DVUri):
         super().__init__(value)
         if self.scheme() != self.EHR_SCHEME:
             raise ValueError(f"An EHR URI must have the scheme 'ehr' but the given scheme was \'{self.scheme()}\' (invariant: scheme_valid)")
+        
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_EHR_URI.json
+        draft = super().as_json()
+        draft["_type"] = "DV_EHR_URI"
+        return draft

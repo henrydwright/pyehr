@@ -448,6 +448,13 @@ class ISODate(ISOType):
         else:
             return ISODate(f"{new_year:04d}-{new_month:02d}")
 
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types/Date.json
+        return {
+            "_type": "DATE",
+            "value": self.as_string()
+        }
+
 class ISOTime(ISOType):
     """Represents an ISO 8601 time, including partial and extended forms. Value may be:
     * hh:mm:ss[(,|.)sss][Z|±hh[:mm]] (extended, preferred) or
@@ -456,7 +463,7 @@ class ISOTime(ISOType):
     
     See `TimeDefinitions.valid_iso8601_time()` for validity."""
 
-    ISO8601_TIME_REGEX= "^(\\d\\d(\\d\\d(\\d\\d(.\\d\\d?\\d?\\d?\\d?\\d?)?)?)?)?([Z]|([+-])(\\d\\d)(\\d\\d)?)?$"
+    ISO8601_TIME_REGEX= "^(\\d\\d(\\d\\d(\\d\\d(\\.\\d\\d?\\d?\\d?\\d?\\d?)?)?)?)?([Z]|([+-])(\\d\\d)(\\d\\d)?)?$"
 
     _time : time
     _minute_unknown : bool = True
@@ -529,10 +536,13 @@ class ISOTime(ISOType):
 
     def as_string(self) -> str:
         """Return string value in extended format."""
-        if self.is_extended():
-            return self.value
+        dr = ""
+        if self.has_fractional_second():
+            dr = self._time.isoformat(timespec="milliseconds")
         else:
-            return self._time.isoformat()
+            dr = self._time.isoformat()
+        dr = dr.replace("+00:00", "Z")
+        return dr
 
     def __str__(self) -> str:
         return self.as_string()
@@ -584,6 +594,13 @@ class ISOTime(ISOType):
     def __lt__(self, other: 'ISOTime'):
         self._comparison_check(other)
         return (self.to_python_time() < other.to_python_time())
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types/Time.json
+        return {
+            "_type": "TIME",
+            "value": self.as_string()
+        }
 
 class ISODateTime(ISOType):
     """Represents an ISO 8601 date/time, including partial and extended forms. Value may be:
@@ -765,6 +782,13 @@ class ISODateTime(ISOType):
     def __lt__(self, other: 'ISODateTime'):
         self._comparison_check(other)
         return (self._python_datetime < other._python_datetime)
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types/Date_time.json
+        return {
+            "_type": "DATE_TIME",
+            "value": self.as_string()
+        }
 
 
 class ISODuration(ISOType):
@@ -976,6 +1000,13 @@ class ISODuration(ISOType):
     def __lt__(self, other: 'ISODuration'):
         self._comparison_check(other)
         return (self.to_python_timedelta() < other.to_python_timedelta())
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types/Duration.json
+        return {
+            "_type": "DURATION",
+            "value": self.as_string()
+        }
 
 class ISOTimeZone(ISOType):
     """ISO8601 timezone string, in format:
@@ -1091,6 +1122,10 @@ class ISOTimeZone(ISOType):
         val_self = self._sign * ((self._hour * 60) + self._minute)
         val_other = other._sign * ((other._hour * 60) + other._minute)
         return (val_self < val_other)
+    
+    def as_json(self):
+        # no JSON schema, so just return the string
+        return self.as_string()
     
 temporal = ISOType
 """Abstract ancestor of time-related classes."""

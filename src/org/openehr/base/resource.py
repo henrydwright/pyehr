@@ -75,10 +75,39 @@ class ResourceDescription(AnyClass):
     details: Optional[dict[str,'ResourceDescriptionItem']] = None
     """Details of all parts of resource description that are natural language-dependent, keyed by language code."""
 
-    def __init__(self, original_author: dict[str, str], lifecycle_state: TerminologyCode, parent_resource:'AuthoredResource'):
+    def __init__(self, 
+                 original_author: dict[str, str], 
+                 lifecycle_state: TerminologyCode, 
+                 parent_resource:'AuthoredResource',
+                 original_namespace: Optional[str] = None,
+                 original_publisher: Optional[str] = None,
+                 other_contributors: Optional[list[str]] = None,
+                 custodian_namespace: Optional[str] = None,
+                 custodian_organisation: Optional[str] = None,
+                 copyright: Optional[str] = None,
+                 licence: Optional[str] = None,
+                 ip_acknowledgements: Optional[dict[str, str]] = None,
+                 references: Optional[dict[str, str]] = None,
+                 resource_package_uri: Optional[str] = None,
+                 conversion_details: Optional[dict[str, str]] = None,
+                 other_details: Optional[dict[str, str]] = None,
+                 details: Optional[dict[str, 'ResourceDescriptionItem']] = None):
         self.original_author = original_author
         self.lifecycle_state = lifecycle_state
         self.parent_resource = parent_resource
+        self.original_namespace = original_namespace
+        self.original_publisher = original_publisher
+        self.other_contributors = other_contributors
+        self.custodian_namespace = custodian_namespace
+        self.custodian_organisation = custodian_organisation
+        self.copyright = copyright
+        self.licence = licence
+        self.ip_acknowledgements = ip_acknowledgements
+        self.references = references
+        self.resource_package_uri = resource_package_uri
+        self.conversion_details = conversion_details
+        self.other_details = other_details
+        self.details = details
         super().__init__()
 
     def is_equal(self, other: 'ResourceDescription'):
@@ -101,6 +130,46 @@ class ResourceDescription(AnyClass):
             is_equal_value(self.other_details, other.other_details) and
             is_equal_value(self.details, other.details)
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Resource/RESOURCE_DESCRIPTION.json
+        # TODO: the spec and the JSON schema (as for all resource classes it seems, disagree) so as usual going with the spec
+        draft = {
+            "_type": "RESOURCE_DESCRIPTION",
+            "original_author": self.original_author,
+            "lifecycle_state": self.lifecycle_state.code_string,
+            "parent_resource": self.parent_resource.as_json()
+        }
+        if self.original_namespace is not None:
+            draft["original_namespace"] = self.original_namespace
+        if self.original_publisher is not None:
+            draft["original_publisher"] = self.original_publisher
+        if self.other_contributors is not None:
+            draft["other_contributors"] = self.other_contributors
+        if self.custodian_namespace is not None:
+            draft["custodian_namespace"] = self.custodian_namespace
+        if self.custodian_organisation is not None:
+            draft["custodian_organisation"] = self.custodian_organisation
+        if self.copyright is not None:
+            draft["copyright"] = self.copyright
+        if self.licence is not None:
+            draft["licence"] = self.licence
+        if self.ip_acknowledgements is not None:
+            draft["ip_acknowledgements"] = self.ip_acknowledgements
+        if self.references is not None:
+            draft["references"] = self.references
+        if self.resource_package_uri is not None:
+            draft["resource_package_uri"] = self.resource_package_uri
+        if self.conversion_details is not None:
+            draft["conversion_details"] = self.conversion_details
+        if self.other_details is not None:
+            draft["other_details"] = self.other_details
+        if self.details is not None:
+            det_list = []
+            for rdi in self.details.values:
+                det_list.append(rdi)
+            draft["details"] = det_list
+        return draft
 
 
 class ResourceAnnotations(AnyClass):
@@ -139,9 +208,19 @@ class TranslationDetails(AnyClass):
     other_contributors : Optional[list[str]] = None
     """Additional contributors to this translation, each listed in the preferred format of the relevant organisation for the artefacts in question. A typical default is "name <email>" if nothing else is specified."""
 
-    def __init__(self, language : TerminologyCode, author : dict[str, str]):
+    def __init__(self, 
+                 language : TerminologyCode, 
+                 author : dict[str, str], 
+                 accreditation : Optional[str] = None,
+                 other_details: Optional[dict[str, str]] = None,
+                 version_last_translated: Optional[str] = None,
+                 other_contributors: Optional[list[str]] = None):
         self.language = language
         self.author = author
+        self.accreditation = accreditation
+        self.other_details = other_details
+        self.version_last_translated = version_last_translated
+        self.other_contributors = other_contributors
         super().__init__()
 
     def is_equal(self, other: 'TranslationDetails'):
@@ -154,6 +233,24 @@ class TranslationDetails(AnyClass):
             is_equal_value(self.version_last_translated, other.version_last_translated) and
             is_equal_value(self.other_contributors, other.other_contributors)
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Resource/TRANSLATION_DETAILS.json
+        # TODO: the JSON schema disagrees with the specification on the properties of the class, go with spec and modify JSON schema
+        draft = {
+            "_type": "TRANSLATION_DETAILS",
+            "language": self.language.as_json(),
+            "author": self.author,
+        }
+        if self.accreditation is not None:
+            draft["accreditation"] = self.accreditation
+        if self.other_contributors is not None:
+            draft["other_details"] = self.other_details
+        if self.version_last_translated is not None:
+            draft["version_last_translated"] = self.version_last_translated
+        if self.other_contributors is not None:
+            draft["other_contributors"] = self.other_contributors
+        return draft
 
 
 class AuthoredResource(AnyClass, ABC):
@@ -177,8 +274,15 @@ class AuthoredResource(AnyClass, ABC):
     _translations : Optional[dict[str, TranslationDetails]] = None
     """List of details for each natural translation made of this resource, keyed by language code. For each translation listed here, there must be corresponding sections in all language-dependent parts of the resource. The original_language does not appear in this list."""
 
-    def __init__(self, original_language: TerminologyCode):
+    def __init__(self, 
+                 original_language: TerminologyCode, 
+                 uid: Optional[UUID] = None,
+                 is_controlled: Optional[bool] = None,
+                 annotations: Optional[ResourceAnnotations] = None):
         self.original_language = original_language
+        self.uid = uid
+        self.is_controlled = is_controlled
+        self.annotations = annotations
 
     def is_equal(self, other: 'AuthoredResource'):
         return (
@@ -275,6 +379,22 @@ class AuthoredResource(AnyClass, ABC):
                 else:
                     self._description = resource_description
 
+    def as_json(self):
+        draft = {
+            "original_language": self.original_language.as_json()
+        }
+        if self.uid is not None:
+            draft["uid"] = self.uid.value
+        if self._description is not None:
+            draft["description"] = self._description
+        if self.is_controlled is not None:
+            draft["is_controlled"] = self.is_controlled
+        if self.annotations is not None:
+            draft["annotations"] = self.annotations.as_json()
+        if self.translations is not None:
+            draft["translations"] = self.translations
+        return draft
+
 
 class ResourceDescriptionItem(AnyClass):
     """Language-specific detail of resource description. When a resource is translated for use in another language environment, each `ResourceDescriptionItem` needs to be copied and translated into the new language."""
@@ -300,9 +420,21 @@ class ResourceDescriptionItem(AnyClass):
     other_details: Optional[dict[str, str]] = None
     """Additional language-senstive resource metadata, as a list of name/value pairs."""
 
-    def __init__(self, language: TerminologyCode, purpose: str):
+    def __init__(self, 
+                 language: TerminologyCode, 
+                 purpose: str,
+                 keywords: Optional[list[str]] = None,
+                 use: Optional[str] = None,
+                 misuse: Optional[str] = None,
+                 original_resource_uri: Optional[dict[str, str]] = None,
+                 other_details: Optional[dict[str, str]] = None):
         self.language = language
         self.purpose = purpose
+        self.keywords = keywords
+        self.use = use
+        self.misuse = misuse
+        self.original_resource_uri = original_resource_uri
+        self.other_details = other_details
         super().__init__()
 
     def is_equal(self, other: 'ResourceDescriptionItem'):
@@ -316,4 +448,24 @@ class ResourceDescriptionItem(AnyClass):
             is_equal_value(self.original_resource_uri, other.original_resource_uri) and
             is_equal_value(self.other_details, other.other_details)
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Resource/RESOURCE_DESCRIPTION_ITEM.json
+        # TODO: JSON schema disagrees with spec on the fields of the class (missing copyright and has other_details as required), going with spec rather than schema (and change local schema)
+        draft = {
+            "_type": "RESOURCE_DESCRIPTION_ITEM",
+            "language": self.language.as_json(),
+            "purpose": self.purpose
+        }
+        if self.keywords is not None:
+            draft["keywords"] = self.keywords
+        if self.use is not None:
+            draft["use"] = self.use
+        if self.misuse is not None:
+            draft["misuse"] = self.misuse
+        if self.original_resource_uri is not None:
+            draft["original_resource_uri"] = self.original_resource_uri
+        if self.other_details is not None:
+            draft["other_details"] = self.other_details
+        return draft
 

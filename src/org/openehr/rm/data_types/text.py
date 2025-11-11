@@ -43,6 +43,16 @@ class CodePhrase(AnyClass):
             self.preferred_term == other.preferred_term
         )
     
+    def as_json(self):
+        j = {
+            "_type": "CODE_PHRASE",
+            "terminology_id": self.terminology_id.as_json(),
+            "code_string": self.code_string
+        }
+        if self.preferred_term is not None:
+            j["preferred_term"] = self.preferred_term
+        return j
+    
 class TermMapping(AnyClass):
     """Represents a coded term mapped to a DV_TEXT, and the relative match of the target term with respect to the mapped item. Plain or coded text items may appear in the EHR for which one or mappings in alternative terminologies are required. Mappings are only used to enable computer processing, so they can only be instances of DV_CODED_TEXT.
 
@@ -68,15 +78,19 @@ class TermMapping(AnyClass):
         # import here to avoid circular reference
         from org.openehr.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers, util_verify_code_in_openehr_terminology_group_or_error
 
+        self.target = target
+
         # invariant: match_valid
         if not self.is_valid_match_code(match):
             raise ValueError(f"Match code must be one of '>', '=', '<' or '?', but \'{match}\' was given (invariant: match_valid)")
+        self.match = match
         
         # invariant: purpose_valid
         if purpose is not None:
             if (terminology_service is None):
                 raise ValueError("If purpose is provided, access to a TerminologyService with OpenEHR terminology must also be given to check validity (invariant: purpose_valid)")
-            util_verify_code_in_openehr_terminology_group_or_error(purpose.defining_code, OpenEHRTerminologyGroupIdentifiers.GROUP_ID_TERM_MAPPING_PURPOSE, terminology_service, invariant_name_for_error="purpose_valid")            
+            util_verify_code_in_openehr_terminology_group_or_error(purpose.defining_code, OpenEHRTerminologyGroupIdentifiers.GROUP_ID_TERM_MAPPING_PURPOSE, terminology_service, invariant_name_for_error="purpose_valid")   
+        self.purpose = purpose         
 
     def is_equal(self, other: 'TermMapping'):
         return (
@@ -110,6 +124,16 @@ class TermMapping(AnyClass):
             (c == '<') or
             (c == '?')
         )
+    
+    def as_json(self):
+        draft = {
+            "_type": "TERM_MAPPING",
+            "match": str(self.match),
+            "target": self.target.as_json()
+        }
+        if self.purpose is not None:
+            draft["purpose"] = self.purpose.as_json()
+        return draft
 
 class DVText(DataValue):
     """A text item, which may contain any amount of legal characters arranged as e.g. words, sentences etc (i.e. one DV_TEXT may be more than one word). Visual formatting and hyperlinks may be included via markdown.
@@ -153,13 +177,18 @@ class DVText(DataValue):
         from org.openehr.rm.support.terminology import TerminologyService, OpenEHRCodeSetIdentifiers, OpenEHRTerminologyGroupIdentifiers
         ts : TerminologyService = terminology_service
 
+        self.value = value
+        self.hyperlink = hyperlink
+
         # invariant: formatting_valid
         if (formatting is not None) and (formatting == ""):
             raise ValueError("If provided, formatting cannot be an empty string (invariant: formatting_valid)")
+        self.formatting = formatting
 
         # invariant: mappings_valid
         if (mappings is not None) and (len(mappings) == 0):
             raise ValueError("If provided, mappings cannot be an empty list (invariant: mappings_valid)")
+        self.mappings = mappings
 
         if ((language is not None) or (encoding is not None)) and (ts is None):
             raise ValueError("If language or encoding is provided, access to a TerminologyService with OpenEHR terminology must also be given to check validity (invariant: language_valid, encoding_valid)")
@@ -171,6 +200,7 @@ class DVText(DataValue):
             language_code_set = ts.code_set_for_id(OpenEHRCodeSetIdentifiers.CODE_SET_ID_LANGUAGES)
             if not language_code_set.has_code(language.code_string):
                 raise ValueError(f"Provided language code {language.code_string} was not in the OpenEHR languages code set (invariant: language_valid)")
+        self.language = language
             
         # invariant: encoding_valid
         if (encoding is not None) and (not ts.has_code_set(OpenEHRCodeSetIdentifiers.CODE_SET_ID_CHARACTER_SETS)):
@@ -179,10 +209,8 @@ class DVText(DataValue):
             encoding_code_set = ts.code_set_for_id(OpenEHRCodeSetIdentifiers.CODE_SET_ID_CHARACTER_SETS)
             if not encoding_code_set.has_code(encoding.code_string):
                 raise ValueError(f"Provided encoding code {encoding.code_string} was not in the OpenEHR character set code set (invariant: encoding_valid)")
+        self.encoding = encoding
             
-
-            
-        
     def is_equal(self, other: 'DVText'):
         return (
             type(self) == type(other) and
@@ -194,6 +222,26 @@ class DVText(DataValue):
             is_equal_value(self.encoding, other.encoding)
         )
 
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_TEXT.json
+        draft = {
+            "_type": "DV_TEXT",
+            "value": self.value
+        }
+        if self.hyperlink is not None:
+            draft["hyperlink"] = self.hyperlink.as_json()
+        if self.language is not None:
+            draft["language"] = self.language.as_json()
+        if self.encoding is not None:
+            draft["encoding"] = self.encoding.as_json()
+        if self.formatting is not None:
+            draft["formatting"] = self.formatting
+        if self.mappings is not None:
+            mappings = []
+            for mapping in self.mappings:
+                mappings.append(mapping.as_json())
+            draft["mappings"] = mappings
+        return draft
 
 class DVCodedText(DVText):
     """A text item whose value must be the rubric from a controlled terminology, the key (i.e. the 'code') of which is the _defining_code_ attribute. In other words: a `DV_CODED_TEXT` is a combination of a `CODE_PHRASE` (effectively a code) and the rubric of that term, from a terminology service, in the language in which the data were authored.
@@ -210,9 +258,16 @@ class DVCodedText(DVText):
 
     def is_equal(self, other: 'DVCodedText'):
         return (
-            self.defining_code == other.defining_code and
+            self.defining_code.is_equal(other.defining_code) and
             super().is_equal(other)
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_CODED_TEXT.json
+        draft = super().as_json()
+        draft["_type"] = "DV_CODED_TEXT"
+        draft["defining_code"] = self.defining_code.as_json()
+        return draft
 
 class DVParagraph(DataValue):
     """DEPRECATED: use markdown formatted DV_TEXT instead.
@@ -230,9 +285,20 @@ class DVParagraph(DataValue):
     def __init__(self, items: list[DVText]):
         if len(items) == 0:
             raise ValueError("List of items cannot be an empty list (invariant: items_valid)")
+        self.items = items
         
     def is_equal(self, other: 'DVParagraph'):
         return (
             type(self) == type(other) and
             is_equal_value(self.items, other.items)
         )
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_PARAGRAPH.json
+        json_items = []
+        for item in self.items:
+            json_items.append(item.as_json())
+        return {
+            "_type": "DV_PARAGRAPH",
+            "items": json_items
+        }

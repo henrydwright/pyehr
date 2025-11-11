@@ -18,6 +18,12 @@ def test_code_phrase_code_string_valid():
     with pytest.raises(ValueError):
         code = CodePhrase(term_id, "", "Respiratory tuberculosis, bacteriologically and histologically confirmed")
 
+def test_code_phase_is_equal():
+    term_id = TerminologyID("ICD10_1998(2019)")
+    code1 = CodePhrase(term_id, "A15", "Respiratory tuberculosis, bacteriologically and histologically confirmed")
+    code2 = CodePhrase(TerminologyID("ICD10_1998(2019)"), "A15", "Respiratory tuberculosis, bacteriologically and histologically confirmed")
+    assert code1.is_equal(code2)
+
 def test_term_mapping_purpose_valid():
     tmp = DVCodedText("research study", CodePhrase(TerminologyID("openehr"), "671", "research study"))
     invalid_tmp = DVCodedText("organisational policy", CodePhrase(TerminologyID("openehr"), "100000", "organisational policy"))

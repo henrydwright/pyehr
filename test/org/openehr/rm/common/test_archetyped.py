@@ -35,6 +35,9 @@ class _TstLocatableImpl(Locatable):
     
     def path_unique(a_path):
         return super().path_unique()
+    
+    def as_json(self):
+        return super().as_json()
 
 def test_pathable_is_abstract():
     with pytest.raises(TypeError):
