@@ -536,3 +536,18 @@ class Contribution(AnyClass):
         self.audit = audit
         super().__init__(**kwargs)
 
+    def is_equal(self, other: 'Contribution'):
+        return (
+            type(self) == type(other) and
+            is_equal_value(self.uid, other.uid) and
+            is_equal_value(self.versions, other.versions) and
+            is_equal_value(self.audit, other.audit)
+        )
+    
+    def as_json(self):
+        return {
+            "uid": self.uid.as_json(),
+            "audit": self.audit.as_json(),
+            "versions": [version.as_json() for version in self.versions],
+            "_type": "CONTRIBUTION"
+        }
