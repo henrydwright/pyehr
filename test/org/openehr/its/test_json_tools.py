@@ -28,7 +28,8 @@ from org.openehr.rm.support.terminology import OpenEHRTerminologyGroupIdentifier
 
 from org.openehr.rm.common.archetyped import FeederAudit, FeederAuditDetails, Link, Archetyped
 from org.openehr.rm.common.generic import Attestation, PartyIdentified, PartyRelated, PartySelf, PartyRef, RevisionHistoryItem, RevisionHistory, AuditDetails, Participation
-from org.openehr.rm.common.change_control import OriginalVersion, ImportedVersion, VersionedObject
+from org.openehr.rm.common.change_control import OriginalVersion, ImportedVersion, VersionedObject, Contribution
+from org.openehr.rm.common.directory import Folder
 
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
@@ -413,7 +414,21 @@ def test_its_json_rm_common_attestation():
     
     validate(t_att)
 
-# TODO: Contribution after change_control implemented
+def test_its_json_rm_common_contribution():
+    t_con = Contribution(
+        uid=HierObjectID("1826ea47-e98b-4779-b201-80db3af5de92"),
+        versions=[
+            ObjectRef("net.example.ehr", "ORIGINAL_VERSION", ObjectVersionID("154b1047-23aa-4d4d-8713-df848fd4d60a::net.example.ehr::1"))
+        ],
+        audit=AuditDetails(
+            system_id="net.example.ehr",
+            time_committed=DVDateTime("2025-09-22T15:41:00Z"),
+            change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
+            committer=PartyIdentified(name="Mr A Example"),
+            terminology_service=test_ts)
+    ).as_json()
+
+    validate(t_con)
 
 def test_its_json_rm_common_feeder_audit():
     t_fa = FeederAudit(
@@ -491,7 +506,35 @@ def test_its_json_rm_common_revision_history_item():
 
     validate(t_rhi)
 
-# TODO: Folder after directory implemented
+def test_its_json_rm_common_folder():
+    t_fr = Folder(
+        name=DVText("remote monitoring"),
+        archetype_node_id="pyehr-EHR-FOLDER.remote_monitoring.v0",
+        archetype_details=Archetyped(
+            archetype_id=ArchetypeID("pyehr-EHR-FOLDER.remote_monitoring.v0"),
+            rm_version="1.1.0"
+        ),
+        uid=HierObjectID("1d61465e-020c-4d62-b452-5e79312efae7"),
+        folders=[
+            Folder(
+                name=DVText("blood pressure readings"),
+                archetype_node_id="at0005",
+                folders=[
+                    Folder(
+                        name=DVText("sitting"),
+                        archetype_node_id="at0007",
+                        items=[
+                            ObjectRef("net.example.ehr", "OBSERVATION", HierObjectID("b207449e-397b-4c44-8896-81fff5097bad")),
+                            ObjectRef("net.example.ehr", "OBSERVATION", HierObjectID("c5e85918-e047-4fa9-ac7b-19ed4d8668b0")),
+                            ObjectRef("net.example.ehr", "OBSERVATION", HierObjectID("18eed64a-1221-4736-ad66-b405615b38e9"))
+                        ]
+                    )
+                ]
+            )
+        ]
+    ).as_json()
+
+    validate(t_fr)
 
 def test_its_json_rm_common_feeder_audit_details():
     t_fad = FeederAuditDetails(

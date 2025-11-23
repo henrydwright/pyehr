@@ -166,6 +166,9 @@
                     "$ref": "#/definitions/ATTESTATION"
                 },
                 {
+                    "$ref": "#/definitions/CONTRIBUTION"
+                },
+                {
                     "$ref": "#/definitions/FEEDER_AUDIT"
                 },
                 {
@@ -185,6 +188,9 @@
                 },
                 {
                     "$ref": "#/definitions/REVISION_HISTORY_ITEM"
+                },
+                {
+                    "$ref": "#/definitions/FOLDER"
                 },
                 {
                     "$ref": "#/definitions/FEEDER_AUDIT_DETAILS"
