@@ -33,33 +33,40 @@ class Pathable(AnyClass):
         pass
 
     @abstractmethod
-    def item_at_path(a_path: str) -> AnyClass:
+    def item_at_path(self, a_path: str) -> AnyClass:
         """The item at a path (relative to this item); only 
         valid for unique paths, i.e. paths that resolve to a 
         single item."""
         pass
 
     @abstractmethod
-    def items_at_path(a_path: str) -> Optional[list[AnyClass]]:
+    def items_at_path(self, a_path: str) -> Optional[list[AnyClass]]:
         """List of items corresponding to a non-unique path."""
         pass
 
     @abstractmethod
-    def path_exists(a_path: str) -> bool:
+    def path_exists(self, a_path: str) -> bool:
         """True if the path exists in the data with respect 
         to the current item."""
         pass
 
     @abstractmethod
-    def path_unique(a_path: str) -> bool:
+    def path_unique(self, a_path: str) -> bool:
         """True if the path corresponds to a single item in the data."""
         pass
 
     @abstractmethod
-    def path_of_item(a_loc: 'Pathable') -> str:
+    def path_of_item(self) -> str:
         """The path to an item relative to the root of this archetyped 
         structure."""
         pass
+
+    def _root_node(self) -> 'Pathable':
+        """Get the root node at the top of this pathable structure"""
+        if self.parent() is None:
+            return self
+        else:
+            return self.parent()._root_node()
 
     @abstractmethod
     def as_json(self):
@@ -378,18 +385,26 @@ class Locatable(Pathable):
         self.feeder_audit = feeder_audit
         super().__init__(**kwargs)
 
-    @abstractmethod
     def concept(self) -> DVText:
         """Clinical concept of the archetype as a whole (= derived from the `archetype_node_id` 
         of the root node)"""
-        pass
+        if self.is_archetype_root():
+            # TODO: should this method return DVText or str?
+            return DVText(self.archetype_node_id)
+        else:
+            p = self.parent()
+            if p is None:
+                raise ValueError("No root node found in LOCATABLE structure.")
+            if isinstance(p, Locatable):
+                return p.concept()
+            else:
+                raise TypeError("Met non-LOCATABLE node before root found.")
 
     def is_archetype_root(self) -> bool:
         """True if this node is the root of an archetyped structure."""
         return not (self.archetype_details is None)
     
     def as_json(self):
-        # TODO: check this JSON is correct for a subclass with a JSON schema
         draft = {
             "name": self.name.as_json(),
             "archetype_node_id": self.archetype_node_id
@@ -403,4 +418,14 @@ class Locatable(Pathable):
         if self.feeder_audit is not None:
             draft["feeder_audit"] = self.feeder_audit.as_json()
         return draft
-
+    
+    def is_equal(self, other):
+        return (
+            type(self) == type(other) and
+            is_equal_value(self.name, other.name) and
+            is_equal_value(self.archetype_node_id, other.archetype_node_id) and
+            is_equal_value(self.uid, other.uid) and
+            is_equal_value(self.links, other.links) and
+            is_equal_value(self.archetype_details, other.archetype_details) and
+            is_equal_value(self.feeder_audit, other.feeder_audit)
+        )
