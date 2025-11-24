@@ -942,6 +942,12 @@ GROUPLIST_OPENEHR_VERSION_LIFECYCLE_STATE = [
     CodePhrase(TERMINOLOGYID_OPENEHR, "800", "inactive"),
     CodePhrase(TERMINOLOGYID_OPENEHR, "801", "abandoned")
 ]
+GROUPLIST_OPENEHR_NULL_FLAVOURS = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "271", "no information"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "253", "unknown"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "272", "masked"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "273", "not applicable")
+]
 
 CODESET_OPENEHR_CHARACTER_SETS = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_CHARACTER_SETS.name(), "en", CODELIST_OPENEHR_CHARACTER_SETS)
 CODESET_OPENEHR_COUNTRIES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_COUNTRIES.name(), "en", CODELIST_OPENEHR_COUNTRIES)
@@ -958,5 +964,6 @@ TERMINOLOGY_OPENEHR = DictTerminologyAccess("openehr", "en", {
     ("participation_mode", "participation mode"): GROUPLIST_OPENEHR_PARTICIPATION_MODE,
     ("audit_change_type", "audit change type"): GROUPLIST_OPENEHR_AUDIT_CHANGE_TYPE,
     ("attestation_reason", "attestation reason"): GROUPLIST_OPENEHR_ATTESTATION_REASON,
-    ("version_lifecycle_state", "version lifecycle state"): GROUPLIST_OPENEHR_VERSION_LIFECYCLE_STATE
+    ("version_lifecycle_state", "version lifecycle state"): GROUPLIST_OPENEHR_VERSION_LIFECYCLE_STATE,
+    ("null_flavours", "null flavours"): GROUPLIST_OPENEHR_NULL_FLAVOURS
 })
