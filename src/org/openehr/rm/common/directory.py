@@ -17,11 +17,8 @@ class Folder(Locatable):
     details: Optional[ItemStructure] = None
     """Archetypable meta-data for FOLDER."""
 
-    _parent: Optional[Pathable] = None
-    """Parent PATHABLE object of this FOLDER or None if root-level"""
-
     _folders_dict: Optional[dict[str, 'Folder']] = None
-    """Dict of sub-folders keyed by name"""
+    """Dict of sub-folders keyed by archetype_node_id"""
 
     def _get_folders(self):
         if self._folders_dict is None:
@@ -49,6 +46,7 @@ class Folder(Locatable):
                  folders: Optional[list['Folder']] = None,
                  details: Optional[ItemStructure] = None,
                  parent: Optional[Pathable] = None,
+                 parent_container_attribute_name: Optional[str] = None,
                  **kwargs):
         self.items = items
 
@@ -58,11 +56,11 @@ class Folder(Locatable):
             self._folders_dict = dict()
             for folder in folders:
                 folder._parent = self
-                self._folders_dict[folder.name.value] = folder
+                folder._parent_container_attribute_name = "folders"
+                self._folders_dict[folder.archetype_node_id] = folder
 
         self.details = details
-        self._parent = parent
-        super().__init__(name, archetype_node_id, uid, links, archetype_details, feeder_audit, **kwargs)
+        super().__init__(name, archetype_node_id, uid, links, archetype_details, feeder_audit, parent, parent_container_attribute_name, **kwargs)
 
     def is_equal(self, other: 'Folder') -> bool:
         return (
@@ -84,108 +82,181 @@ class Folder(Locatable):
         draft["_type"] = "FOLDER"
         return draft
     
-    def parent(self) -> Optional[Pathable]:
-        return self._parent
-    
-    def _navigate_relative_path(self, a_path:str, return_value:bool, multiple_items:Optional[bool] = None):
-        if a_path == "":
-            if return_value:
-                if not multiple_items:
-                    return self
-                else:
-                    raise ValueError("Single item found but items_at_path was used")
-            else:
-                return True
-        
-        pth = a_path.split("/")
-        print(pth)
-        next_node = pth[0]
-        next_node_split = next_node.replace("]","").split("[")
-        print(next_node_split)
-
-        if next_node_split[0] == "items":
-            if len(next_node_split) == 1:
-                path_exists = (self.items is not None)
-                if not return_value:
-                    return path_exists
-                elif not path_exists:
-                    raise ValueError("Provided path did not exist")
-                else:
-                    if multiple_items:
-                        return self.items
-                    else:
-                        raise ValueError("Multiple items found but item_at_path was used")
-
-            elif len(next_node_split) == 2:
-                try:
-                    item_idx = int(next_node_split[1])
-                except ValueError:
-                    if return_value:
-                        raise ValueError("Invalid path provided (items index was not a number)")
-                    else:
-                        return False
-                path_exists = item_idx <= (len(self.items) - 1)
-                if not return_value:
-                    return path_exists
-                elif not path_exists:
-                    raise IndexError("Provided path did not exist (items index out of range)")
-                else:
-                    if not multiple_items:
-                        return self.items[item_idx]
-                    else:
-                        raise ValueError("Single item found but items_at_path was used")
-            else:
-                if not return_value:
-                    return False
-                else:
-                    raise ValueError("Invalid path provided")
-            
-        elif next_node_split[0] == "folders":
-            if len(next_node_split) == 1:
-                path_exists = (self.folders is not None)
-
-                if not return_value:
-                    return path_exists
-                elif not path_exists:
-                    raise ValueError("Provided path did not exist")
-                else:
-                    if multiple_items:
-                        return self.folders
-                    else:
-                        raise ValueError("Multiple items found but item_at_path was used")
-                
-            elif len(next_node_split) == 2:
-                folder_name = next_node_split[1]
-
-                if folder_name in self._folders_dict:
-                    next_folder = self._folders_dict[folder_name]
-                    next_pth = "/".join(pth[1:])
-                    print(next_pth)
-                    return next_folder._navigate_relative_path(next_pth, return_value, multiple_items)
-                else:
-                    if not return_value:
-                        return False
-                    else:
-                        raise ValueError("Provided path did not exist")
-            else:
-                if not return_value:
-                    return False
-                else:
-                    raise ValueError("Invalid path provided")
-        else:
-            if not return_value:
-                return False
-            else:
-                raise ValueError(f"Invalid path provided (expected items or folder but \'{next_node_split[0]}\' was found)")
-    
     def path_exists(self, a_path) -> bool:
-        return self._navigate_relative_path(a_path, False)
+        if a_path == "":
+            return True
+        pth = a_path.split("/")
+
+        current_node = pth[0]
+        current_node_split = current_node.replace("]", "").split("[")
+
+        attr = current_node_split[0]
+        pred = None
+        if len(current_node_split) > 1:
+            pred = current_node_split[1]
+        if len(pth) == 1:
+            # leaf
+            if attr == "items":
+                if pred is None:
+                    return (self.items is not None)
+                
+                try:
+                    item_idx = int(pred)
+                except ValueError:
+                    return False
+                
+                return item_idx < len(self.items)
+            elif attr == "folders":
+                if pred is None:
+                    return (self.folders is not None)
+                
+                return (self._folders_dict is not None) and (pred in self._folders_dict)
+            else:
+                return False
+        else:
+            # not leaf
+            if attr == "items":
+                try:
+                    item_idx = int(pred)
+                except ValueError:
+                    raise ValueError(f"Invalid path: expected integer index into folder items, instead got \'{pred}\'")
+                
+                if item_idx >= len(self.items):
+                    return False
+                elif isinstance(self.items[item_idx], Pathable):
+                    next_pth = "/".join(pth[1:])
+                    return self.items[item_idx].path_exists(next_pth)
+                else:
+                    return False
+            elif attr == "folders":
+                if pred not in self._folders_dict:
+                    return False
+                else:
+                    next_pth = "/".join(pth[1:])
+                    return self._folders_dict[pred].path_exists(next_pth)
+            else:
+                return False
 
     def item_at_path(self, a_path) -> AnyClass:
-        return self._navigate_relative_path(a_path, True, False)
-    
+        if a_path == "":
+            return self
+        pth = a_path.split("/")
+
+        current_node = pth[0]
+        current_node_split = current_node.replace("]", "").split("[")
+
+        attr = current_node_split[0]
+        pred = None
+        if len(current_node_split) > 1:
+            pred = current_node_split[1]
+        if len(pth) == 1:
+            # leaf
+            if attr == "items":
+                if pred is None:
+                    raise ValueError("Item not found: path led to potentially multiple items")
+                
+                try:
+                    item_idx = int(pred)
+                except ValueError:
+                    raise ValueError(f"Invalid path: items must be indexed by integer but \'{pred}\' was provided")
+                
+                if item_idx >= len(self.items):
+                    raise ValueError(f"Item not found: index for item was out of range in items")
+                else:
+                    return self.items[item_idx]
+            elif attr == "folders":
+                if pred is None:
+                    raise ValueError("Item not found: path led to potentially multiple folders")
+                
+                if (self._folders_dict is None):
+                    raise ValueError("Item not found: no sub-folders existed at this folder")
+                
+                if pred not in self._folders_dict:
+                    raise ValueError("Item not found: no folder existed with given archetype_node_id")
+                else:
+                    return self._folders_dict[pred]
+            else:
+                raise ValueError(f"Invalid path: children of folder are 'items' and 'folders', not \'{attr}\'")
+        else:
+            # not leaf
+            if attr == "items":
+                try:
+                    item_idx = int(pred)
+                except ValueError:
+                    raise ValueError(f"Invalid path: expected integer index into folder items, instead got \'{pred}\'")
+                
+                if item_idx >= len(self.items):
+                    raise ValueError(f"Item not found: index for item was out of range in items")
+                elif isinstance(self.items[item_idx], Pathable):
+                    next_pth = "/".join(pth[1:])
+                    return self.items[item_idx].item_at_path(next_pth)
+                else:
+                    raise ValueError("Invalid path: given item in items was not PATHABLE")
+            elif attr == "folders":
+                if pred not in self._folders_dict:
+                    raise ValueError("Item not found: no folder existed with given archetype_node_id")
+                else:
+                    next_pth = "/".join(pth[1:])
+                    return self._folders_dict[pred].item_at_path(next_pth)
+            else:
+                raise ValueError(f"Invalid path: children of folder are 'items' and 'folders', not \'{attr}\'")
+        
+        
     def items_at_path(self, a_path) -> Optional[list[AnyClass]]:
-        return self._navigate_relative_path(a_path, True, True)
+        if a_path == "":
+            raise ValueError("Items not found: path led to single item")
+        pth = a_path.split("/")
+
+        current_node = pth[0]
+        current_node_split = current_node.replace("]", "").split("[")
+
+        attr = current_node_split[0]
+        pred = None
+        if len(current_node_split) > 1:
+            pred = current_node_split[1]
+        if len(pth) == 1:
+            # leaf
+            if attr == "items":
+                if pred is None:
+                    if self.items is None:
+                        raise ValueError("Items not found: this folder had no items to return")
+                    else:
+                        return self.items
+                else:
+                    raise ValueError("Items not found: path led to single item")
+            elif attr == "folders":
+                if pred is None:
+                    if self.folders is None:
+                        raise ValueError("Items not found: this folder had no sub-folders to return")
+                    else:
+                        return self.folders
+                else:
+                    raise ValueError("Items not found: path led to single item")
+            else:
+                raise ValueError(f"Invalid path: children of folder are 'items' and 'folders', not \'{attr}\'")
+        else:
+            # not leaf
+            if attr == "items":
+                try:
+                    item_idx = int(pred)
+                except ValueError:
+                    raise ValueError(f"Invalid path: expected integer index into folder items, instead got \'{pred}\'")
+                
+                if item_idx >= len(self.items):
+                    raise ValueError(f"Item not found: index for item was out of range in items")
+                elif isinstance(self.items[item_idx], Pathable):
+                    next_pth = "/".join(pth[1:])
+                    return self.items[item_idx].items_at_path(next_pth)
+                else:
+                    raise ValueError("Invalid path: given item in items was not PATHABLE")
+            elif attr == "folders":
+                if pred not in self._folders_dict:
+                    raise ValueError("Item not found: no folder existed with given archetype_node_id")
+                else:
+                    next_pth = "/".join(pth[1:])
+                    return self._folders_dict[pred].items_at_path(next_pth)
+            else:
+                raise ValueError(f"Invalid path: children of folder are 'items' and 'folders', not \'{attr}\'")
 
     def path_unique(self, a_path) -> bool:
         pth = a_path.split("/")
@@ -193,17 +264,6 @@ class Folder(Locatable):
         last_node_split = last_node.replace("]", "").split("[")
         return (len(last_node_split) == 2 and (last_node_split[0] == "items" or last_node_split[0] == "folders"))
 
-    def path_of_item(self) -> str:
-        # TODO: removed the argument as not sure if spec is correct, may need to 
-        #        fix this later if the spec was right
-        if self.parent() is None:
-            return "/"
-        else:
-            parent_path = self.parent().path_of_item()
-            if parent_path == "/":
-                return parent_path + "folders[" + self.name.value + "]"
-            else:
-                return parent_path + "/folders[" + self.name.value + "]"
     
 class VersionedFolder(VersionedObject[Folder]):
     pass

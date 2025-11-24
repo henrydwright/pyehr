@@ -365,6 +365,12 @@ class Locatable(Pathable):
     """Audit trail from non-openEHR system of original commit of information forming the content 
     of this node, or from a conversion gateway which has synthesised this node."""
 
+    _parent: Optional[Pathable]
+    """Parent PATHABLE object of this LOCATABLE or None if root-level"""
+
+    _parent_container_attribute_name: Optional[str]
+    """The attribute within which this LOCATABLE is stored in its parent (e.g. 'folders' for a sub-folder in a folder)"""
+
     def __init__(self, 
                  name: DVText, 
                  archetype_node_id: str, 
@@ -372,6 +378,8 @@ class Locatable(Pathable):
                  links : Optional[list[Link]] = None,  
                  archetype_details : Optional[Archetyped] = None,
                  feeder_audit : Optional[FeederAudit] = None,
+                 parent: Optional[Pathable] = None,
+                 parent_container_attribute_name: Optional[str] = None,
                  **kwargs):
         self.name = name
         if (len(archetype_node_id) == 0):
@@ -383,6 +391,10 @@ class Locatable(Pathable):
         self.links = links
         self.archetype_details = archetype_details
         self.feeder_audit = feeder_audit
+
+        self._parent = parent
+        self._parent_container_attribute_name = parent_container_attribute_name
+
         super().__init__(**kwargs)
 
     def concept(self) -> DVText:
@@ -429,3 +441,18 @@ class Locatable(Pathable):
             is_equal_value(self.archetype_details, other.archetype_details) and
             is_equal_value(self.feeder_audit, other.feeder_audit)
         )
+        
+    def path_of_item(self):
+        # TODO: removed the argument as not sure if spec is correct, may need to 
+        #        fix this later if the spec was right
+        if self.parent() is None:
+            return "/"
+        else:
+            parent_path = self.parent().path_of_item()
+            if parent_path == "/":
+                return parent_path + f"{self._parent_container_attribute_name}[" + self.archetype_node_id + "]"
+            else:
+                return parent_path + f"/{self._parent_container_attribute_name}[" + self.archetype_node_id + "]"
+            
+    def parent(self):
+        return self._parent
