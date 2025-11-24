@@ -31,6 +31,8 @@ from org.openehr.rm.common.generic import Attestation, PartyIdentified, PartyRel
 from org.openehr.rm.common.change_control import OriginalVersion, ImportedVersion, VersionedObject, Contribution
 from org.openehr.rm.common.directory import Folder
 
+from org.openehr.rm.data_structures.representation import Cluster, Element
+
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
 
@@ -616,3 +618,58 @@ def test_its_json_rm_common_party_identified():
     t_pi = PartyIdentified(external_ref=PartyRef("net.example.employees", "PARTY", GenericID("5928123", "employee_number"))).as_json()
 
     validate(t_pi)
+
+# ==========
+# RM.data_structures: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_structures
+
+# TODO: interval_event
+
+# TODO: item_table
+
+def test_its_json_rm_data_structures_cluster():
+    postal_code = Element(DVText("postal code"),
+                archetype_node_id="at0005",
+                value=DVText("SW1A 1AA"))
+
+    addr_items = [
+        Element(DVText("address line"),
+                archetype_node_id="at0001",
+                value=DVText("Buckingham Palace")),
+        Element(DVText("city/town"),
+                archetype_node_id="at0002",
+                value=DVText("London")),
+        postal_code,
+        Element(DVText("type"),
+                archetype_node_id="at0010",
+                value=DVCodedText("Physical", CodePhrase(TerminologyID("local"), "at0011")))
+    ]
+
+    t_c = Cluster(DVText("address"),
+                archetype_node_id="openEHR-EHR-CLUSTER.address.v1",
+                archetype_details=Archetyped(
+                    archetype_id=ArchetypeID("openEHR-EHR-CLUSTER.address.v1"),
+                    rm_version="1.1.0"
+                ),
+                items=addr_items).as_json()
+    
+    validate(t_c)
+
+# TODO: item_list
+
+# TODO: item_tree
+
+# TODO: history
+
+# TODO: point_event
+
+def test_its_json_rm_data_structures_element():
+    t_e = Element(
+        name=DVText("test_element"),
+        archetype_node_id="at0007",
+        null_flavour=DVCodedText("not applicable", CodePhrase(TerminologyID("openehr"), "273")),
+        terminology_service=test_ts
+    ).as_json()
+
+    validate(t_e)
+
+# TODO: item_single

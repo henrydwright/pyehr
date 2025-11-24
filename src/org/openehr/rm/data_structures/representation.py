@@ -31,7 +31,15 @@ class Cluster(Item):
     """The grouping variant of ITEM, which may contain further instances of 
     ITEM, in an ordered list."""
 
-    items: list[Item]
+    _items_dict: dict[str, Item]
+    """dict of items keyed by archetype_node_id"""
+
+    def _get_items(self):
+        return list(self._items_dict.values())
+
+    items = property(
+        fget=_get_items
+    )
     """Ordered list of items - CLUSTER or ELEMENT objects - under this CLUSTER."""
 
     def __init__(self, 
@@ -45,9 +53,167 @@ class Cluster(Item):
             parent: Optional[Pathable] = None,
             parent_container_attribute_name: Optional[str] = None,
             **kwargs):
-        self.items = items
+        self._items_dict = dict()
+        for item in items:
+            item._parent = self
+            item._parent_container_attribute_name = "items"
+            self._items_dict[item.archetype_node_id] = item
         
         super().__init__(name, archetype_node_id, uid, links, archetype_details, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def item_at_path(self, a_path):
+        if a_path == "":
+            return self
+        pth = a_path.split("/")
+
+        current_node = pth[0]
+        current_node_split = current_node.replace("]", "").split("[")
+
+        attr = current_node_split[0]
+        pred = None
+        if len(current_node_split) > 1:
+            pred = current_node_split[1]
+        
+        if len(pth) == 1:
+            # leaf
+            if attr == "items":
+                if pred is None:
+                    raise ValueError(f"Item not found: path results in multiple items, not single item")
+                else:
+                    if pred in self._items_dict:
+                        return self._items_dict[pred]
+                    else:
+                        raise ValueError("Item not found: no item with given archetype_node_id was present in Cluster")
+            else:
+                raise ValueError(f"Item not found: expected 'items' at Cluster but got \'{attr}\'")
+        else:
+            # not leaf
+            next_pth = "/".join(pth[1:])
+            if attr == "items":
+                if pred is None:
+                    raise ValueError(f"Invalid path: path was ambiguous as no specific item in the cluster was given")
+                else:
+                    if pred in self._items_dict:
+                        return self._items_dict[pred].item_at_path(next_pth)
+                    else:
+                        raise ValueError("Item not found: no item with given archetype_node_id was present in Cluster")
+            else:
+                raise ValueError(f"Item not found: expected 'items' at Cluster but got \'{attr}\'")
+
+    
+    def items_at_path(self, a_path):
+        if a_path == "":
+            raise ValueError("Items not found: path results in single item, not multiple items")
+        pth = a_path.split("/")
+
+        current_node = pth[0]
+        current_node_split = current_node.replace("]", "").split("[")
+
+        attr = current_node_split[0]
+        pred = None
+        if len(current_node_split) > 1:
+            pred = current_node_split[1]
+        
+        if len(pth) == 1:
+            # leaf
+            if attr == "items":
+                if pred is None:
+                    return self.items
+                else:
+                    raise ValueError("Items not found: path results in a single item, not multiple items")
+            else:
+                raise ValueError(f"Items not found: expected 'items' at Cluster but got \'{attr}\'")
+        else:
+            # not leaf
+            next_pth = "/".join(pth[1:])
+            if attr == "items":
+                if pred is None:
+                    raise ValueError(f"Invalid path: path was ambiguous as no specific item in the cluster was given")
+                else:
+                    if pred in self._items_dict:
+                        return self._items_dict[pred].items_at_path(next_pth)
+                    else:
+                        raise ValueError("Items not found: no item with given archetype_node_id was present in Cluster")
+            else:
+                raise ValueError(f"Items not found: expected 'items' at Cluster but got \'{attr}\'")
+    
+    def path_exists(self, a_path):
+        if a_path == "":
+            return True
+        pth = a_path.split("/")
+
+        current_node = pth[0]
+        current_node_split = current_node.replace("]", "").split("[")
+
+        attr = current_node_split[0]
+        pred = None
+        if len(current_node_split) > 1:
+            pred = current_node_split[1]
+        
+        if len(pth) == 1:
+            # leaf
+            if attr == "items":
+                if pred is None:
+                    return True
+                else:
+                    return (pred in self._items_dict)
+            else:
+                return False
+        else:
+            # not leaf
+            next_pth = "/".join(pth[1:])
+            if attr == "items":
+                if pred is None:
+                    return False
+                else:
+                    if pred in self._items_dict:
+                        return self._items_dict[pred].path_exists(next_pth)
+                    else:
+                        return False
+            else:
+                return False
+    
+    def path_unique(self, a_path):
+        if a_path == "":
+            return True
+        pth = a_path.split("/")
+
+        current_node = pth[0]
+        current_node_split = current_node.replace("]", "").split("[")
+
+        attr = current_node_split[0]
+        pred = None
+        if len(current_node_split) > 1:
+            pred = current_node_split[1]
+        
+        if len(pth) == 1:
+            # leaf
+            if attr == "items":
+                if pred is None:
+                    return False
+                else:
+                    return True
+            else:
+                return False
+        else:
+            # not leaf
+            next_pth = "/".join(pth[1:])
+            if attr == "items":
+                if pred is None:
+                    return False
+                else:
+                    if pred in self._items_dict:
+                        return self._items_dict[pred].path_unique(next_pth)
+                    else:
+                        return True
+            else:
+                return False
+            
+    def as_json(self):
+        draft = super().as_json()
+        draft["items"] = [item.as_json() for item in self.items]
+        draft["_type"] = "CLUSTER"
+        return draft
 
 class Element(Item):
     """The leaf variant of ITEM, to which a DATA_VALUE instance is attached."""
@@ -113,4 +279,16 @@ class Element(Item):
     
     def path_unique(self, a_path):
         return (a_path == "" or a_path == "value")
+    
+    def as_json(self):
+        draft = super().as_json()
+        if self.value is not None:
+            draft["value"] = self.value.as_json()
+        if self.null_reason is not None:
+            draft["null_reason"] = self.null_reason.as_json()
+        if self.null_flavour is not None:
+            draft["null_flavour"] = self.null_flavour.as_json()
+        draft["_type"] = "ELEMENT"
+        return draft
+
     
