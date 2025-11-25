@@ -13,7 +13,6 @@ from org.openehr.rm.data_types.encapsulated import DVEncapsulated
 from org.openehr.rm.data_types.text import DVText
 from org.openehr.rm.data_types.uri import DVEHRUri
 from org.openehr.rm.data_types.quantity.date_time import DVDateTime
-from org.openehr.rm.data_structures.item_structure import ItemStructure
 
 class Pathable(AnyClass):
     """The PATHABLE class defines the pathing capabilities used by nearly all 
@@ -101,7 +100,7 @@ class FeederAuditDetails(AnyClass):
     version_id: Optional[str]
     """Any identifier used in the system such as "interim", "final", or numeric versions if available."""
 
-    other_details: Optional[ItemStructure]
+    other_details: Optional['ItemStructure']
     """Optional attribute to carry any custom meta-data. May be archetyped."""
 
     def __init__(
@@ -112,9 +111,10 @@ class FeederAuditDetails(AnyClass):
         provider: Optional[PartyIdentified] = None,
         time: Optional[DVDateTime] = None,
         version_id: Optional[str] = None,
-        other_details: Optional[ItemStructure] = None,
+        other_details: Optional['ItemStructure'] = None,
         **kwargs
     ):
+        from org.openehr.rm.data_structures.item_structure import ItemStructure
         if len(system_id) == 0:
             raise ValueError("system_id cannot be an empty string (invariant: system_id_valid)")
         self.system_id = system_id
