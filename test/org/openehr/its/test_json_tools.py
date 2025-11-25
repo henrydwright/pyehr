@@ -32,6 +32,7 @@ from org.openehr.rm.common.change_control import OriginalVersion, ImportedVersio
 from org.openehr.rm.common.directory import Folder
 
 from org.openehr.rm.data_structures.representation import Cluster, Element
+from org.openehr.rm.data_structures.item_structure import ItemSingle
 
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
@@ -672,4 +673,16 @@ def test_its_json_rm_data_structures_element():
 
     validate(t_e)
 
-# TODO: item_single
+def test_its_json_rm_data_structures_item_single():
+    t = DVDateTime("2025-11-25T23:28:00Z")
+
+    e = Element(DVText("admission time"), 
+                "at0001",
+                value=t)
+
+    t_its = ItemSingle(DVText("admission time container"),
+                    "pyehr-EHR-ITEM_SINGLE-admission_time.v0",
+                    archetype_details=Archetyped(ArchetypeID("pyehr-EHR-ITEM_SINGLE.admission_time.v0"), "1.1.0"),
+                    item=e).as_json()
+    
+    validate(t_its)

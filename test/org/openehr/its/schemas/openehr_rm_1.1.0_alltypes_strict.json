@@ -218,6 +218,9 @@
                 },
                 {
                     "$ref": "#/definitions/ELEMENT"
+                },
+                {
+                    "$ref": "#/definitions/ITEM_SINGLE"
                 }
             ]
         }

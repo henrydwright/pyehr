@@ -449,10 +449,12 @@ class Locatable(Pathable):
             return "/"
         else:
             parent_path = self.parent().path_of_item()
+            plural = (self._parent_container_attribute_name[-1:] == "s")
+            pred = f"[{self.archetype_node_id}]" if plural else ""
             if parent_path == "/":
-                return parent_path + f"{self._parent_container_attribute_name}[" + self.archetype_node_id + "]"
+                return parent_path + f"{self._parent_container_attribute_name}{pred}"
             else:
-                return parent_path + f"/{self._parent_container_attribute_name}[" + self.archetype_node_id + "]"
+                return parent_path + f"/{self._parent_container_attribute_name}{pred}"
             
     def parent(self):
         return self._parent
