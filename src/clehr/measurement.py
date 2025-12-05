@@ -1,7 +1,7 @@
 from typing import Optional
 import requests as r
 
-from org.openehr.rm.support.measurement import MeasurementService
+from org.core.rm.support.measurement import MeasurementService
 
 class NLMMeasurementService(MeasurementService):
     """Measurement service making use of the NLM ucum-service API"""

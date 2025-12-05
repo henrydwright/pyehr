@@ -1,6 +1,6 @@
 from clehr.terminology import CSVTerminologyService
 from clehr.measurement import NLMMeasurementService
-from org.openehr.rm.data_types.text import CodePhrase
+from org.core.rm.data_types.text import CodePhrase
 
 print("Welcome to clehr - using pyehr, a Python implemention of OpenEHR")
 
