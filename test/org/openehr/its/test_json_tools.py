@@ -34,6 +34,8 @@ from org.openehr.rm.common.directory import Folder
 from org.openehr.rm.data_structures.representation import Cluster, Element
 from org.openehr.rm.data_structures.item_structure import ItemSingle, ItemList
 
+from org.openehr.rm.ehr.ehr import EHR
+
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
 
@@ -706,3 +708,22 @@ def test_its_json_rm_data_structures_item_single():
                     item=e).as_json()
     
     validate(t_its)
+
+# ==========
+# RM.ehr: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Ehr
+
+# TODO: EHR_STATUS
+
+# TODO: EHR_ACCESS
+
+def test_its_json_rm_ehr_ehr():
+    t_ehr = EHR(
+        system_id=HierObjectID("net.example.ehr"),
+        ehr_id=HierObjectID("35f656ae-dca4-4979-bac1-2fe1f0228614"),
+        ehr_status=ObjectRef("net.example.ehr", "VERSIONED_EHR_STATUS", id=HierObjectID("f87df864-2b0f-406b-94b6-cdc1d2589691")),
+        ehr_access=ObjectRef("net.example.ehr", "VERSIONED_EHR_ACCESS", id=HierObjectID("7eef792c-acae-4641-9280-2a54d1690672")),
+        time_created=DVDateTime("20251205T220900Z"),
+        folders=[ObjectRef("net.example.ehr", "VERSIONED_FOLDER", HierObjectID("597a04f6-a738-4914-9d02-df95e67644d5"))]
+    ).as_json()
+
+    validate(t_ehr)

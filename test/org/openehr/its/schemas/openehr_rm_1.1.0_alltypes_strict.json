@@ -224,6 +224,9 @@
                 },
                 {
                     "$ref": "#/definitions/ITEM_SINGLE"
+                },
+                {
+                    "$ref": "#/definitions/EHR"
                 }
             ]
         }
@@ -429,8 +432,7 @@
                 "ehr_id",
                 "time_created",
                 "ehr_access",
-                "ehr_status",
-                "contributions"
+                "ehr_status"
             ],
             "properties": {
                 "system_id": {
