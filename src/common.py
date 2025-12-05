@@ -1,8 +1,8 @@
 from typing import Optional
 
-from org.openehr.rm.support.terminology import TerminologyService, ICodeSetAccess, ITerminologyAccess, OpenEHRCodeSetIdentifiers, OpenEHRTerminologyGroupIdentifiers
-from org.openehr.rm.data_types.text import CodePhrase
-from org.openehr.base.base_types.identification import TerminologyID
+from pyehr.core.rm.support.terminology import TerminologyService, ICodeSetAccess, ITerminologyAccess, OpenEHRCodeSetIdentifiers, OpenEHRTerminologyGroupIdentifiers
+from pyehr.core.rm.data_types.text import CodePhrase
+from pyehr.core.base.base_types.identification import TerminologyID
 
 class ListCodeSetAccess(ICodeSetAccess):
     """Provides a code set access for a given list of
