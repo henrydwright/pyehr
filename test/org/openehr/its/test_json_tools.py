@@ -32,7 +32,7 @@ from org.openehr.rm.common.change_control import OriginalVersion, ImportedVersio
 from org.openehr.rm.common.directory import Folder
 
 from org.openehr.rm.data_structures.representation import Cluster, Element
-from org.openehr.rm.data_structures.item_structure import ItemSingle
+from org.openehr.rm.data_structures.item_structure import ItemSingle, ItemList
 
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
@@ -655,7 +655,27 @@ def test_its_json_rm_data_structures_cluster():
     
     validate(t_c)
 
-# TODO: item_list
+def test_its_json_rm_data_structures_item_list():
+    t = DVDateTime("2025-11-25T23:28:00Z")
+    t2 = DVDateTime("2025-12-05T20:25:04Z")
+    e = Element(DVText("admission time"), 
+            "at0001",
+            value=t)
+
+    e2 = Element(DVText("discharge time"),
+                "at0002",
+                value=t2)
+
+    e3 = Element(DVText("admission reason"),
+                "at0003",
+                value=DVCodedText("Assault", defining_code=CodePhrase(TerminologyID("SNOMED-CT"), "52684005", "Assault (event)")))
+
+    t_itl = ItemList(DVText("admission metadata"), 
+                archetype_node_id="pyehr-EHR-ITEM_LIST.admission.v0",
+                items=[e, e2, e3],
+                archetype_details=Archetyped(ArchetypeID("pyehr-EHR-ITEM_LIST.admission.v0"), "1.1.0")).as_json()
+    
+    validate(t_itl)
 
 # TODO: item_tree
 

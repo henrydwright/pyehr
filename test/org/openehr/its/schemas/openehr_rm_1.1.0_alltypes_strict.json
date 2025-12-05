@@ -217,6 +217,9 @@
                     "$ref": "#/definitions/CLUSTER"
                 },
                 {
+                    "$ref": "#/definitions/ITEM_LIST"
+                },
+                {
                     "$ref": "#/definitions/ELEMENT"
                 },
                 {
