@@ -15,6 +15,8 @@ from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.data_structures.item_structure import ItemStructure
 from pyehr.core.rm.common.archetyped import Locatable, Archetyped, Link, FeederAudit, Pathable
+from pyehr.core.rm.common.change_control import VersionedObject
+from pyehr.core.rm.ehr.composition import Composition
 
 class EHR(AnyClass):
     """The EHR object is the root object and access point of an EHR for a subject 
@@ -282,3 +284,20 @@ class EHRAccess(Locatable):
         if self.settings is not None:
             draft["settings"] = self.settings.as_json()
         draft["_type"] = "EHR_ACCESS"
+
+class VersionedEHRAccess(VersionedObject[EHRAccess]):
+    """Version container for EHR_ACCESS instance."""
+    pass
+
+class VersionedEHRStatus(VersionedObject[EHRStatus]):
+    """Version container for EHR_STATUS instance."""
+    pass
+
+class VersionedComposition(VersionedObject[Composition]):
+    """Version-controlled composition abstraction, defined by inheriting VERSIONED_OBJECT<COMPOSITION>."""
+
+    def is_persistent(self) -> bool:
+        """Indicates whether this composition set is persistent; derived from first version."""
+        first_version_id = self.all_version_ids[0]
+        first_version = self.version_with_id(first_version_id)
+        return first_version.data().is_persistent()

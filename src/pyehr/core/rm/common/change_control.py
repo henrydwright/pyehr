@@ -303,7 +303,7 @@ class VersionedObject[T: AnyClass](AnyClass):
         return len(self._version_ids)
 
     def all_version_ids(self) -> list[ObjectVersionID]:
-        """Return a list of ids of all versions in this object."""
+        """Return a list of ids of all versions in this object in most-recent last order."""
         return self._version_ids
 
     def all_versions(self) -> list[Version[T]]:
