@@ -2,7 +2,8 @@
 ARCHETYPED, and LINK"""
 
 from abc import abstractmethod
-from typing import Optional
+from enum import Enum
+from typing import Optional, Union
 
 from pyehr.core.base.base_types.identification import UIDBasedID, ArchetypeID, TemplateID
 from pyehr.core.base.foundation_types.any import AnyClass
@@ -13,6 +14,82 @@ from pyehr.core.rm.data_types.encapsulated import DVEncapsulated
 from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.data_types.uri import DVEHRUri
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
+
+class PyehrInternalPathPredicateType(Enum):
+    """INTERNAL CLASS, NOT PART OF RM. 
+    
+    Use to accompany different types of path predicates returned from processing
+    a path."""
+    ARCHETYPE_PATH = 1
+    """e.g. `/data/items[at0025]`"""
+    ARCHETYPE_AND_NAME = 2
+    """e.g. `/data/events[at0001, 'standing']`"""
+    POSITIONAL_PARAMETER = 3
+    """e.g. `/data/items[1]`"""
+    OTHER = 99
+    """Unknown type or more complex query string e.g. `/data/events[at0007 AND time >= '24-06-2005T09:30:00']`"""
+
+class PyehrInternalProcessedPath():
+    """INTERNAL CLASS, NOT PART OF RM.
+    
+    Class which represents current state of navigating a path, allowing objects to execute
+    path-based behaviour in a more modular fashion."""
+
+    remaining_path : Optional[str] = None
+    """Remainder of path beyond the current node being processed (e.g. if path is `folders[at0007]/items[0]/value`, this would be `items[0]/value`).
+    
+    If `None` this means there is no next node on the path."""
+
+    current_node_attribute: str
+    """The attribute of the current node on the path being processed (e.g. if path is `items[0]/value` this would be `items`)."""
+
+    current_node_predicate: Optional[Union[str, tuple[str, str]]] = None
+    """The predicate of the next step on the path (e.g. if path is `items[0]/value` this would be `0`).
+    
+    If `None` this means there was no predicate for this node."""
+
+    current_node_predicate_type: Optional[PyehrInternalPathPredicateType] = None
+    """The type of predicate of the next step on the path (e.g. if path is `items[0]/value` this would be `POSITIONAL_PARAMETER`).
+    
+    If `None` this means there was no predicate for this node."""
+
+    def __init__(self, a_path: str):
+        # empty path
+        if a_path == "":
+            self.current_node_attribute = ""
+            return
+
+        pth = a_path.split("/")
+
+        current_node = pth[0]
+        current_node_split = current_node.replace("]", "").split("[")
+
+        self.current_node_attribute = current_node_split[0]
+
+        if len(current_node_split) > 1:
+            raw_predicate = current_node_split[1]
+            predicate_split = raw_predicate.split(",")
+            if len(predicate_split) > 1:
+                # assume archtype_node_id, name pair
+                self.current_node_predicate = (predicate_split[0], predicate_split[1][1:-1])
+                self.current_node_predicate_type = PyehrInternalPathPredicateType.ARCHETYPE_AND_NAME
+            elif raw_predicate.isdigit():
+                # assume positional_parameter
+                self.current_node_predicate = raw_predicate
+                self.current_node_predicate_type = PyehrInternalPathPredicateType.POSITIONAL_PARAMETER
+            elif len(raw_predicate) > 2 and raw_predicate[:2] == "at":
+                self.current_node_predicate = raw_predicate
+                self.current_node_predicate_type = PyehrInternalPathPredicateType.ARCHETYPE_PATH
+            else:
+                self.current_node_predicate = raw_predicate
+                self.current_node_predicate_type = PyehrInternalPathPredicateType.OTHER
+
+        if len(pth) > 1:
+            self.remaining_path = "/".join(pth[1:])
+
+    def is_self_path(self):
+        """Returns true if current node points to self (i.e. == '')"""
+        return self.current_node_attribute == ""
 
 class Pathable(AnyClass):
     """The PATHABLE class defines the pathing capabilities used by nearly all 

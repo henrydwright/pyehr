@@ -69,15 +69,25 @@ def test_item_list_as_hierarchy():
     assert isinstance(ash, Cluster)
     assert is_equal_value(ash.items, [e, e2, e3])
 
-def test_item_list_item_at_path():
+def test_item_list_item_at_path_archetype_path():
     assert itl.item_at_path("").is_equal(itl)
     assert itl.item_at_path("items[at0002]").is_equal(e2)
     assert itl.item_at_path("items[at0001]/value").is_equal(t)
 
-def test_item_list_items_at_path():
+def test_item_list_item_at_path_positional_param():
+    assert itl.item_at_path("items[1]").is_equal(e2)
+    assert itl.item_at_path("items[0]/value").is_equal(t)
+
+def test_item_list_items_at_path_archetype_path():
     assert is_equal_value(itl.items_at_path("items"), [e, e2, e3])
     with pytest.raises(ValueError):
         itl.items_at_path("items[at0002]")
+    with pytest.raises(ValueError):
+        itl.items_at_path("")
+
+def test_item_list_items_at_path_positional_param():
+    with pytest.raises(ValueError):
+        itl.items_at_path("items[1]")
     with pytest.raises(ValueError):
         itl.items_at_path("")
 

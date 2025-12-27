@@ -8,7 +8,7 @@ from typing import Optional
 import numpy as np
 
 from pyehr.core.base.base_types.identification import UIDBasedID
-from pyehr.core.rm.common.archetyped import Link, Archetyped, Pathable, FeederAudit
+from pyehr.core.rm.common.archetyped import Link, Archetyped, Pathable, FeederAudit, PyehrInternalProcessedPath, PyehrInternalPathPredicateType
 from pyehr.core.rm.data_structures import DataStructure
 from pyehr.core.rm.data_structures.representation import Element, Cluster
 from pyehr.core.rm.data_types.text import DVText
@@ -52,88 +52,40 @@ class ItemSingle(ItemStructure):
         super().__init__(name, archetype_node_id, uid, links, archetype_details, feeder_audit, parent, parent_container_attribute_name, **kwargs)
 
     def item_at_path(self, a_path):
-        if a_path == "":
+        path = PyehrInternalProcessedPath(a_path)
+
+        if path.is_self_path():
             return self
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
         
-        if len(pth) == 1:
-            # leaf
-            if attr == "item":
-                return self.item
-            else:
-                raise ValueError(f"Item not found: expected 'item' at ItemSingle but got \'{attr}\'")
+        if path.current_node_attribute == "item":
+            return self.item.item_at_path(path.remaining_path if path.remaining_path is not None else "")
         else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "item":
-                return self.item.item_at_path(next_pth)
-            else:
-                raise ValueError(f"Item not found: expected 'item' at ItemSingle but got \'{attr}\'")
+            raise ValueError(f"Item not found: expected 'item' at ItemSingle but got \'{path.current_node_attribute}\'")
             
     def items_at_path(self, a_path):
         raise ValueError("Items not found: path would always result in single item, not multiple items")
 
     def path_exists(self, a_path):
-        if a_path == "":
+        path = PyehrInternalProcessedPath(a_path)
+
+        if path.is_self_path():
             return True
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
         
-        if len(pth) == 1:
-            # leaf
-            if attr == "item":
-                return True
-            else:
-                return False
+        if path.current_node_attribute == "item":
+            return self.item.path_exists(path.remaining_path if path.remaining_path is not None else "")
         else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "item":
-                return self.item.path_exists(next_pth)
-            else:
-                return False
-            
+            return False
+               
     def path_unique(self, a_path):
-        if a_path == "":
+        path = PyehrInternalProcessedPath(a_path)
+
+        if path.is_self_path():
             return True
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
         
-        if len(pth) == 1:
-            # leaf
-            if attr == "item":
-                return True
-            else:
-                return False
+        if path.current_node_attribute == "item":
+            return self.item.path_unique(path.remaining_path if path.remaining_path is not None else "")
         else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "item":
-                return self.item.path_unique(next_pth)
-            else:
-                return False
+            return False
             
     def as_hierarchy(self):
         return self.item
@@ -220,6 +172,14 @@ class ItemList(ItemStructure):
         else:
             raise ValueError(f"Item not found: Item with archetype node ID \'{a_id}\' not found in this item list")
 
+    def _pred_item(self, pred, pred_type: PyehrInternalPathPredicateType):
+        if pred_type == PyehrInternalPathPredicateType.ARCHETYPE_PATH:
+            return self._archid_item(pred)
+        elif pred_type == PyehrInternalPathPredicateType.POSITIONAL_PARAMETER:
+            return self.ith_item(int(pred))
+        else:
+            raise ValueError(f"Cannot process path with predicate of type \'{str(pred_type)}\'")
+            
     def ith_item(self, i: np.int32) -> Element:
         """Retrieve the i-th item with name."""
         if self._items_name_dict is None:
@@ -241,126 +201,63 @@ class ItemList(ItemStructure):
         )
     
     def item_at_path(self, a_path):
-        if a_path == "":
+        path = PyehrInternalProcessedPath(a_path)
+
+        if path.is_self_path():
             return self
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
         
-        if len(pth) == 1:
-            # leaf
-            if attr == "items":
-                if pred is None:
-                    raise ValueError(f"Item not found: path led to potentially multiple items")
-                return self._archid_item(pred)
-            else:
-                raise ValueError(f"Item not found: expected 'items' at ItemList but got \'{attr}\'")
+        if path.current_node_attribute == "items":
+            if path.current_node_predicate is None:
+                raise ValueError(f"Item not found: path led to potentially multiple items")            
+            return self._pred_item(path.current_node_predicate, path.current_node_predicate_type).item_at_path(path.remaining_path if path.remaining_path is not None else "")
         else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "items":
-                if pred is None:
-                    raise ValueError("Invalid path: ambiguous path provided - index of item in list not specified")
-                return self._archid_item(pred).item_at_path(next_pth)
-            else:
-                raise ValueError(f"Item not found: expected 'items' at ItemList but got \'{attr}\'")
+            raise ValueError(f"Item not found: expected 'items' at ItemList but got \'{path.current_node_attribute}\'")
     
     def items_at_path(self, a_path):
-        if a_path == "":
+        path = PyehrInternalProcessedPath(a_path)
+
+        if path.is_self_path():
             raise ValueError("Items not found: path led to a single ITEM_LIST")
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
         
-        if len(pth) == 1:
-            # leaf
-            if attr == "items":
-                if pred is not None:
-                    raise ValueError(f"Items not found: path led to potentially single item")
+        if path.current_node_attribute == "items":
+            if path.remaining_path is None:
+                # leaf
+                if path.current_node_predicate is not None:
+                    raise ValueError(f"Items not found: path led to single item")
                 return self.items
             else:
-                raise ValueError(f"Items not found: expected 'items' at ItemList but got \'{attr}\'")
+                # intermediate
+                if path.current_node_predicate is None:
+                    raise ValueError("Invalid path: ambiguous path provided - item in list not specified")
+                return self._pred_item(path.current_node_predicate, path.current_node_predicate_type).items_at_path(path.remaining_path)
         else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "items":
-                if pred is None:
-                    raise ValueError("Invalid path: ambiguous path provided - index of item in list not specified")
-                return self._archid_item(pred).items_at_path(next_pth)
-            else:
-                raise ValueError(f"Items not found: expected 'items' at ItemList but got \'{attr}\'")
+            raise ValueError(f"Items not found: expected 'items' at ItemList but got \'{path.current_node_attribute}\'")
         
     def path_exists(self, a_path):
-        if a_path == "":
+        path = PyehrInternalProcessedPath(a_path)
+
+        if path.is_self_path():
             return True
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
         
-        if len(pth) == 1:
-            # leaf
-            if attr == "items":
-                return True
-            else:
-                return False
+        if path.current_node_attribute == "items":
+            if path.current_node_predicate is None and path.remaining_path is None:
+                return True           
+            return self._pred_item(path.current_node_predicate, path.current_node_predicate_type).path_exists(path.remaining_path if path.remaining_path is not None else "")
         else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "items":
-                if pred is None:
-                    return False
-                return self._archid_item(pred).path_exists(next_pth)
-            else:
-                return False
+            return False
     
     def path_unique(self, a_path):
-        if a_path == "":
+        path = PyehrInternalProcessedPath(a_path)
+
+        if path.is_self_path():
             return True
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
         
-        if len(pth) == 1:
-            # leaf
-            if attr == "items":
-                if pred is None:
-                    return False
-                return True
-            else:
-                return False
+        if path.current_node_attribute == "items":
+            if path.current_node_predicate is None and path.remaining_path is None:
+                return False      
+            return self._pred_item(path.current_node_predicate, path.current_node_predicate_type).path_unique(path.remaining_path if path.remaining_path is not None else "")
         else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "items":
-                if pred is None:
-                    return False
-                return self._archid_item(pred).path_unique(next_pth)
-            else:
-                return False
+            return False
             
     def as_json(self):
         # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_structures/ITEM_LIST.json
@@ -369,3 +266,22 @@ class ItemList(ItemStructure):
             draft["items"] = [e.as_json() for e in self.items]
         draft["_type"] = "ITEM_LIST"
         return draft
+    
+class ItemTable(ItemStructure):
+    """Logical relational database style table data structure, in which columns 
+    are named and ordered with respect to each other. Implemented using 
+    Cluster-per-row encoding. Each row Cluster must have an identical number 
+    of Elements, each of which in turn must have identical names and value 
+    types in the corresponding positions in each row.
+    
+    Some columns may be designated key' columns, containing key data for each 
+    row, in the manner of relational tables. This allows row-naming, where each 
+    row represents a body site, a blood antigen etc. All values in a column have 
+    the same data type.
+    
+    Used for representing any data which is logically a table of values, such as 
+    blood pressure, most protocols, many blood tests etc.
+    
+    Misuse: Not to be used for time-based data, which should be represented with 
+    the temporal class HISTORY. The table may be empty."""
+    pass
