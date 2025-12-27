@@ -315,8 +315,8 @@ class Archetyped(AnyClass):
     def is_equal(self, other: 'Archetyped'):
         return (
             type(self) == type(other) and
-            self.archetype_id.is_equal(other.archetype_id) and
-            ((self.template_id is None and other.template_id is None) or (self.template_id.is_equal(other.template_id))) and
+            is_equal_value(self.archetype_id, other.archetype_id) and
+            is_equal_value(self.template_id, other.template_id) and
             self.rm_version == other.rm_version
         )
     
