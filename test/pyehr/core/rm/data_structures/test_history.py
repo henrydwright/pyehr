@@ -5,11 +5,13 @@ from pyehr.core.base.base_types.identification import TerminologyID
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.data_structures.history import PointEvent, IntervalEvent, History
 from pyehr.core.rm.data_structures.item_structure import ItemSingle
-from pyehr.core.rm.data_structures.representation import Element
+from pyehr.core.rm.data_structures.representation import Cluster, Element
 from pyehr.core.rm.data_types.quantity import DVProportion, ProportionKind
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime, DVDuration
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
+
+import json
 
 test_ts = PythonTerminologyService([], [TERMINOLOGY_OPENEHR])
 
@@ -163,3 +165,75 @@ def test_history_events_valid():
             origin=DVDateTime("2025-08-01T09:30:00+01:00"),
             events=[]
         )
+
+def test_history_as_hierarchy():
+    hier = hs.as_hierarchy()
+    target = Cluster(
+        name=DVText("pain scores over time"),
+        archetype_node_id="at0010",
+        items=[
+            Cluster(
+                name=DVText("summary (GENERATED)"),
+                archetype_node_id="at0080",
+                items=[
+                    Element(
+                        name=DVText("commentary"),
+                        archetype_node_id="at0081",
+                        value=DVText("pain scores mild during day and overnight")
+                    )
+                ]
+            ),
+            Cluster(
+                name=DVText("events (GENERATED)"),
+                archetype_node_id="at9999",
+                items=[
+                    Cluster(
+                        name=DVText("1"),
+                        archetype_node_id="at0011",
+                        items=[
+                            Cluster(
+                                name=DVText("data (GENERATED)"),
+                                archetype_node_id="at0012",
+                                items=[
+                                    Element(
+                                        name=DVText("pain score"),
+                                        archetype_node_id="at0020",
+                                        value=DVProportion(1.0, 10.0, ProportionKind.PK_RATIO)
+                                    )
+                                ]
+                            ),
+                            Cluster(
+                                name=DVText("state (GENERATED)"),
+                                archetype_node_id="at0013",
+                                items=[
+                                    Element(
+                                        name=DVText("patient state"),
+                                        archetype_node_id="at0030",
+                                        value=DVCodedText("Lying position", CodePhrase(TerminologyID("SNOMED-CT"), "102538003"))
+                                    )
+                                ]
+                            )
+                        ]
+                    ),
+                    Cluster(
+                        name=DVText("overnight pain score average"),
+                        archetype_node_id="at0014",
+                        items=[
+                            Cluster(
+                                name=DVText("data (GENERATED)"),
+                                archetype_node_id="at0015",
+                                items=[
+                                    Element(
+                                        DVText("pain score"),
+                                        archetype_node_id="at0016",
+                                        value=DVProportion(5.6, 10.0, ProportionKind.PK_RATIO)
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )]
+        )
+
+    assert hier.is_equal(target)

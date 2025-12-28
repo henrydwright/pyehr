@@ -13,6 +13,7 @@ from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.common.archetyped import Archetyped, FeederAudit, Link, Locatable, Pathable, PyehrInternalPathPredicateType, PyehrInternalProcessedPath
 from pyehr.core.rm.data_structures import DataStructure
 from pyehr.core.rm.data_structures.item_structure import ItemStructure
+from pyehr.core.rm.data_structures.representation import Cluster
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime, DVDuration
 from pyehr.core.rm.data_types.text import DVCodedText, DVText
 from pyehr.core.rm.support.terminology import TerminologyService, util_verify_code_in_openehr_terminology_group_or_error, OpenEHRTerminologyGroupIdentifiers
@@ -112,6 +113,31 @@ class Event[T : ItemStructure](Locatable):
             return self.state.path_unique(path.remaining_path if path.remaining_path is not None else "")
         else:
             return False
+        
+    def _as_hierarchy(self):
+        """Not in RM, but useful for later need to do this for HISTORY class"""
+        lst_items = []
+        data_cluster = Cluster(
+            name=DVText("data (GENERATED)"),
+            archetype_node_id=self.data.archetype_node_id,
+            items=[self.data.as_hierarchy()]
+        )
+        lst_items.append(data_cluster)
+        if self.state is not None:
+            state_cluster = Cluster(
+                name=DVText("state (GENERATED)"),
+                archetype_node_id=self.state.archetype_node_id,
+                items=[
+                    self.state.as_hierarchy()
+                ]
+            )
+            lst_items.append(state_cluster)
+
+        return Cluster(
+            name=self.name,
+            archetype_node_id=self.archetype_node_id,
+            items=lst_items
+        )
     
 class PointEvent[T: ItemStructure](Event[T]):
     """Defines a single point event in a series."""
@@ -256,10 +282,42 @@ class History[T : ItemStructure](DataStructure):
         return self.period is not None
 
     def as_json(self):
-        pass
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_structures/HISTORY.json
+        draft = super().as_json()
+        draft["origin"] = self.origin.as_json()
+        if self.period is not None:
+            draft["period"] = self.period.as_json()
+        if self.duration is not None:
+            draft["duration"] = self.duration.as_json()
+        if self.summary is not None:
+            draft["summary"] = self.summary.as_json()
+        if self.events is not None:
+            draft["events"] = [event.as_json() for event in self.events]
+        draft["_type"] = "HISTORY"
+        return draft
 
     def as_hierarchy(self):
-        pass
+        hs_members = []
+        if self.summary is not None:
+            sum_cluster = Cluster(
+                name=DVText("summary (GENERATED)"),
+                archetype_node_id=self.summary.archetype_node_id,
+                items=[self.summary.as_hierarchy()]
+            )
+            hs_members.append(sum_cluster)
+        if self.events is not None:
+            events_cluster = Cluster(
+                name=DVText("events (GENERATED)"),
+                archetype_node_id="at9999",
+                items=[event._as_hierarchy() for event in self.events]
+            )
+            hs_members.append(events_cluster)
+        hs_cluster = Cluster(
+            name=self.name,
+            archetype_node_id=self.archetype_node_id,
+            items=hs_members
+        )
+        return hs_cluster
 
     def _path_eval(self, a_path: str, single_item: bool, check_only: bool):
         path = PyehrInternalProcessedPath(a_path)

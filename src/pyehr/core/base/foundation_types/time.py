@@ -147,8 +147,6 @@ class ISOType(AnyClass, ABC):
         return self.value
 
     def is_equal(self, other) -> bool:
-        print("selfv", self.value)
-        print("otherv", other.value)
         return (type(self) == type(other) and
             self.value == other.value)
     

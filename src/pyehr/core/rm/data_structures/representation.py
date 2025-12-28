@@ -6,6 +6,7 @@ from abc import abstractmethod
 from typing import Optional
 
 from pyehr.core.base.base_types.identification import UIDBasedID
+from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.common.archetyped import FeederAudit, Locatable, Link, Archetyped, Pathable, PyehrInternalPathPredicateType, PyehrInternalProcessedPath
 from pyehr.core.rm.data_types.text import DVText, DVCodedText
 from pyehr.core.rm.data_types import DataValue
@@ -139,6 +140,10 @@ class Cluster(Item):
         draft["items"] = [item.as_json() for item in self.items]
         draft["_type"] = "CLUSTER"
         return draft
+    
+    def is_equal(self, other):
+        return (super().is_equal(other) 
+                and is_equal_value(self.items, other.items))
 
 class Element(Item):
     """The leaf variant of ITEM, to which a DATA_VALUE instance is attached."""

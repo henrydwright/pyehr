@@ -813,7 +813,26 @@ def test_its_json_rm_data_structures_item_tree():
 
     validate(t_itr)
 
-# TODO: history
+def test_its_json_rm_data_structures_history():
+    su = ItemSingle(
+        DVText("@ internal @"),
+        archetype_node_id="at0080",
+        item=Element(
+            name=DVText("commentary"),
+            archetype_node_id="at0081",
+            value=DVText("pain scores mild during day and overnight")
+        )
+    )
+
+    t_hs = History[ItemSingle](
+        DVText("pain scores over time"),
+        archetype_node_id="at0010",
+        origin=DVDateTime("2025-12-28T12:00:00Z"),
+        summary=su
+    ).as_json()
+
+    validate(t_hs)
+
 
 def test_its_json_rm_data_structures_point_event():
     hs = History(
