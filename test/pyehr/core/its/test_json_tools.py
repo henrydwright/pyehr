@@ -32,7 +32,7 @@ from pyehr.core.rm.common.change_control import OriginalVersion, ImportedVersion
 from pyehr.core.rm.common.directory import Folder
 
 from pyehr.core.rm.data_structures.representation import Cluster, Element
-from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemList
+from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemList, ItemTable
 
 from pyehr.core.rm.ehr.ehr import EHR
 
@@ -627,7 +627,57 @@ def test_its_json_rm_common_party_identified():
 
 # TODO: interval_event
 
-# TODO: item_table
+def test_its_json_rm_data_structures_item_table():
+    ev = DVProportion(6.0, 6.0, ProportionKind.PK_RATIO)
+
+    el01 = Element(name=DVText("visual acuity"),
+                            archetype_node_id="at0021",
+                            value=ev)
+
+    row0 = Cluster(
+                name=DVText("1"),
+                archetype_node_id="at0010",
+                items=[
+                    Element(name=DVText("eye(s)"),
+                            archetype_node_id="at0020",
+                            value=DVCodedText(value="right", defining_code=CodePhrase(TerminologyID("local"), "at0030"))),
+                    el01])
+
+    el10 = Element(name=DVText("eye(s)"),
+                            archetype_node_id="at0020",
+                            value=DVCodedText(value="left", defining_code=CodePhrase(TerminologyID("local"), "at0031")))
+
+    row1 = Cluster(
+                name=DVText("2"),
+                archetype_node_id="at0010",
+                items=[
+                    el10,
+                    Element(name=DVText("visual acuity"),
+                            archetype_node_id="at0021",
+                            value=DVProportion(6.0, 18.0, ProportionKind.PK_RATIO))])
+
+    row2 = Cluster(
+                name=DVText("3"),
+                archetype_node_id="at0010",
+                items=[
+                    Element(name=DVText("eye(s)"),
+                            archetype_node_id="at0020",
+                            value=DVCodedText(value="both", defining_code=CodePhrase(TerminologyID("local"), "at0030"))),
+                    Element(name=DVText("visual acuity"),
+                            archetype_node_id="at0021",
+                            value=DVProportion(6.0, 6.0, ProportionKind.PK_RATIO))])
+
+    t_itbl = ItemTable(
+        name=DVText("vision"),
+        archetype_node_id="at0002",
+        rows=[
+            row0,
+            row1,
+            row2
+        ]
+    ).as_json()
+
+    validate(t_itbl)
 
 def test_its_json_rm_data_structures_cluster():
     postal_code = Element(DVText("postal code"),

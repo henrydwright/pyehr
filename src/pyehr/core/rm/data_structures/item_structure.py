@@ -8,6 +8,7 @@ from typing import Optional
 import numpy as np
 
 from pyehr.core.base.base_types.identification import UIDBasedID
+from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.common.archetyped import Link, Archetyped, Pathable, FeederAudit, PyehrInternalProcessedPath, PyehrInternalPathPredicateType
 from pyehr.core.rm.data_structures import DataStructure
 from pyehr.core.rm.data_structures.representation import Element, Cluster
@@ -284,4 +285,208 @@ class ItemTable(ItemStructure):
     
     Misuse: Not to be used for time-based data, which should be represented with 
     the temporal class HISTORY. The table may be empty."""
-    pass
+    
+    _column_name_list: Optional[list[DVText]]
+    """List of column names, generated from first row on initialisation"""
+
+    _plain_column_name_set: Optional[set[str]]
+    """Set of columns names as plain strs, generated from first row on intialisation"""
+
+    _row_name_list: Optional[list[DVText]]
+    """List of row names"""
+
+    _rowname_row_dict: Optional[dict[str, Cluster]]
+    """Mapping of row names (in plain strs) to row clusters"""
+
+    def _get_rows(self):
+        return list(self._rowname_row_dict.values())
+    
+    rows = property(
+        fget=_get_rows
+    )
+    """Physical representation of the table as a list of CLUSTERs, each containing
+     the data of one row of the table."""
+
+    def __init__(self, 
+        name: DVText, 
+        archetype_node_id: str, 
+        rows: Optional[list[Cluster]],
+        uid : Optional[UIDBasedID] = None, 
+        links : Optional[list[Link]] = None,  
+        archetype_details : Optional[Archetyped] = None,
+        feeder_audit : Optional[FeederAudit] = None,
+        parent: Optional[Pathable] = None,
+        parent_container_attribute_name: Optional[str] = None,
+        **kwargs):
+        if rows is not None:
+            self._column_name_list = list()
+            self._row_name_list = list()
+            self._rowname_row_dict = dict()
+            column_count = 0
+            self._plain_column_name_set = set()
+        for i in range(len(rows)):
+            row = rows[i]
+            if i == 0:
+                for item in row.items:
+                    if not isinstance(item, Element):
+                        raise ValueError("Each CLUSTER representing a row must have only ELEMENTs as members")
+                    self._column_name_list.append(item.name)
+                    self._plain_column_name_set.add(item.name.value)
+                column_count = len(self._column_name_list)
+            else:
+                cols = len(row.items)
+                if cols != column_count:
+                    raise ValueError(f"Every row must have the same number of items. First row had \'{column_count}\' but row #{i} had \'{cols}\'")
+                for j in range(cols):
+                    item = row.items[j]
+                    if not isinstance(item, Element):
+                        raise ValueError("Each CLUSTER representing a row must have only ELEMENTs as members")
+                    if item.name.value not in self._plain_column_name_set:
+                        raise ValueError(f"Each row must have columns with the same names. Column named \'{item.name.value}\' not in the first row.")
+            self._row_name_list.append(row.name)
+            self._rowname_row_dict[row.name.value] = row        
+
+        super().__init__(name, archetype_node_id, uid, links, archetype_details, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def row_count(self) -> np.int32:
+        """Number of rows in the table"""
+        return len(self._rowname_row_dict.values())
+
+    def column_count(self) -> np.int32:
+        """Return number of columns in the table."""
+        return len(self._column_name_list)
+
+    def row_names(self) -> Optional[list[DVText]]:
+        """Return set of row names."""
+        return self._row_name_list
+
+    def column_names(self) -> Optional[list[DVText]]:
+        """Return set of column names."""
+        return self._column_name_list
+
+    def ith_row(self, i: np.int32) -> Cluster:
+        """Return i-th row"""
+        if i < 0:
+            raise IndexError("Row number cannot be negative.")
+        return self.rows[i]
+
+    def has_row_with_name(self, a_key: str) -> bool:
+        """Return True if there is a row with name = a_key."""
+        # TODO: report typo in the class listing on the spec website (says "column")
+        return a_key in self._rowname_row_dict
+
+    def has_column_with_name(self, a_key: str) -> bool:
+        """Return True if there is a column with name = a_key."""
+        return a_key in self._plain_column_name_set
+
+    def named_row(self, a_key: str) -> Cluster:
+        """Return row with name = a_key."""
+        return self._rowname_row_dict[a_key]
+
+    def has_row_with_key(self, keys: list[str]) -> bool:
+        """Return True if there is a row with key keys."""
+        # The specification declares some rows may be marked as "keys" but does not provide
+        #  any mechanism for this to be specified, nor stored so any key would be transient
+        #  and not passable between client and server, hence this method *should* go unused
+        #  in any case, we won't support it.
+        raise NotImplementedError("Marking columns as keys is not supported, so cannot retrieve rows based on keys.")
+
+    def row_with_key(self, keys: list[str]) -> Cluster:
+        """Return rows with particular keys."""
+        raise NotImplementedError("Marking columns as keys is not supported, so cannot retrieve rows based on keys.")
+
+    def element_at_cell_ij(self, i: np.int32, j: np.int32):
+        """Return cell at a particular location."""
+        return self.rows[i].items[j]
+
+    def as_hierarchy(self):
+        """Generate a CEN EN13606-compatible hierarchy consisting of a single 
+        CLUSTER containing the CLUSTERs representing the rows of this table."""
+        # TODO: the original definition says "CLUSTERs representing the *columns*"" but I think this is a typo
+        return Cluster(
+            name=self.name,
+            archetype_node_id=self.archetype_node_id,
+            items=self.rows
+        )
+
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_structures/ITEM_TABLE.json
+        draft = super().as_json()
+        if self.rows is not None:
+            draft["rows"] = [row.as_json() for row in self.rows]
+        draft["_type"] = "ITEM_TABLE"
+        return draft
+
+    def _path_eval(self, a_path: str, single_item: bool, check_only: bool):
+        path = PyehrInternalProcessedPath(a_path)
+        if path.is_self_path():
+            if single_item:
+                return self
+            else:
+                raise ValueError("Items not found: reached single item (ITEM_TABLE)")
+        
+        ret_item = None
+
+        if path.current_node_attribute == "rows":
+            if path.current_node_predicate_type is None:
+                ret_item = self.rows
+            elif path.current_node_predicate_type == PyehrInternalPathPredicateType.POSITIONAL_PARAMETER:
+                ret_item = self.rows[int(path.current_node_predicate)]
+            elif path.current_node_predicate_type == PyehrInternalPathPredicateType.ARCHETYPE_PATH:
+                matches = []
+                for row in self.rows:
+                    if row.archetype_node_id == path.current_node_predicate:
+                        matches.append(row)
+                if len(matches) == 1:
+                    ret_item = matches[0]
+                else:
+                    ret_item = matches
+
+            if path.remaining_path is None:
+                if check_only:
+                    return True
+                if single_item:
+                    if not isinstance(ret_item, list):
+                        return ret_item
+                    else:
+                        raise ValueError("Item not found: multiple items returned by query.")
+                else:
+                    if isinstance(ret_item, list):
+                        return ret_item
+                    else:
+                        raise ValueError("Items not found: single item returned by query")
+            else:
+                if isinstance(ret_item, list):
+                    raise ValueError("Path invalid: ambiguous intermediate path step containing multiple items")
+                else:
+                    if check_only:
+                        return ret_item.path_exists(path.remaining_path)
+                    if single_item:
+                        return ret_item.item_at_path(path.remaining_path)
+                    else:
+                        return ret_item.items_at_path(path.remaining_path)
+        else:
+            raise ValueError(f"Path invalid: expected 'rows' at ITEM_TABLE but found \'{path.current_node_attribute}\'")
+
+
+    def item_at_path(self, a_path):
+        return self._path_eval(a_path, True, False)
+    
+    def items_at_path(self, a_path):
+        return self._path_eval(a_path, False, False)
+    
+    def path_exists(self, a_path):
+        return self._path_eval(a_path, None, True)
+    
+    def path_unique(self, a_path):
+        try:
+            self.item_at_path(a_path)
+            return True
+        except (ValueError):
+            return False
+    
+    def is_equal(self, other):
+        return (super().is_equal(other) and 
+                is_equal_value(self.rows, other.rows))
+
+    

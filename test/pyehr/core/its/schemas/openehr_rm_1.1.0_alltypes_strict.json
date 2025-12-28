@@ -214,6 +214,9 @@
                     "$ref": "#/definitions/PARTY_IDENTIFIED"
                 },
                 {
+                    "$ref": "#/definitions/ITEM_TABLE"
+                },
+                {
                     "$ref": "#/definitions/CLUSTER"
                 },
                 {
