@@ -226,6 +226,9 @@
                     "$ref": "#/definitions/ITEM_TREE"
                 },
                 {
+                    "$ref": "#/definitions/POINT_EVENT"
+                },
+                {
                     "$ref": "#/definitions/ELEMENT"
                 },
                 {

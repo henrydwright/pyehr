@@ -16,6 +16,7 @@ from pyehr.core.base.resource import TranslationDetails, ResourceDescriptionItem
 
 from pyehr.core.its.json_tools import OpenEHREncoder
 
+from pyehr.core.rm.data_structures.history import History, PointEvent
 from pyehr.core.rm.data_types.text import DVText, DVUri, DVCodedText, CodePhrase, TermMapping, DVParagraph
 from pyehr.core.rm.data_types.basic import DVIdentifier, DVBoolean, DVState
 from pyehr.core.rm.data_types.uri import DVEHRUri
@@ -787,7 +788,42 @@ def test_its_json_rm_data_structures_item_tree():
 
 # TODO: history
 
-# TODO: point_event
+def test_its_json_rm_data_structures_point_event():
+    hs = History(
+    DVText("pain scores over time"),
+    archetype_node_id="at0010",
+    origin=DVDateTime("2025-12-28T12:00:00Z")
+    )
+    da = ItemSingle(
+            name=DVText("@ internal @"),
+            archetype_node_id="at0012",
+            item=Element(
+                name=DVText("pain score"),
+                archetype_node_id="at0020",
+                value=DVProportion(1.0, 10.0, ProportionKind.PK_RATIO)
+            )
+        )
+    st = ItemSingle(
+            name=DVText("@ internal @"),
+            archetype_node_id="at0013",
+            item=Element(
+                name=DVText("patient state"),
+                archetype_node_id="at0030",
+                value=DVCodedText("Lying position", CodePhrase(TerminologyID("SNOMED-CT"), "102538003"))
+            )
+        )
+    t_ev = PointEvent[ItemSingle](
+        name=DVText("1"),
+        archetype_node_id="at0011",
+        time=DVDateTime("2025-12-28T13:00:00Z"),
+        data=da,
+        state=st,
+        parent=hs
+    ).as_json()
+
+    print(t_ev)
+
+    validate(t_ev)
 
 def test_its_json_rm_data_structures_element():
     t_e = Element(
