@@ -1,5 +1,6 @@
 import pytest
 
+from common import TERMINOLOGY_OPENEHR, PythonTerminologyService
 from pyehr.core.base.base_types.identification import TerminologyID
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.data_structures.history import PointEvent, IntervalEvent, History
@@ -8,6 +9,9 @@ from pyehr.core.rm.data_structures.representation import Element
 from pyehr.core.rm.data_types.quantity import DVProportion, ProportionKind
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime, DVDuration
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
+from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
+
+test_ts = PythonTerminologyService([], [TERMINOLOGY_OPENEHR])
 
 hs = History(
     DVText("pain scores over time"),
@@ -68,3 +72,46 @@ def test_event_path_exists():
     assert ev.path_unique("data") == True
     assert ev.path_unique("state") == True
     assert ev.path_unique("ABACUS") == False
+
+iev = IntervalEvent[ItemSingle](
+    name=DVText("overnight pain score average"),
+    archetype_node_id="at0014",
+    time=DVDateTime("2025-12-29T08:00:00Z"),
+    data=ItemSingle(
+        name=DVText("@ internal @"),
+        archetype_node_id="at0015",
+        item=Element(
+            DVText("pain score"),
+            archetype_node_id="at0016",
+            value=DVProportion(5.6, 10.0, ProportionKind.PK_RATIO)
+        )
+    ),
+    width=DVDuration("PT12H"),
+    math_function=DVCodedText("mean", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "146")),
+    terminology_service=test_ts,
+    parent=hs
+)
+
+def test_interval_event_interval_start_time():
+    assert iev.interval_start_time().is_equal(DVDateTime("2025-12-28T20:00:00Z"))
+
+def test_interval_event_math_function_validity():
+    with pytest.raises(ValueError):
+        IntervalEvent[ItemSingle](
+            name=DVText("overnight pain score average"),
+            archetype_node_id="at0014",
+            time=DVDateTime("2025-12-29T08:00:00Z"),
+            data=ItemSingle(
+                name=DVText("@ internal @"),
+                archetype_node_id="at0015",
+                item=Element(
+                    DVText("pain score"),
+                    archetype_node_id="at0016",
+                    value=DVProportion(5.6, 10.0, ProportionKind.PK_RATIO)
+                )
+            ),
+            width=DVDuration("PT12H"),
+            math_function=DVCodedText("square_root", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "999")),
+            terminology_service=test_ts,
+            parent=hs
+        )

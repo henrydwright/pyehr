@@ -16,7 +16,7 @@ from pyehr.core.base.resource import TranslationDetails, ResourceDescriptionItem
 
 from pyehr.core.its.json_tools import OpenEHREncoder
 
-from pyehr.core.rm.data_structures.history import History, PointEvent
+from pyehr.core.rm.data_structures.history import History, IntervalEvent, PointEvent
 from pyehr.core.rm.data_types.text import DVText, DVUri, DVCodedText, CodePhrase, TermMapping, DVParagraph
 from pyehr.core.rm.data_types.basic import DVIdentifier, DVBoolean, DVState
 from pyehr.core.rm.data_types.uri import DVEHRUri
@@ -626,7 +626,34 @@ def test_its_json_rm_common_party_identified():
 # ==========
 # RM.data_structures: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_structures
 
-# TODO: interval_event
+def test_its_json_rm_data_structures_interval_event():
+    hs = History(
+        DVText("pain scores over time"),
+        archetype_node_id="at0010",
+        origin=DVDateTime("2025-12-28T12:00:00Z")
+    )
+    t_iev = IntervalEvent[ItemSingle](
+        name=DVText("overnight pain score average"),
+        archetype_node_id="at0014",
+        time=DVDateTime("2025-12-29T08:00:00Z"),
+        data=ItemSingle(
+            name=DVText("@ internal @"),
+            archetype_node_id="at0015",
+            item=Element(
+                DVText("pain score"),
+                archetype_node_id="at0016",
+                value=DVProportion(5.6, 10.0, ProportionKind.PK_RATIO)
+            )
+        ),
+        width=DVDuration("PT12H"),
+        math_function=DVCodedText("mean", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "146")),
+        terminology_service=test_ts,
+        parent=hs
+    ).as_json()
+
+    print(t_iev)
+
+    validate(t_iev)
 
 def test_its_json_rm_data_structures_item_table():
     ev = DVProportion(6.0, 6.0, ProportionKind.PK_RATIO)

@@ -214,6 +214,9 @@
                     "$ref": "#/definitions/PARTY_IDENTIFIED"
                 },
                 {
+                    "$ref": "#/definitions/INTERVAL_EVENT"
+                },
+                {
                     "$ref": "#/definitions/ITEM_TABLE"
                 },
                 {

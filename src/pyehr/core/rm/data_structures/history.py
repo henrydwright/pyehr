@@ -183,6 +183,16 @@ class IntervalEvent[T: ItemStructure](Event[T]):
     def interval_start_time(self) -> DVDateTime:
         """Start time of the interval of this event."""
         return self.time - self.width
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_structures/INTERVAL_EVENT.json
+        draft = super().as_json()
+        draft["width"] = self.width.as_json()
+        draft["math_function"] = self.math_function.as_json()
+        if self.sample_count is not None:
+            draft["sample_count"] = self.sample_count
+        draft["_type"] = "INTERVAL_EVENT"
+        return draft
 
 class History(DataStructure):
     
