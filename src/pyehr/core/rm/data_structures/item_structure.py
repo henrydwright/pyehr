@@ -8,9 +8,10 @@ from typing import Optional
 import numpy as np
 
 from pyehr.core.base.base_types.identification import UIDBasedID
-from pyehr.core.rm.common.archetyped import Link, Archetyped, Pathable, FeederAudit
+from pyehr.core.base.foundation_types.structure import is_equal_value
+from pyehr.core.rm.common.archetyped import Link, Archetyped, Pathable, FeederAudit, PyehrInternalProcessedPath, PyehrInternalPathPredicateType
 from pyehr.core.rm.data_structures import DataStructure
-from pyehr.core.rm.data_structures.representation import Element, Cluster
+from pyehr.core.rm.data_structures.representation import Element, Cluster, Item
 from pyehr.core.rm.data_types.text import DVText
 
 class ItemStructure(DataStructure):
@@ -52,88 +53,40 @@ class ItemSingle(ItemStructure):
         super().__init__(name, archetype_node_id, uid, links, archetype_details, feeder_audit, parent, parent_container_attribute_name, **kwargs)
 
     def item_at_path(self, a_path):
-        if a_path == "":
+        path = PyehrInternalProcessedPath(a_path)
+
+        if path.is_self_path():
             return self
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
         
-        if len(pth) == 1:
-            # leaf
-            if attr == "item":
-                return self.item
-            else:
-                raise ValueError(f"Item not found: expected 'item' at ItemSingle but got \'{attr}\'")
+        if path.current_node_attribute == "item":
+            return self.item.item_at_path(path.remaining_path if path.remaining_path is not None else "")
         else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "item":
-                return self.item.item_at_path(next_pth)
-            else:
-                raise ValueError(f"Item not found: expected 'item' at ItemSingle but got \'{attr}\'")
+            raise ValueError(f"Item not found: expected 'item' at ItemSingle but got \'{path.current_node_attribute}\'")
             
     def items_at_path(self, a_path):
         raise ValueError("Items not found: path would always result in single item, not multiple items")
 
     def path_exists(self, a_path):
-        if a_path == "":
+        path = PyehrInternalProcessedPath(a_path)
+
+        if path.is_self_path():
             return True
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
         
-        if len(pth) == 1:
-            # leaf
-            if attr == "item":
-                return True
-            else:
-                return False
+        if path.current_node_attribute == "item":
+            return self.item.path_exists(path.remaining_path if path.remaining_path is not None else "")
         else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "item":
-                return self.item.path_exists(next_pth)
-            else:
-                return False
-            
+            return False
+               
     def path_unique(self, a_path):
-        if a_path == "":
+        path = PyehrInternalProcessedPath(a_path)
+
+        if path.is_self_path():
             return True
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
         
-        if len(pth) == 1:
-            # leaf
-            if attr == "item":
-                return True
-            else:
-                return False
+        if path.current_node_attribute == "item":
+            return self.item.path_unique(path.remaining_path if path.remaining_path is not None else "")
         else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "item":
-                return self.item.path_unique(next_pth)
-            else:
-                return False
+            return False
             
     def as_hierarchy(self):
         return self.item
@@ -220,6 +173,14 @@ class ItemList(ItemStructure):
         else:
             raise ValueError(f"Item not found: Item with archetype node ID \'{a_id}\' not found in this item list")
 
+    def _pred_item(self, pred, pred_type: PyehrInternalPathPredicateType):
+        if pred_type == PyehrInternalPathPredicateType.ARCHETYPE_PATH:
+            return self._archid_item(pred)
+        elif pred_type == PyehrInternalPathPredicateType.POSITIONAL_PARAMETER:
+            return self.ith_item(int(pred))
+        else:
+            raise ValueError(f"Cannot process path with predicate of type \'{str(pred_type)}\'")
+            
     def ith_item(self, i: np.int32) -> Element:
         """Retrieve the i-th item with name."""
         if self._items_name_dict is None:
@@ -241,126 +202,63 @@ class ItemList(ItemStructure):
         )
     
     def item_at_path(self, a_path):
-        if a_path == "":
+        path = PyehrInternalProcessedPath(a_path)
+
+        if path.is_self_path():
             return self
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
         
-        if len(pth) == 1:
-            # leaf
-            if attr == "items":
-                if pred is None:
-                    raise ValueError(f"Item not found: path led to potentially multiple items")
-                return self._archid_item(pred)
-            else:
-                raise ValueError(f"Item not found: expected 'items' at ItemList but got \'{attr}\'")
+        if path.current_node_attribute == "items":
+            if path.current_node_predicate is None:
+                raise ValueError(f"Item not found: path led to potentially multiple items")            
+            return self._pred_item(path.current_node_predicate, path.current_node_predicate_type).item_at_path(path.remaining_path if path.remaining_path is not None else "")
         else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "items":
-                if pred is None:
-                    raise ValueError("Invalid path: ambiguous path provided - index of item in list not specified")
-                return self._archid_item(pred).item_at_path(next_pth)
-            else:
-                raise ValueError(f"Item not found: expected 'items' at ItemList but got \'{attr}\'")
+            raise ValueError(f"Item not found: expected 'items' at ItemList but got \'{path.current_node_attribute}\'")
     
     def items_at_path(self, a_path):
-        if a_path == "":
+        path = PyehrInternalProcessedPath(a_path)
+
+        if path.is_self_path():
             raise ValueError("Items not found: path led to a single ITEM_LIST")
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
         
-        if len(pth) == 1:
-            # leaf
-            if attr == "items":
-                if pred is not None:
-                    raise ValueError(f"Items not found: path led to potentially single item")
+        if path.current_node_attribute == "items":
+            if path.remaining_path is None:
+                # leaf
+                if path.current_node_predicate is not None:
+                    raise ValueError(f"Items not found: path led to single item")
                 return self.items
             else:
-                raise ValueError(f"Items not found: expected 'items' at ItemList but got \'{attr}\'")
+                # intermediate
+                if path.current_node_predicate is None:
+                    raise ValueError("Invalid path: ambiguous path provided - item in list not specified")
+                return self._pred_item(path.current_node_predicate, path.current_node_predicate_type).items_at_path(path.remaining_path)
         else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "items":
-                if pred is None:
-                    raise ValueError("Invalid path: ambiguous path provided - index of item in list not specified")
-                return self._archid_item(pred).items_at_path(next_pth)
-            else:
-                raise ValueError(f"Items not found: expected 'items' at ItemList but got \'{attr}\'")
+            raise ValueError(f"Items not found: expected 'items' at ItemList but got \'{path.current_node_attribute}\'")
         
     def path_exists(self, a_path):
-        if a_path == "":
+        path = PyehrInternalProcessedPath(a_path)
+
+        if path.is_self_path():
             return True
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
         
-        if len(pth) == 1:
-            # leaf
-            if attr == "items":
-                return True
-            else:
-                return False
+        if path.current_node_attribute == "items":
+            if path.current_node_predicate is None and path.remaining_path is None:
+                return True           
+            return self._pred_item(path.current_node_predicate, path.current_node_predicate_type).path_exists(path.remaining_path if path.remaining_path is not None else "")
         else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "items":
-                if pred is None:
-                    return False
-                return self._archid_item(pred).path_exists(next_pth)
-            else:
-                return False
+            return False
     
     def path_unique(self, a_path):
-        if a_path == "":
+        path = PyehrInternalProcessedPath(a_path)
+
+        if path.is_self_path():
             return True
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
         
-        if len(pth) == 1:
-            # leaf
-            if attr == "items":
-                if pred is None:
-                    return False
-                return True
-            else:
-                return False
+        if path.current_node_attribute == "items":
+            if path.current_node_predicate is None and path.remaining_path is None:
+                return False      
+            return self._pred_item(path.current_node_predicate, path.current_node_predicate_type).path_unique(path.remaining_path if path.remaining_path is not None else "")
         else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "items":
-                if pred is None:
-                    return False
-                return self._archid_item(pred).path_unique(next_pth)
-            else:
-                return False
+            return False
             
     def as_json(self):
         # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_structures/ITEM_LIST.json
@@ -368,4 +266,374 @@ class ItemList(ItemStructure):
         if self.items is not None:
             draft["items"] = [e.as_json() for e in self.items]
         draft["_type"] = "ITEM_LIST"
+        return draft
+    
+class ItemTable(ItemStructure):
+    """Logical relational database style table data structure, in which columns 
+    are named and ordered with respect to each other. Implemented using 
+    Cluster-per-row encoding. Each row Cluster must have an identical number 
+    of Elements, each of which in turn must have identical names and value 
+    types in the corresponding positions in each row.
+    
+    Some columns may be designated key' columns, containing key data for each 
+    row, in the manner of relational tables. This allows row-naming, where each 
+    row represents a body site, a blood antigen etc. All values in a column have 
+    the same data type.
+    
+    Used for representing any data which is logically a table of values, such as 
+    blood pressure, most protocols, many blood tests etc.
+    
+    Misuse: Not to be used for time-based data, which should be represented with 
+    the temporal class HISTORY. The table may be empty."""
+    
+    _column_name_list: Optional[list[DVText]]
+    """List of column names, generated from first row on initialisation"""
+
+    _plain_column_name_set: Optional[set[str]]
+    """Set of columns names as plain strs, generated from first row on intialisation"""
+
+    _row_name_list: Optional[list[DVText]]
+    """List of row names"""
+
+    _rowname_row_dict: Optional[dict[str, Cluster]]
+    """Mapping of row names (in plain strs) to row clusters"""
+
+    def _get_rows(self):
+        return list(self._rowname_row_dict.values())
+    
+    rows = property(
+        fget=_get_rows
+    )
+    """Physical representation of the table as a list of CLUSTERs, each containing
+     the data of one row of the table."""
+
+    def __init__(self, 
+        name: DVText, 
+        archetype_node_id: str, 
+        rows: Optional[list[Cluster]],
+        uid : Optional[UIDBasedID] = None, 
+        links : Optional[list[Link]] = None,  
+        archetype_details : Optional[Archetyped] = None,
+        feeder_audit : Optional[FeederAudit] = None,
+        parent: Optional[Pathable] = None,
+        parent_container_attribute_name: Optional[str] = None,
+        **kwargs):
+        if rows is not None:
+            self._column_name_list = list()
+            self._row_name_list = list()
+            self._rowname_row_dict = dict()
+            column_count = 0
+            self._plain_column_name_set = set()
+        for i in range(len(rows)):
+            row = rows[i]
+            if i == 0:
+                for item in row.items:
+                    if not isinstance(item, Element):
+                        raise ValueError("Each CLUSTER representing a row must have only ELEMENTs as members")
+                    self._column_name_list.append(item.name)
+                    self._plain_column_name_set.add(item.name.value)
+                column_count = len(self._column_name_list)
+            else:
+                cols = len(row.items)
+                if cols != column_count:
+                    raise ValueError(f"Every row must have the same number of items. First row had \'{column_count}\' but row #{i} had \'{cols}\'")
+                for j in range(cols):
+                    item = row.items[j]
+                    if not isinstance(item, Element):
+                        raise ValueError("Each CLUSTER representing a row must have only ELEMENTs as members")
+                    if item.name.value not in self._plain_column_name_set:
+                        raise ValueError(f"Each row must have columns with the same names. Column named \'{item.name.value}\' not in the first row.")
+            self._row_name_list.append(row.name)
+            self._rowname_row_dict[row.name.value] = row        
+
+        super().__init__(name, archetype_node_id, uid, links, archetype_details, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def row_count(self) -> np.int32:
+        """Number of rows in the table"""
+        return len(self._rowname_row_dict.values())
+
+    def column_count(self) -> np.int32:
+        """Return number of columns in the table."""
+        return len(self._column_name_list)
+
+    def row_names(self) -> Optional[list[DVText]]:
+        """Return set of row names."""
+        return self._row_name_list
+
+    def column_names(self) -> Optional[list[DVText]]:
+        """Return set of column names."""
+        return self._column_name_list
+
+    def ith_row(self, i: np.int32) -> Cluster:
+        """Return i-th row"""
+        if i < 0:
+            raise IndexError("Row number cannot be negative.")
+        return self.rows[i]
+
+    def has_row_with_name(self, a_key: str) -> bool:
+        """Return True if there is a row with name = a_key."""
+        # TODO: report typo in the class listing on the spec website (says "column")
+        return a_key in self._rowname_row_dict
+
+    def has_column_with_name(self, a_key: str) -> bool:
+        """Return True if there is a column with name = a_key."""
+        return a_key in self._plain_column_name_set
+
+    def named_row(self, a_key: str) -> Cluster:
+        """Return row with name = a_key."""
+        return self._rowname_row_dict[a_key]
+
+    def has_row_with_key(self, keys: list[str]) -> bool:
+        """Return True if there is a row with key keys."""
+        # The specification declares some rows may be marked as "keys" but does not provide
+        #  any mechanism for this to be specified, nor stored so any key would be transient
+        #  and not passable between client and server, hence this method *should* go unused
+        #  in any case, we won't support it.
+        raise NotImplementedError("Marking columns as keys is not supported, so cannot retrieve rows based on keys.")
+
+    def row_with_key(self, keys: list[str]) -> Cluster:
+        """Return rows with particular keys."""
+        raise NotImplementedError("Marking columns as keys is not supported, so cannot retrieve rows based on keys.")
+
+    def element_at_cell_ij(self, i: np.int32, j: np.int32):
+        """Return cell at a particular location."""
+        return self.rows[i].items[j]
+
+    def as_hierarchy(self):
+        """Generate a CEN EN13606-compatible hierarchy consisting of a single 
+        CLUSTER containing the CLUSTERs representing the rows of this table."""
+        # TODO: the original definition says "CLUSTERs representing the *columns*"" but I think this is a typo
+        return Cluster(
+            name=self.name,
+            archetype_node_id=self.archetype_node_id,
+            items=self.rows
+        )
+
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_structures/ITEM_TABLE.json
+        draft = super().as_json()
+        if self.rows is not None:
+            draft["rows"] = [row.as_json() for row in self.rows]
+        draft["_type"] = "ITEM_TABLE"
+        return draft
+
+    def _path_eval(self, a_path: str, single_item: bool, check_only: bool):
+        path = PyehrInternalProcessedPath(a_path)
+        if path.is_self_path():
+            if check_only:
+                return True
+            if single_item:
+                return self
+            else:
+                raise ValueError("Items not found: reached single item (ITEM_TREE)")
+        
+        ret_item = None
+
+        if path.current_node_attribute == "rows":
+            if path.current_node_predicate_type is None:
+                ret_item = self.rows
+            elif path.current_node_predicate_type == PyehrInternalPathPredicateType.POSITIONAL_PARAMETER:
+                ret_item = self.rows[int(path.current_node_predicate)]
+            elif path.current_node_predicate_type == PyehrInternalPathPredicateType.ARCHETYPE_PATH:
+                matches = []
+                for row in self.rows:
+                    if row.archetype_node_id == path.current_node_predicate:
+                        matches.append(row)
+                if len(matches) == 0:
+                    ret_item = None
+                elif len(matches) == 1:
+                    ret_item = matches[0]
+                else:
+                    ret_item = matches
+
+            if path.remaining_path is None:
+                if check_only:
+                    return (ret_item is not None)
+                if single_item:
+                    if ret_item is not None and not isinstance(ret_item, list):
+                        return ret_item
+                    else:
+                        raise ValueError("Item not found: multiple items returned by query.")
+                else:
+                    if isinstance(ret_item, list):
+                        return ret_item
+                    else:
+                        raise ValueError("Items not found: single item returned by query")
+            else:
+                if isinstance(ret_item, list):
+                    raise ValueError("Path invalid: ambiguous intermediate path step containing multiple items")
+                else:
+                    if check_only:
+                        return ret_item.path_exists(path.remaining_path)
+                    if single_item:
+                        return ret_item.item_at_path(path.remaining_path)
+                    else:
+                        return ret_item.items_at_path(path.remaining_path)
+        else:
+            if check_only:
+                return False
+            raise ValueError(f"Path invalid: expected 'rows' at ITEM_TABLE but found \'{path.current_node_attribute}\'")
+      
+
+    def item_at_path(self, a_path):
+        return self._path_eval(a_path, True, False)
+    
+    def items_at_path(self, a_path):
+        return self._path_eval(a_path, False, False)
+    
+    def path_exists(self, a_path):
+        return self._path_eval(a_path, None, True)
+    
+    def path_unique(self, a_path):
+        try:
+            self.item_at_path(a_path)
+            return True
+        except (ValueError):
+            return False
+    
+    def is_equal(self, other):
+        return (super().is_equal(other) and 
+                is_equal_value(self.rows, other.rows))
+
+class ItemTree(ItemStructure):
+    """Logical tree data structure. The tree may be empty. Used for representing 
+    data which are logically a tree such as audiology results, microbiology 
+    results, biochemistry results."""
+
+    _archid_item_dict: Optional[dict[str, Item]]
+    """Mapping from archetype_node_id to the item"""
+
+    def _get_items(self):
+        return list(self._archid_item_dict.values())
+
+    items = property(
+        fget=_get_items
+    )
+    """The items comprising the ITEM_TREE. Can include 0 or more CLUSTERs and/or 
+    0 or more individual ELEMENTs."""
+
+    def __init__(self, 
+        name: DVText, 
+        archetype_node_id: str, 
+        items: Optional[list[Item]],
+        uid : Optional[UIDBasedID] = None, 
+        links : Optional[list[Link]] = None,  
+        archetype_details : Optional[Archetyped] = None,
+        feeder_audit : Optional[FeederAudit] = None,
+        parent: Optional[Pathable] = None,
+        parent_container_attribute_name: Optional[str] = None,
+        **kwargs):
+        if items is not None:
+            self._archid_item_dict = dict()
+        for item in items:
+            self._archid_item_dict[item.name.value] = item
+        super().__init__(name, archetype_node_id, uid, links, archetype_details, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def as_hierarchy(self):
+        """Generate a CEN EN13606-compatible hierarchy, which is the same as the 
+        tree's physical representation."""
+        return Cluster(
+            name=self.name,
+            archetype_node_id=self.archetype_node_id,
+            items=self.items
+        )
+    
+    def _path_eval(self, a_path: str, single_item: bool, check_only: bool):
+        path = PyehrInternalProcessedPath(a_path)
+        if path.is_self_path():
+            if check_only:
+                return True
+            if single_item:
+                return self
+            else:
+                raise ValueError("Items not found: reached single item (ITEM_TREE)")
+        
+        ret_item = None
+
+        if path.current_node_attribute == "items":
+            if path.current_node_predicate_type is None:
+                ret_item = self.items
+            elif path.current_node_predicate_type == PyehrInternalPathPredicateType.POSITIONAL_PARAMETER:
+                ret_item = self.items[int(path.current_node_predicate)]
+            elif path.current_node_predicate_type == PyehrInternalPathPredicateType.ARCHETYPE_PATH:
+                matches = []
+                for item in self.items:
+                    if item.archetype_node_id == path.current_node_predicate:
+                        matches.append(item)
+                if len(matches) == 0:
+                    ret_item = None
+                elif len(matches) == 1:
+                    ret_item = matches[0]
+                else:
+                    ret_item = matches
+
+            if path.remaining_path is None:
+                if check_only:
+                    return (ret_item is not None)
+                if single_item:
+                    if ret_item is not None and not isinstance(ret_item, list):
+                        return ret_item
+                    else:
+                        raise ValueError("Item not found: multiple items returned by query.")
+                else:
+                    if isinstance(ret_item, list):
+                        return ret_item
+                    else:
+                        raise ValueError("Items not found: single item returned by query")
+            else:
+                if isinstance(ret_item, list):
+                    raise ValueError("Path invalid: ambiguous intermediate path step containing multiple items")
+                else:
+                    if check_only:
+                        return ret_item.path_exists(path.remaining_path)
+                    if single_item:
+                        return ret_item.item_at_path(path.remaining_path)
+                    else:
+                        return ret_item.items_at_path(path.remaining_path)
+        else:
+            if check_only:
+                return False
+            raise ValueError(f"Path invalid: expected 'items' at ITEM_TREE but found \'{path.current_node_attribute}\'")
+         
+    def item_at_path(self, a_path):
+        return self._path_eval(a_path, True, False)
+    
+    def items_at_path(self, a_path):
+        return self._path_eval(a_path, False, False)
+    
+    def path_exists(self, a_path):
+        return self._path_eval(a_path, None, True)
+    
+    def path_unique(self, a_path):
+        try:
+            self.item_at_path(a_path)
+            return True
+        except (ValueError):
+            return False
+        
+    def element_at_path(self, a_path: str) -> Element:
+        """Return the leaf element at the path `a_path`"""
+        item = self.item_at_path(a_path)
+        if isinstance(item, Element):
+            return item
+        else:
+            raise ValueError(f"Element not found: retrieved item was of type \'{str(type(item))}\' not element")
+
+    def has_element_path(self, a_path: str) -> bool:
+        """True if path `a_path` is a valid leaf path"""
+        try:
+            self.element_at_path(a_path)
+            return True
+        except(ValueError):
+            return False
+        
+    def is_equal(self, other):
+        return (super().is_equal(other) and
+                is_equal_value(self.items, other.items))
+    
+    def as_json(self):
+        draft = super().as_json()
+        if self.items is not None:
+            draft["items"] = [item.as_json() for item in self.items]
+        draft["_type"] = "ITEM_TREE"
         return draft

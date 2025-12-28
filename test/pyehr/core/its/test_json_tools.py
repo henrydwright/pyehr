@@ -32,7 +32,7 @@ from pyehr.core.rm.common.change_control import OriginalVersion, ImportedVersion
 from pyehr.core.rm.common.directory import Folder
 
 from pyehr.core.rm.data_structures.representation import Cluster, Element
-from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemList
+from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemList, ItemTable, ItemTree
 
 from pyehr.core.rm.ehr.ehr import EHR
 
@@ -627,7 +627,57 @@ def test_its_json_rm_common_party_identified():
 
 # TODO: interval_event
 
-# TODO: item_table
+def test_its_json_rm_data_structures_item_table():
+    ev = DVProportion(6.0, 6.0, ProportionKind.PK_RATIO)
+
+    el01 = Element(name=DVText("visual acuity"),
+                            archetype_node_id="at0021",
+                            value=ev)
+
+    row0 = Cluster(
+                name=DVText("1"),
+                archetype_node_id="at0010",
+                items=[
+                    Element(name=DVText("eye(s)"),
+                            archetype_node_id="at0020",
+                            value=DVCodedText(value="right", defining_code=CodePhrase(TerminologyID("local"), "at0030"))),
+                    el01])
+
+    el10 = Element(name=DVText("eye(s)"),
+                            archetype_node_id="at0020",
+                            value=DVCodedText(value="left", defining_code=CodePhrase(TerminologyID("local"), "at0031")))
+
+    row1 = Cluster(
+                name=DVText("2"),
+                archetype_node_id="at0010",
+                items=[
+                    el10,
+                    Element(name=DVText("visual acuity"),
+                            archetype_node_id="at0021",
+                            value=DVProportion(6.0, 18.0, ProportionKind.PK_RATIO))])
+
+    row2 = Cluster(
+                name=DVText("3"),
+                archetype_node_id="at0010",
+                items=[
+                    Element(name=DVText("eye(s)"),
+                            archetype_node_id="at0020",
+                            value=DVCodedText(value="both", defining_code=CodePhrase(TerminologyID("local"), "at0030"))),
+                    Element(name=DVText("visual acuity"),
+                            archetype_node_id="at0021",
+                            value=DVProportion(6.0, 6.0, ProportionKind.PK_RATIO))])
+
+    t_itbl = ItemTable(
+        name=DVText("vision"),
+        archetype_node_id="at0002",
+        rows=[
+            row0,
+            row1,
+            row2
+        ]
+    ).as_json()
+
+    validate(t_itbl)
 
 def test_its_json_rm_data_structures_cluster():
     postal_code = Element(DVText("postal code"),
@@ -679,7 +729,61 @@ def test_its_json_rm_data_structures_item_list():
     
     validate(t_itl)
 
-# TODO: item_tree
+def test_its_json_rm_data_structures_item_tree():
+    val0 = DVCodedText("Serum (substance)", CodePhrase(TerminologyID("SNOMED-CT"), "67922002"))
+
+    it0 = Element(
+        name=DVText("sample"),
+        archetype_node_id="at0010",
+        value=val0
+        )
+
+
+    it1el0 = Element(
+        name=DVText("total cholestrol"),
+        archetype_node_id="at0020",
+        value=DVQuantity(6.1, "mmol/L")
+    )
+
+    it1el1 = Element(
+                name=DVText("HDL cholestrol"),
+                archetype_node_id="at0021",
+                value=DVQuantity(0.9, "mmol/L")
+            )
+
+    it1el2 = Element(
+                name=DVText("LDL cholestrol"),
+                archetype_node_id="at0022",
+                value=DVQuantity(5.2, "mmol/L")
+            )
+
+    it1 = Cluster(
+        name=DVText("lipid studies"),
+        archetype_node_id="at0011",
+        items=[
+            it1el0,
+            it1el1,
+            it1el2
+        ]
+    )
+
+    it2 = Element(
+        name=DVText("comment"),
+        archetype_node_id="at0012",
+        value=DVText("xxxx")
+    )
+
+    t_itr = ItemTree(
+        name=DVText("Biochemistry Result"),
+        archetype_node_id="at0002",
+        items=[
+            it0,
+            it1,
+            it2
+        ]
+    ).as_json()
+
+    validate(t_itr)
 
 # TODO: history
 

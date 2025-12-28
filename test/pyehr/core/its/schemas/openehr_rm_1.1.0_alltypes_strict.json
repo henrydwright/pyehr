@@ -214,10 +214,16 @@
                     "$ref": "#/definitions/PARTY_IDENTIFIED"
                 },
                 {
+                    "$ref": "#/definitions/ITEM_TABLE"
+                },
+                {
                     "$ref": "#/definitions/CLUSTER"
                 },
                 {
                     "$ref": "#/definitions/ITEM_LIST"
+                },
+                {
+                    "$ref": "#/definitions/ITEM_TREE"
                 },
                 {
                     "$ref": "#/definitions/ELEMENT"
