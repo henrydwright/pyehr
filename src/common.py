@@ -948,6 +948,19 @@ GROUPLIST_OPENEHR_NULL_FLAVOURS = [
     CodePhrase(TERMINOLOGYID_OPENEHR, "272", "masked"),
     CodePhrase(TERMINOLOGYID_OPENEHR, "273", "not applicable")
 ]
+GROUPLIST_OPENEHR_EVENT_MATH_FUNCTION = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "145", "minimum"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "144", "maximum"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "267", "mode"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "268", "median"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "146", "mean"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "147", "change"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "148", "total"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "149", "variation"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "521", "decrease"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "522", "increase"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "640", "actual")
+]
 
 CODESET_OPENEHR_CHARACTER_SETS = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_CHARACTER_SETS.name(), "en", CODELIST_OPENEHR_CHARACTER_SETS)
 CODESET_OPENEHR_COUNTRIES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_COUNTRIES.name(), "en", CODELIST_OPENEHR_COUNTRIES)
@@ -965,5 +978,6 @@ TERMINOLOGY_OPENEHR = DictTerminologyAccess("openehr", "en", {
     ("audit_change_type", "audit change type"): GROUPLIST_OPENEHR_AUDIT_CHANGE_TYPE,
     ("attestation_reason", "attestation reason"): GROUPLIST_OPENEHR_ATTESTATION_REASON,
     ("version_lifecycle_state", "version lifecycle state"): GROUPLIST_OPENEHR_VERSION_LIFECYCLE_STATE,
-    ("null_flavours", "null flavours"): GROUPLIST_OPENEHR_NULL_FLAVOURS
+    ("null_flavours", "null flavours"): GROUPLIST_OPENEHR_NULL_FLAVOURS,
+    ("event_math_function", "event math function"): GROUPLIST_OPENEHR_EVENT_MATH_FUNCTION
 })

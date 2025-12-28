@@ -434,7 +434,7 @@ class DVDateTime(DVTemporal):
         """Return True if this `DV_QUANTIFIED` is considered equal to other."""
         return (
             type(self) == type(other) and
-            self._value.is_equal(other._value)
+            self._value.as_string() == other._value.as_string()
         )
 
     def is_strictly_comparable_to(self, other: 'DVDateTime'):
