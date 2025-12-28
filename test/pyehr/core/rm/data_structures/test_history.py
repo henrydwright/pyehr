@@ -13,10 +13,21 @@ from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
 test_ts = PythonTerminologyService([], [TERMINOLOGY_OPENEHR])
 
-hs = History(
+su = ItemSingle(
+        DVText("@ internal @"),
+        archetype_node_id="at0080",
+        item=Element(
+            name=DVText("commentary"),
+            archetype_node_id="at0081",
+            value=DVText("pain scores mild during day and overnight")
+        )
+    )
+
+hs = History[ItemSingle](
     DVText("pain scores over time"),
     archetype_node_id="at0010",
-    origin=DVDateTime("2025-12-28T12:00:00Z")
+    origin=DVDateTime("2025-12-28T12:00:00Z"),
+    summary=su
 )
 da = ItemSingle(
         name=DVText("@ internal @"),
@@ -114,4 +125,41 @@ def test_interval_event_math_function_validity():
             math_function=DVCodedText("square_root", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "999")),
             terminology_service=test_ts,
             parent=hs
+        )
+
+hs.events = [ev, iev]
+
+def test_history_periodic_validity():
+    assert hs.is_periodic() == False
+    p_his = History(
+        name=DVText("hourly heartrate measurements"),
+        archetype_node_id="at0040",
+        origin=DVDateTime("2025-08-01T09:30:00+01:00"),
+        period=DVDuration("PT1H")
+    )
+    assert p_his.is_periodic() == True
+
+def test_history_item_at_path():
+    assert is_equal_value(hs.item_at_path(""), hs)
+    assert is_equal_value(hs.item_at_path("summary"), su)
+    assert is_equal_value(hs.item_at_path("events[0]"), ev)
+    assert is_equal_value(hs.item_at_path("events[at0014]"), iev)
+    assert is_equal_value(hs.item_at_path("events[at0011]/data"), da)
+    with pytest.raises(IndexError):
+        hs.item_at_path("events[3]")
+
+def test_history_items_at_path():
+    assert is_equal_value(hs.items_at_path("events"), [ev, iev])
+    with pytest.raises(ValueError):
+        hs.items_at_path("")
+    with pytest.raises(ValueError):
+        hs.items_at_path("events[1]")
+
+def test_history_events_valid():
+    with pytest.raises(ValueError):
+        empty_his = History(
+            name=DVText("hourly heartrate measurements"),
+            archetype_node_id="at0040",
+            origin=DVDateTime("2025-08-01T09:30:00+01:00"),
+            events=[]
         )
