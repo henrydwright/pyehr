@@ -6,7 +6,7 @@ from abc import abstractmethod
 from typing import Optional
 
 from pyehr.core.base.base_types.identification import UIDBasedID
-from pyehr.core.rm.common.archetyped import FeederAudit, Locatable, Link, Archetyped, Pathable
+from pyehr.core.rm.common.archetyped import FeederAudit, Locatable, Link, Archetyped, Pathable, PyehrInternalPathPredicateType, PyehrInternalProcessedPath
 from pyehr.core.rm.data_types.text import DVText, DVCodedText
 from pyehr.core.rm.data_types import DataValue
 from pyehr.core.rm.support.terminology import TerminologyService, util_verify_code_in_openehr_terminology_group_or_error, OpenEHRTerminologyGroupIdentifiers
@@ -61,154 +61,79 @@ class Cluster(Item):
         
         super().__init__(name, archetype_node_id, uid, links, archetype_details, feeder_audit, parent, parent_container_attribute_name, **kwargs)
 
-    def item_at_path(self, a_path):
-        if a_path == "":
-            return self
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
+    def _path_eval(self, a_path: str, single_item: bool, check_only: bool):
+        path = PyehrInternalProcessedPath(a_path)
+        if path.is_self_path():
+            if check_only:
+                return True
+            if single_item:
+                return self
+            else:
+                raise ValueError("Items not found: reached single item (ITEM_TREE)")
         
-        if len(pth) == 1:
-            # leaf
-            if attr == "items":
-                if pred is None:
-                    raise ValueError(f"Item not found: path results in multiple items, not single item")
-                else:
-                    if pred in self._items_dict:
-                        return self._items_dict[pred]
-                    else:
-                        raise ValueError("Item not found: no item with given archetype_node_id was present in Cluster")
-            else:
-                raise ValueError(f"Item not found: expected 'items' at Cluster but got \'{attr}\'")
-        else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "items":
-                if pred is None:
-                    raise ValueError(f"Invalid path: path was ambiguous as no specific item in the cluster was given")
-                else:
-                    if pred in self._items_dict:
-                        return self._items_dict[pred].item_at_path(next_pth)
-                    else:
-                        raise ValueError("Item not found: no item with given archetype_node_id was present in Cluster")
-            else:
-                raise ValueError(f"Item not found: expected 'items' at Cluster but got \'{attr}\'")
+        ret_item = None
 
+        if path.current_node_attribute == "items":
+            if path.current_node_predicate_type is None:
+                ret_item = self.items
+            elif path.current_node_predicate_type == PyehrInternalPathPredicateType.POSITIONAL_PARAMETER:
+                ret_item = self.items[int(path.current_node_predicate)]
+            elif path.current_node_predicate_type == PyehrInternalPathPredicateType.ARCHETYPE_PATH:
+                matches = []
+                for item in self.items:
+                    if item.archetype_node_id == path.current_node_predicate:
+                        matches.append(item)
+                if len(matches) == 0:
+                    ret_item = None
+                elif len(matches) == 1:
+                    ret_item = matches[0]
+                else:
+                    ret_item = matches
+
+            if path.remaining_path is None:
+                if check_only:
+                    return (ret_item is not None)
+                if single_item:
+                    if ret_item is not None and not isinstance(ret_item, list):
+                        return ret_item
+                    else:
+                        raise ValueError("Item not found: multiple items returned by query.")
+                else:
+                    if isinstance(ret_item, list):
+                        return ret_item
+                    else:
+                        raise ValueError("Items not found: single item returned by query")
+            else:
+                if isinstance(ret_item, list):
+                    raise ValueError("Path invalid: ambiguous intermediate path step containing multiple items")
+                else:
+                    if check_only:
+                        return ret_item.path_exists(path.remaining_path)
+                    if single_item:
+                        return ret_item.item_at_path(path.remaining_path)
+                    else:
+                        return ret_item.items_at_path(path.remaining_path)
+        else:
+            if check_only:
+                return False
+            raise ValueError(f"Path invalid: expected 'items' at ITEM_TREE but found \'{path.current_node_attribute}\'")
+        
+    def item_at_path(self, a_path):
+        return self._path_eval(a_path, True, False)
     
     def items_at_path(self, a_path):
-        if a_path == "":
-            raise ValueError("Items not found: path results in single item, not multiple items")
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
-        
-        if len(pth) == 1:
-            # leaf
-            if attr == "items":
-                if pred is None:
-                    return self.items
-                else:
-                    raise ValueError("Items not found: path results in a single item, not multiple items")
-            else:
-                raise ValueError(f"Items not found: expected 'items' at Cluster but got \'{attr}\'")
-        else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "items":
-                if pred is None:
-                    raise ValueError(f"Invalid path: path was ambiguous as no specific item in the cluster was given")
-                else:
-                    if pred in self._items_dict:
-                        return self._items_dict[pred].items_at_path(next_pth)
-                    else:
-                        raise ValueError("Items not found: no item with given archetype_node_id was present in Cluster")
-            else:
-                raise ValueError(f"Items not found: expected 'items' at Cluster but got \'{attr}\'")
+        return self._path_eval(a_path, False, False)
     
     def path_exists(self, a_path):
-        if a_path == "":
-            return True
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
-        
-        if len(pth) == 1:
-            # leaf
-            if attr == "items":
-                if pred is None:
-                    return True
-                else:
-                    return (pred in self._items_dict)
-            else:
-                return False
-        else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "items":
-                if pred is None:
-                    return False
-                else:
-                    if pred in self._items_dict:
-                        return self._items_dict[pred].path_exists(next_pth)
-                    else:
-                        return False
-            else:
-                return False
+        return self._path_eval(a_path, None, True)
     
     def path_unique(self, a_path):
-        if a_path == "":
+        try:
+            self.item_at_path(a_path)
             return True
-        pth = a_path.split("/")
-
-        current_node = pth[0]
-        current_node_split = current_node.replace("]", "").split("[")
-
-        attr = current_node_split[0]
-        pred = None
-        if len(current_node_split) > 1:
-            pred = current_node_split[1]
-        
-        if len(pth) == 1:
-            # leaf
-            if attr == "items":
-                if pred is None:
-                    return False
-                else:
-                    return True
-            else:
-                return False
-        else:
-            # not leaf
-            next_pth = "/".join(pth[1:])
-            if attr == "items":
-                if pred is None:
-                    return False
-                else:
-                    if pred in self._items_dict:
-                        return self._items_dict[pred].path_unique(next_pth)
-                    else:
-                        return True
-            else:
-                return False
-            
+        except (ValueError):
+            return False
+         
     def as_json(self):
         draft = super().as_json()
         draft["items"] = [item.as_json() for item in self.items]

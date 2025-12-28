@@ -7,7 +7,7 @@ from pyehr.core.rm.data_types.text import DVText, DVCodedText, CodePhrase
 from pyehr.core.rm.data_types.quantity import DVProportion, ProportionKind, DVQuantity
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_structures.representation import Element, Cluster
-from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemList, ItemTable
+from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemList, ItemTable, ItemTree
 
 
 t = DVDateTime("2025-11-25T23:28:00Z")
@@ -262,3 +262,88 @@ def test_item_table_item_at_path():
     assert is_equal_value(itbl.item_at_path("rows[0]/items[at0021]/value"), ev)
     assert is_equal_value(itbl.item_at_path("rows[1]"), row1)
     assert is_equal_value(itbl.item_at_path(""), itbl)
+
+val0 = DVCodedText("Serum (substance)", CodePhrase(TerminologyID("SNOMED-CT"), "67922002"))
+
+it0 = Element(
+    name=DVText("sample"),
+    archetype_node_id="at0010",
+    value=val0
+    )
+
+
+it1el0 = Element(
+    name=DVText("total cholestrol"),
+    archetype_node_id="at0020",
+    value=DVQuantity(6.1, "mmol/L")
+)
+
+it1el1 = Element(
+            name=DVText("HDL cholestrol"),
+            archetype_node_id="at0021",
+            value=DVQuantity(0.9, "mmol/L")
+        )
+
+it1el2 = Element(
+            name=DVText("LDL cholestrol"),
+            archetype_node_id="at0022",
+            value=DVQuantity(5.2, "mmol/L")
+        )
+
+it1 = Cluster(
+    name=DVText("lipid studies"),
+    archetype_node_id="at0011",
+    items=[
+        it1el0,
+        it1el1,
+        it1el2
+    ]
+)
+
+it2 = Element(
+    name=DVText("comment"),
+    archetype_node_id="at0012",
+    value=DVText("xxxx")
+)
+
+itr = ItemTree(
+    name=DVText("Biochemistry Result"),
+    archetype_node_id="at0002",
+    items=[
+        it0,
+        it1,
+        it2
+    ]
+)
+
+def test_item_tree_has_element_path():
+    assert itr.has_element_path("items[at0010]") == True
+    assert itr.has_element_path("items[at0010]/value") == False
+    assert itr.has_element_path("items[1]/items[at0022]") == True
+    assert itr.has_element_path("items[at0011]") == False
+    assert itr.has_element_path("items[at0011]/items") == False
+
+def test_item_tree_element_at_path():
+    assert is_equal_value(itr.element_at_path("items[at0010]"), it0)
+    assert is_equal_value(itr.element_at_path("items[1]/items[at0020]"), it1el0)
+    with pytest.raises(ValueError):
+        itr.element_at_path("items[at0010]/value")
+    with pytest.raises(ValueError):
+        itr.element_at_path("items[at0011]")
+
+def test_item_tree_as_hierarchy():
+    assert is_equal_value(itr.as_hierarchy(), Cluster(name=DVText("Biochemistry Result"), archetype_node_id="at0002", items=[it0, it1, it2]))
+
+def test_item_tree_item_at_path():
+    assert is_equal_value(itr.item_at_path(""), itr)
+    assert is_equal_value(itr.item_at_path("items[0]"), it0)
+    assert is_equal_value(itr.item_at_path("items[at0010]/value"), val0)
+    assert is_equal_value(itr.item_at_path("items[1]/items[0]"), it1el0)
+    with pytest.raises(ValueError):
+        itr.item_at_path("items")
+    with pytest.raises(IndexError):
+        itr.item_at_path("items[4]")
+
+def test_item_tree_items_at_path():
+    assert is_equal_value(itr.items_at_path("items"), [it0, it1, it2])
+    assert is_equal_value(itr.items_at_path("items[1]/items"), [it1el0, it1el1, it1el2])

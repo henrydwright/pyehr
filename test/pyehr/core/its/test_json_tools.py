@@ -32,7 +32,7 @@ from pyehr.core.rm.common.change_control import OriginalVersion, ImportedVersion
 from pyehr.core.rm.common.directory import Folder
 
 from pyehr.core.rm.data_structures.representation import Cluster, Element
-from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemList, ItemTable
+from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemList, ItemTable, ItemTree
 
 from pyehr.core.rm.ehr.ehr import EHR
 
@@ -729,7 +729,61 @@ def test_its_json_rm_data_structures_item_list():
     
     validate(t_itl)
 
-# TODO: item_tree
+def test_its_json_rm_data_structures_item_tree():
+    val0 = DVCodedText("Serum (substance)", CodePhrase(TerminologyID("SNOMED-CT"), "67922002"))
+
+    it0 = Element(
+        name=DVText("sample"),
+        archetype_node_id="at0010",
+        value=val0
+        )
+
+
+    it1el0 = Element(
+        name=DVText("total cholestrol"),
+        archetype_node_id="at0020",
+        value=DVQuantity(6.1, "mmol/L")
+    )
+
+    it1el1 = Element(
+                name=DVText("HDL cholestrol"),
+                archetype_node_id="at0021",
+                value=DVQuantity(0.9, "mmol/L")
+            )
+
+    it1el2 = Element(
+                name=DVText("LDL cholestrol"),
+                archetype_node_id="at0022",
+                value=DVQuantity(5.2, "mmol/L")
+            )
+
+    it1 = Cluster(
+        name=DVText("lipid studies"),
+        archetype_node_id="at0011",
+        items=[
+            it1el0,
+            it1el1,
+            it1el2
+        ]
+    )
+
+    it2 = Element(
+        name=DVText("comment"),
+        archetype_node_id="at0012",
+        value=DVText("xxxx")
+    )
+
+    t_itr = ItemTree(
+        name=DVText("Biochemistry Result"),
+        archetype_node_id="at0002",
+        items=[
+            it0,
+            it1,
+            it2
+        ]
+    ).as_json()
+
+    validate(t_itr)
 
 # TODO: history
 

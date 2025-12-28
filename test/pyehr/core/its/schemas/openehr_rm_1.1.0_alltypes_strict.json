@@ -223,6 +223,9 @@
                     "$ref": "#/definitions/ITEM_LIST"
                 },
                 {
+                    "$ref": "#/definitions/ITEM_TREE"
+                },
+                {
                     "$ref": "#/definitions/ELEMENT"
                 },
                 {
