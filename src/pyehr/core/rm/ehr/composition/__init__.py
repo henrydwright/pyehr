@@ -118,7 +118,7 @@ class Composition(Locatable):
             if single_item:
                 return self
             else:
-                raise ValueError("Items not found: reached single item (ITEM_TREE)")
+                raise ValueError("Items not found: reached single item (COMPOSITION)")
 
         if path.current_node_attribute == "content":
            return self._path_resolve_item_list(path, self.content, single_item, check_only)

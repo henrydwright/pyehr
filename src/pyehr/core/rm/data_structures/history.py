@@ -327,57 +327,12 @@ class History[T : ItemStructure](DataStructure):
             if single_item:
                 return self
             else:
-                raise ValueError("Items not found: reached single item (ITEM_TREE)")
-        
-        ret_item = None
+                raise ValueError("Items not found: reached single item (HISTORY)")
 
         if path.current_node_attribute == "events":
-            if path.current_node_predicate_type is None:
-                ret_item = self.events
-            elif path.current_node_predicate_type == PyehrInternalPathPredicateType.POSITIONAL_PARAMETER:
-                ret_item = self.events[int(path.current_node_predicate)]
-            elif path.current_node_predicate_type == PyehrInternalPathPredicateType.ARCHETYPE_PATH:
-                matches = []
-                for event in self.events:
-                    if event.archetype_node_id == path.current_node_predicate:
-                        matches.append(event)
-                if len(matches) == 0:
-                    ret_item = None
-                elif len(matches) == 1:
-                    ret_item = matches[0]
-                else:
-                    ret_item = matches
-
-            if path.remaining_path is None:
-                if check_only:
-                    return (ret_item is not None)
-                if single_item:
-                    if ret_item is not None and not isinstance(ret_item, list):
-                        return ret_item
-                    else:
-                        raise ValueError("Item not found: multiple items returned by query.")
-                else:
-                    if isinstance(ret_item, list):
-                        return ret_item
-                    else:
-                        raise ValueError("Items not found: single item returned by query")
-            else:
-                if isinstance(ret_item, list):
-                    raise ValueError("Path invalid: ambiguous intermediate path step containing multiple items")
-                else:
-                    if check_only:
-                        return ret_item.path_exists(path.remaining_path)
-                    if single_item:
-                        return ret_item.item_at_path(path.remaining_path)
-                    else:
-                        return ret_item.items_at_path(path.remaining_path)
+            return self._path_resolve_item_list(path, self.events, single_item, check_only)
         elif path.current_node_attribute == "summary":
-            if check_only:
-                return self.summary.path_exists(path.remaining_path if path.remaining_path is not None else "")
-            if single_item:
-                return self.summary.item_at_path(path.remaining_path if path.remaining_path is not None else "")
-            else:
-                return self.summary.items_at_path(path.remaining_path if path.remaining_path is not None else "")
+            return self._path_resolve_single(path, self.summary, single_item, check_only)
         else:
             if check_only:
                 return False
