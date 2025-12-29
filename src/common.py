@@ -961,6 +961,12 @@ GROUPLIST_OPENEHR_EVENT_MATH_FUNCTION = [
     CodePhrase(TERMINOLOGYID_OPENEHR, "522", "increase"),
     CodePhrase(TERMINOLOGYID_OPENEHR, "640", "actual")
 ]
+GROUPLIST_OPENEHR_COMPOSITION_CATEGORY = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "431", "persistent"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "451", "episodic"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "433", "event"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "815", "report"),
+]
 
 CODESET_OPENEHR_CHARACTER_SETS = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_CHARACTER_SETS.name(), "en", CODELIST_OPENEHR_CHARACTER_SETS)
 CODESET_OPENEHR_COUNTRIES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_COUNTRIES.name(), "en", CODELIST_OPENEHR_COUNTRIES)
@@ -979,5 +985,6 @@ TERMINOLOGY_OPENEHR = DictTerminologyAccess("openehr", "en", {
     ("attestation_reason", "attestation reason"): GROUPLIST_OPENEHR_ATTESTATION_REASON,
     ("version_lifecycle_state", "version lifecycle state"): GROUPLIST_OPENEHR_VERSION_LIFECYCLE_STATE,
     ("null_flavours", "null flavours"): GROUPLIST_OPENEHR_NULL_FLAVOURS,
-    ("event_math_function", "event math function"): GROUPLIST_OPENEHR_EVENT_MATH_FUNCTION
+    ("event_math_function", "event math function"): GROUPLIST_OPENEHR_EVENT_MATH_FUNCTION,
+    ("composition_category", "composition category"): GROUPLIST_OPENEHR_COMPOSITION_CATEGORY
 })

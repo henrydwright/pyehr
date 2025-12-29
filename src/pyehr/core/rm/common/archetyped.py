@@ -148,6 +148,14 @@ class Pathable(AnyClass):
     def as_json(self):
         pass
 
+    def _path_resolve_single(self, path: PyehrInternalProcessedPath, item: 'Pathable', single_item: bool, check_only: bool):
+        if check_only:
+            return item.path_exists(path.remaining_path if path.remaining_path is not None else "")
+        if single_item:
+            return item.item_at_path(path.remaining_path if path.remaining_path is not None else "")
+        else:
+            return item.items_at_path(path.remaining_path if path.remaining_path is not None else "")
+
 class FeederAuditDetails(AnyClass):
     """Audit details for any system in a feeder system chain. Audit details here means the general notion 
     of who/where/when the information item to which the audit is attached was created. None of the 
@@ -535,3 +543,46 @@ class Locatable(Pathable):
             
     def parent(self):
         return self._parent
+    
+    def _path_resolve_item_list(self, path: PyehrInternalProcessedPath, search_list: list['Locatable'], single_item: bool, check_only: bool):
+        ret_item = None
+        if path.current_node_predicate_type is None:
+            ret_item = search_list
+        elif path.current_node_predicate_type == PyehrInternalPathPredicateType.POSITIONAL_PARAMETER:
+            ret_item = search_list[int(path.current_node_predicate)]
+        elif path.current_node_predicate_type == PyehrInternalPathPredicateType.ARCHETYPE_PATH:
+            matches = []
+            for item in search_list:
+                if item.archetype_node_id == path.current_node_predicate:
+                    matches.append(item)
+            if len(matches) == 0:
+                ret_item = None
+            elif len(matches) == 1:
+                ret_item = matches[0]
+            else:
+                ret_item = matches
+
+        if path.remaining_path is None:
+            if check_only:
+                return (ret_item is not None)
+            if single_item:
+                if ret_item is not None and not isinstance(ret_item, list):
+                    return ret_item
+                else:
+                    raise ValueError("Item not found: multiple items returned by query.")
+            else:
+                if isinstance(ret_item, list):
+                    return ret_item
+                else:
+                    raise ValueError("Items not found: single item returned by query")
+        else:
+            if isinstance(ret_item, list):
+                raise ValueError("Path invalid: ambiguous intermediate path step containing multiple items")
+            else:
+                if check_only:
+                    return ret_item.path_exists(path.remaining_path)
+                if single_item:
+                    return ret_item.item_at_path(path.remaining_path)
+                else:
+                    return ret_item.items_at_path(path.remaining_path)
+        
