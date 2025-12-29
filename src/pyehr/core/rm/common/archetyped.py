@@ -99,14 +99,20 @@ class Pathable(AnyClass):
     The parent feature is defined as abstract in the model, and may be implemented in 
     any way convenient."""
 
-    @abstractmethod
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    _parent: Optional['Pathable']
+    """Parent PATHABLE object of this PATHABLE or None if root-level"""
+
+    _parent_container_attribute_name: Optional[str]
+    """The attribute within which this PATHABLE is stored in its parent (e.g. 'folders' for a sub-folder in a folder)"""
 
     @abstractmethod
-    def parent(self) -> 'Pathable':
-        """Parent of this node in a compositional hierarchy."""
-        pass
+    def __init__(self, 
+                 parent: Optional['Pathable'] = None,
+                 parent_container_attribute_name: Optional[str] = None,
+                 **kwargs):
+        self._parent = parent
+        self._parent_container_attribute_name = parent_container_attribute_name
+        super().__init__(**kwargs)
 
     @abstractmethod
     def item_at_path(self, a_path: str) -> AnyClass:
@@ -131,11 +137,25 @@ class Pathable(AnyClass):
         """True if the path corresponds to a single item in the data."""
         pass
 
-    @abstractmethod
     def path_of_item(self) -> str:
         """The path to an item relative to the root of this archetyped 
         structure."""
-        pass
+        # TODO: removed the argument as not sure if spec is correct, may need to 
+        #        fix this later if the spec was right
+        if self.parent() is None:
+            return "/"
+        else:
+            parent_path = self.parent().path_of_item()
+            plural = (self._parent_container_attribute_name[-1:] == "s")
+            pred = f"[{self.archetype_node_id}]" if plural else ""
+            if parent_path == "/":
+                return parent_path + f"{self._parent_container_attribute_name}{pred}"
+            else:
+                return parent_path + f"/{self._parent_container_attribute_name}{pred}"
+            
+    def parent(self) -> 'Pathable':
+        """Parent of this node in a compositional hierarchy."""
+        return self._parent
 
     def _root_node(self) -> 'Pathable':
         """Get the root node at the top of this pathable structure"""
@@ -477,10 +497,7 @@ class Locatable(Pathable):
         self.archetype_details = archetype_details
         self.feeder_audit = feeder_audit
 
-        self._parent = parent
-        self._parent_container_attribute_name = parent_container_attribute_name
-
-        super().__init__(**kwargs)
+        super().__init__(parent, parent_container_attribute_name, **kwargs)
 
     def concept(self) -> DVText:
         """Clinical concept of the archetype as a whole (= derived from the `archetype_node_id` 
@@ -526,23 +543,6 @@ class Locatable(Pathable):
             is_equal_value(self.archetype_details, other.archetype_details) and
             is_equal_value(self.feeder_audit, other.feeder_audit)
         )
-        
-    def path_of_item(self):
-        # TODO: removed the argument as not sure if spec is correct, may need to 
-        #        fix this later if the spec was right
-        if self.parent() is None:
-            return "/"
-        else:
-            parent_path = self.parent().path_of_item()
-            plural = (self._parent_container_attribute_name[-1:] == "s")
-            pred = f"[{self.archetype_node_id}]" if plural else ""
-            if parent_path == "/":
-                return parent_path + f"{self._parent_container_attribute_name}{pred}"
-            else:
-                return parent_path + f"/{self._parent_container_attribute_name}{pred}"
-            
-    def parent(self):
-        return self._parent
     
     def _path_resolve_item_list(self, path: PyehrInternalProcessedPath, search_list: list['Locatable'], single_item: bool, check_only: bool):
         ret_item = None

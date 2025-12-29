@@ -4,9 +4,10 @@ from common import CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_LANGUAGES, TERMINO
 from pyehr.core.base.base_types.identification import ArchetypeID, TerminologyID
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.common.archetyped import Archetyped
-from pyehr.core.rm.common.generic import PartyIdentified, PartyProxy
+from pyehr.core.rm.common.generic import Participation, PartyIdentified, PartyProxy
+from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
-from pyehr.core.rm.ehr.composition import Composition
+from pyehr.core.rm.ehr.composition import Composition, EventContext
 from pyehr.core.rm.ehr.composition.content import ContentItem
 from pyehr.core.rm.ehr.composition.content.navigation import Section
 
@@ -131,3 +132,52 @@ def test_composition_items_at_path():
         c.items_at_path("rows")
     with pytest.raises(ValueError):
         c.items_at_path("content[2]")
+
+ec = EventContext(
+    start_time=DVDateTime("2025-12-29"),
+    setting=DVCodedText("home", CodePhrase(TerminologyID("openehr"), "225")),
+    terminology_service=test_ts
+)
+
+def test_event_context_setting_valid():
+    with pytest.raises(ValueError):
+        EventContext(
+            start_time=DVDateTime("2025-12-29"),
+            setting=DVCodedText("mobilehome", CodePhrase(TerminologyID("openehr"), "225a")),
+            terminology_service=test_ts
+        )
+
+def test_event_context_participations_validity():
+    # OK - participation list
+    ec = EventContext(
+        start_time=DVDateTime("2025-12-29"),
+        setting=DVCodedText("home", CodePhrase(TerminologyID("openehr"), "225")),
+        terminology_service=test_ts,
+        participations=[Participation(DVText("observer"), PartyIdentified(name="Miss M Student"))]
+    )
+    # NOT OK - empty list
+    with pytest.raises(ValueError):
+        ec = EventContext(
+            start_time=DVDateTime("2025-12-29"),
+            setting=DVCodedText("home", CodePhrase(TerminologyID("openehr"), "225")),
+            terminology_service=test_ts,
+            participations=[]
+        )
+
+def test_event_context_location_valid():
+    # OK - location present but filled
+    ec = EventContext(
+        start_time=DVDateTime("2025-12-29"),
+        setting=DVCodedText("home", CodePhrase(TerminologyID("openehr"), "225")),
+        terminology_service=test_ts,
+        location="45 Example Street, Somewhereville, RG99 2BA"
+    )
+    # NOT OK - location empty
+    with pytest.raises(ValueError):
+        ec = EventContext(
+            start_time=DVDateTime("2025-12-29"),
+            setting=DVCodedText("home", CodePhrase(TerminologyID("openehr"), "225")),
+            terminology_service=test_ts,
+            location=""
+        )
+

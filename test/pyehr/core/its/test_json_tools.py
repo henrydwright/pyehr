@@ -4,7 +4,7 @@ import json
 import jsonschema
 import numpy as np
 
-from common import PythonTerminologyService, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR
+from common import CODESET_OPENEHR_COUNTRIES, PythonTerminologyService, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR
 
 from pyehr.core.base.foundation_types.time import ISODate, ISOTime, ISODuration, ISODateTime
 from pyehr.core.base.foundation_types.interval import PointInterval, ProperInterval, MultiplicityInterval
@@ -25,6 +25,8 @@ from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVTime, DVDurati
 from pyehr.core.rm.data_types.encapsulated import DVParsable, DVMultimedia
 from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecification, DVPeriodicTimeSpecification
 
+from pyehr.core.rm.ehr.composition import Composition, EventContext
+from pyehr.core.rm.ehr.composition.content.navigation import Section
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
 from pyehr.core.rm.common.archetyped import FeederAudit, FeederAuditDetails, Link, Archetyped
@@ -40,7 +42,7 @@ from pyehr.core.rm.ehr.ehr import EHR
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
 
-test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES], [TERMINOLOGY_OPENEHR])
+test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES], [TERMINOLOGY_OPENEHR])
 
 def validate(json_obj):
     _schema = json.loads(open("test/pyehr/core/its/schemas/openehr_rm_1.1.0_alltypes_strict.json").read())
@@ -913,3 +915,56 @@ def test_its_json_rm_ehr_ehr():
     ).as_json()
 
     validate(t_ehr)
+
+# ==========
+# RM.ehr.composition: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Composition
+
+# TODO: ISM_TRANSACTION
+
+# TODO: INSTRUCTION
+
+# TODO: ADMIN_ENTRY
+
+# TODO: ACTIVITY
+
+def test_its_json_rm_ehr_composition():
+    t_c = Composition(
+        name=DVText("GP appointment - 29th Dec 2025"),
+        archetype_node_id="openEHR-EHR-COMPOSITION.gp_appointment.v0",
+        language=CodePhrase(TerminologyID("ISO_639-1"), "en-gb"),
+        territory=CodePhrase(TerminologyID("ISO_3166-1"), "GB"),
+        category=DVCodedText("episodic", CodePhrase(TerminologyID("openehr"), "451")),
+        composer=PartyIdentified(name="Dr Test General-Practitioner"),
+        archetype_details=Archetyped(ArchetypeID("openEHR-EHR-COMPOSITION.gp_appointment.v0"), "1.1.0"),
+        terminology_service=test_ts
+    ).as_json()
+
+    validate(t_c)
+
+# TODO: INSTRUCTION_DETAILS
+
+# TODO: EVALUATION
+
+# TODO: GENERIC_ENTRY
+
+def test_its_json_rm_ehr_composition_event_context():
+    t_ec = EventContext(
+        start_time=DVDateTime("2025-12-29"),
+        setting=DVCodedText("home", CodePhrase(TerminologyID("openehr"), "225")),
+        terminology_service=test_ts,
+        participations=[Participation(DVText("observer"), PartyIdentified(name="Miss M Student"))]
+    ).as_json()
+
+    validate(t_ec)
+
+def test_its_json_rm_ehr_composition_section():
+    t_s = Section(
+        name=DVText("subjective"),
+        archetype_node_id="at0011"
+    ).as_json()
+
+    validate(t_s)
+
+# TODO: OBSERVATION
+
+# TODO: ACTION

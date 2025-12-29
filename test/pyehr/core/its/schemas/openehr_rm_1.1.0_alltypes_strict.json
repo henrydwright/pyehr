@@ -242,6 +242,15 @@
                 },
                 {
                     "$ref": "#/definitions/EHR"
+                },
+                {
+                    "$ref": "#/definitions/COMPOSITION"
+                },
+                {
+                    "$ref": "#/definitions/EVENT_CONTEXT"
+                },
+                {
+                    "$ref": "#/definitions/SECTION"
                 }
             ]
         }

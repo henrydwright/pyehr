@@ -967,6 +967,22 @@ GROUPLIST_OPENEHR_COMPOSITION_CATEGORY = [
     CodePhrase(TERMINOLOGYID_OPENEHR, "433", "event"),
     CodePhrase(TERMINOLOGYID_OPENEHR, "815", "report"),
 ]
+GROUPLIST_OPENEHR_SETTING = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "225", "home"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "227", "emergency care"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "228", "primary medical care"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "229", "primary nursing care"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "230", "primary allied health care"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "231", "midwifery care"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "232", "secondary medical care"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "233", "secondary nursing care"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "234", "secondary allied health care"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "235", "complementary health care"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "236", "dental care"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "237", "nursing home care"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "802", "mental healthcare"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "238", "other care"),
+]
 
 CODESET_OPENEHR_CHARACTER_SETS = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_CHARACTER_SETS.name(), "en", CODELIST_OPENEHR_CHARACTER_SETS)
 CODESET_OPENEHR_COUNTRIES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_COUNTRIES.name(), "en", CODELIST_OPENEHR_COUNTRIES)
@@ -986,5 +1002,6 @@ TERMINOLOGY_OPENEHR = DictTerminologyAccess("openehr", "en", {
     ("version_lifecycle_state", "version lifecycle state"): GROUPLIST_OPENEHR_VERSION_LIFECYCLE_STATE,
     ("null_flavours", "null flavours"): GROUPLIST_OPENEHR_NULL_FLAVOURS,
     ("event_math_function", "event math function"): GROUPLIST_OPENEHR_EVENT_MATH_FUNCTION,
-    ("composition_category", "composition category"): GROUPLIST_OPENEHR_COMPOSITION_CATEGORY
+    ("composition_category", "composition category"): GROUPLIST_OPENEHR_COMPOSITION_CATEGORY,
+    ("setting", "setting"): GROUPLIST_OPENEHR_SETTING
 })
