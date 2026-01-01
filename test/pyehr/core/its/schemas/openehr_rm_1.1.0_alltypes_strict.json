@@ -250,6 +250,9 @@
                     "$ref": "#/definitions/COMPOSITION"
                 },
                 {
+                    "$ref": "#/definitions/EVALUATION"
+                },
+                {
                     "$ref": "#/definitions/EVENT_CONTEXT"
                 },
                 {

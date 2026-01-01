@@ -26,7 +26,7 @@ from pyehr.core.rm.data_types.encapsulated import DVParsable, DVMultimedia
 from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecification, DVPeriodicTimeSpecification
 
 from pyehr.core.rm.ehr.composition import Composition, EventContext
-from pyehr.core.rm.ehr.composition.content.entry import AdminEntry, Observation
+from pyehr.core.rm.ehr.composition.content.entry import AdminEntry, Evaluation, Observation
 from pyehr.core.rm.ehr.composition.content.navigation import Section
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
@@ -983,7 +983,29 @@ def test_its_json_rm_ehr_composition():
 
 # TODO: INSTRUCTION_DETAILS
 
-# TODO: EVALUATION
+def test_its_json_rm_ehr_composition_evaluation():
+    t_ev = Evaluation(
+        name=DVText("Tobacco smoking summary"),
+        archetype_node_id="openEHR-EHR-EVALUATION.tobacco_smoking_summary.v1",
+        archetype_details=Archetyped(ArchetypeID("openEHR-EHR-EVALUATION.tobacco_smoking_summary.v1"), "1.1.0"),
+        language=CodePhrase(TerminologyID("ISO_639-1"), "en-gb"),
+        encoding=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
+        subject=PartySelf(),
+        data=ItemTree(
+            DVText("Tree"),
+            archetype_node_id="at0001",
+            items=[
+                Element(
+                    name=DVText("Overall status"),
+                    archetype_node_id="at0089",
+                    value=DVCodedText("Never smoked", CodePhrase(TerminologyID("local"), "at0006"))
+                )
+            ]
+        ),
+        terminology_service=test_ts
+    ).as_json()
+
+    validate(t_ev)
 
 # TODO: GENERIC_ENTRY
 
