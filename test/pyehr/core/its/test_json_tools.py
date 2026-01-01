@@ -26,6 +26,7 @@ from pyehr.core.rm.data_types.encapsulated import DVParsable, DVMultimedia
 from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecification, DVPeriodicTimeSpecification
 
 from pyehr.core.rm.ehr.composition import Composition, EventContext
+from pyehr.core.rm.ehr.composition.content.entry import AdminEntry
 from pyehr.core.rm.ehr.composition.content.navigation import Section
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
@@ -923,7 +924,46 @@ def test_its_json_rm_ehr_ehr():
 
 # TODO: INSTRUCTION
 
-# TODO: ADMIN_ENTRY
+def test_its_json_rm_ehr_composition_admin_entry():
+    it0 = Element(
+                name=DVText("hospital provider spell identifier"),
+                archetype_node_id="at0011",
+                value=DVIdentifier("AA-000-000-000")
+            )
+
+    it_lst = ItemList(
+            name=DVText("admission characteristics"),
+            archetype_node_id="at0001",
+            items=[
+                it0,
+                Element(
+                    name=DVText("administrative category code (on admission)"),
+                    archetype_node_id="at0012",
+                    value=DVCodedText("NHS PATIENT, including Overseas Visitors charged under the National Health Service (Overseas Visitors Hospital Charging Regulations)", CodePhrase(TerminologyID("NHS_NATIONAL_ADMINISTRATIVE_CATEGORY_CODE"), "01"))
+                ),
+                Element(
+                    name=DVText("patient classification code"),
+                    archetype_node_id="at0013",
+                    value=DVCodedText("Ordinary admission", CodePhrase(TerminologyID("NHS_NATIONAL_PATIENT_CLASSIFICATION_CODE"), "1"))
+                )
+            ]
+        )
+
+    t_ae = AdminEntry(
+        name=DVText("Admission 30/12/2025"),
+        archetype_node_id="openEHR-EHR-ADMIN_ENTRY.cds_admission.v0",
+        archetype_details=Archetyped(ArchetypeID("openEHR-EHR-ADMIN_ENTRY.cds_admission.v0"), "1.1.0"),
+        language=CodePhrase(TerminologyID("ISO_639-1"), "en-gb", "English (United Kingdom)"),
+        encoding=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
+        subject=PartySelf(),
+        data=it_lst,
+        terminology_service=test_ts,
+        other_participations=[
+            Participation(DVText("observer"), PartyIdentified(name="Miss M Student"))
+        ]
+    ).as_json()
+
+    validate(t_ae)
 
 # TODO: ACTIVITY
 
