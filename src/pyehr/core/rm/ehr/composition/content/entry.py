@@ -212,3 +212,59 @@ class AdminEntry(Entry):
     def is_equal(self, other):
         return (super().is_equal(other) and
                 is_equal_value(self.data, other.data))
+    
+class CareEntry(Entry):
+    """The abstract parent of all clinical ENTRY subtypes. A CARE_ENTRY defines 
+    protocol and guideline attributes for all clinical Entry subtypes."""
+
+    protocol: Optional[ItemStructure]
+    """Description of the method (i.e. how) the information in this entry was 
+    arrived at. For `OBSERVATIONs`, this is a description of the method or 
+    instrument used. For `EVALUATIONs`, how the evaluation was arrived at. 
+    For `INSTRUCTIONs`, how to execute the Instruction. This may take the 
+    form of references to guidelines, including manually followed and executable;
+    knowledge references such as a paper in Medline; clinical reasons within a 
+    larger care process."""
+
+    guideline_id: Optional[ObjectRef]
+    """Optional external identifier of guideline creating this Entry if relevant."""
+
+    @abstractmethod
+    def __init__(self, 
+        name: DVText, 
+        archetype_node_id: str,
+        language: CodePhrase,
+        encoding: CodePhrase,
+        subject: PartyProxy,
+        archetype_details : Archetyped,
+        terminology_service: TerminologyService,
+        protocol: Optional[ItemStructure] = None,
+        guideline_id: Optional[ObjectRef] = None,
+        other_participations : Optional[list[Participation]] = None,
+        workflow_id : Optional[ObjectRef] = None,
+        provider: Optional[PartyProxy] = None, 
+        uid : Optional[UIDBasedID] = None, 
+        links : Optional[list[Link]] = None,  
+        feeder_audit : Optional[FeederAudit] = None,
+        parent: Optional[Pathable] = None,
+        parent_container_attribute_name: Optional[str] = None,
+        **kwargs):
+        self.protocol = protocol
+        self.guideline_id = guideline_id
+        super().__init__(name, archetype_node_id, language, encoding, subject, archetype_details, terminology_service, other_participations, workflow_id, provider, uid, links, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    @abstractmethod
+    def as_json(self):
+        draft = super().as_json()
+        if self.protocol is not None:
+            draft["protocol"] = self.protocol.as_json()
+        if self.guideline_id is not None:
+            draft["guideline_id"] = self.guideline_id.as_json()
+        return draft
+    
+    @abstractmethod
+    def is_equal(self, other):
+        return (super().is_equal(other) and
+                is_equal_value(self.protocol, other.protocol) and
+                is_equal_value(self.guideline_id, other.guideline_id))
+    
