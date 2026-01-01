@@ -28,6 +28,7 @@ from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecificati
 from pyehr.core.rm.composition import Composition, EventContext
 from pyehr.core.rm.composition.content.entry import Action, Activity, AdminEntry, Evaluation, ISMTransition, Instruction, InstructionDetails, Observation
 from pyehr.core.rm.composition.content.navigation import Section
+from pyehr.core.rm.demographic import Address, Contact, PartyIdentity
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
 from pyehr.core.rm.common.archetyped import FeederAudit, FeederAuditDetails, Link, Archetyped
@@ -1210,3 +1211,82 @@ def test_its_json_rm_composition_action():
     ).as_json()
 
     validate(t_act)
+
+# ==========
+# RM.demographic: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Demographic
+
+# TODO: GROUP
+
+def test_its_json_rm_demographic_party_identity():
+    pur = DVCodedText(
+        value="Official",
+        defining_code=CodePhrase(
+            terminology_id=TerminologyID("FHIR-R4-name-use"),
+            code_string="official"
+        )
+    )
+    det = ItemTree(
+            name=DVText("tree"),
+            archetype_node_id="at0003",
+            items=[]
+        )
+    t_pi = PartyIdentity(
+        purpose=pur,
+        archetype_node_id="at0002",
+        details=det
+    ).as_json()
+
+    validate(t_pi)
+
+# TODO: PERSON
+
+# TODO: AGENT
+
+# TODO: ROLE
+
+def test_its_json_rm_demographic_contact():
+    t_cont = Contact(
+        purpose=DVText("address"),
+        archetype_node_id="at0001",
+        addresses=[
+            Address(
+                addr_type=DVCodedText("Home", CodePhrase("FHIR-R4-address-use", "home")),
+                archetype_node_id="at0011",
+                details=ItemSingle(
+                    name=DVText("item"),
+                    archetype_node_id="at0012",
+                    item=Element(
+                        name=DVText("postal address"),
+                        archetype_node_id="at0013",
+                        value=DVText("12 Example Way, Anytown, AT1 4BA")
+                    )
+                )
+            )
+        ]
+    ).as_json()
+
+    validate(t_cont)
+
+# TODO: ORGANISATION
+
+# TODO: PARTY_RELATIONSHIP
+
+def test_its_json_rm_demographic_address():
+    t_addr = Address(
+        addr_type=DVCodedText("Home", CodePhrase("FHIR-R4-address-use", "home")),
+        archetype_node_id="at0011",
+        details=ItemSingle(
+            name=DVText("item"),
+            archetype_node_id="at0012",
+            item=Element(
+                name=DVText("postal address"),
+                archetype_node_id="at0013",
+                value=DVText("12 Example Way, Anytown, AT1 4BA")
+            )
+        )
+    ).as_json()
+
+    validate(t_addr)
+    
+
+# TODO: CAPABILITY

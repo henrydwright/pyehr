@@ -275,6 +275,15 @@
                 },
                 {
                     "$ref": "#/definitions/ACTION"
+                },
+                {
+                    "$ref": "#/definitions/PARTY_IDENTITY"
+                },
+                {
+                    "$ref": "#/definitions/CONTACT"
+                },
+                {
+                    "$ref": "#/definitions/ADDRESS"
                 }
             ]
         }
