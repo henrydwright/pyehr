@@ -1,9 +1,9 @@
 """Functions and classes for creating and reading OpenEHR JSON files"""
 
-from json import JSONEncoder
+from json import JSONEncoder, dumps
 from typing import Union, Optional
 
-from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef, ObjectVersionID, GenericID
+from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef, ObjectVersionID, GenericID, PartyRef
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.rm.common.generic import PartySelf
 from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID
@@ -20,7 +20,11 @@ _type_map = {
     "DV_DATE_TIME": DVDateTime,
     "PARTY_SELF": PartySelf,
     "EHR": EHR,
-    "EHR_STATUS": EHRStatus
+    "EHR_STATUS": EHRStatus,
+    "ARCHETYPED": Archetyped,
+    "ARCHETYPE_ID": ArchetypeID,
+    "PARTY_REF": PartyRef,
+    "GENERIC_ID": GenericID
 }
 """Map of OpenEHR JSON '_type' attributes to pyehr.core types"""
 
@@ -49,7 +53,8 @@ def decode_json(json_obj: dict,
                 target: Optional[str] = None,
                 flag_allow_resolved_references: bool = True,
                 flag_ignore_missing_ehr_access_on_ehr: bool = True,
-                flag_ignore_missing_archetype_details_on_ehr_status: bool = True) -> Union[AnyClass, list[AnyClass]]:
+                flag_ignore_missing_archetype_details_on_ehr_status: bool = True,
+                flag_infer_missing_type_details: bool = True) -> Union[AnyClass, list[AnyClass]]:
     """Decodes Python objects (from JSON) to pyehr.core objects.
     
     :param target_type: (Optional) Set the target type to decode to explicitly. Overrides the '_type' parameter, if present.
@@ -65,11 +70,15 @@ def decode_json(json_obj: dict,
     :param flag_take_archetype_node_id_as_details_on_ehr_status: (Optional, default=True) The EHR_STATUS object should have archetype details
                                                                  attached as it is an archetype root (per specification invariances) but some
                                                                  implementations (e.g. EHRBase) just include archetype_node_id. This flag creates
-                                                                 a new ARCHETYPED with the contents of archetype_node_id"""
+                                                                 a new ARCHETYPED with the contents of archetype_node_id
+    :param flag_infer_missing_type_details: (Optional, default=True) If a '_type' parameter is missing, still try to decode using a target type
+                                                                     based on the JSON ITS schema."""
+
     if target is not None:
         target_type = target
     else:
         if '_type' not in json_obj:
+            print(dumps(json_obj))
             raise ValueError("Could not decode object: '_type' attribute not present")
         target_type = json_obj['_type']
     
@@ -87,7 +96,13 @@ def decode_json(json_obj: dict,
         if type(param) == str or type(param) == bool:
             arg_dict[param_name] = param
         elif type(param) == dict:
-            arg_dict[param_name] = decode_json(param)
+            type_hint = None
+            # TODO: replace this with proper hinting and lookups from the schema
+            if flag_infer_missing_type_details and target_type == "EHR_STATUS" and param_name == "archetype_details":
+                type_hint = "ARCHETYPED"
+            elif flag_infer_missing_type_details and target_type == "ARCHETYPED" and param_name == "archetype_id":
+                type_hint = "ARCHETYPE_ID"
+            arg_dict[param_name] = decode_json(param, target=type_hint)
         else:
             raise RuntimeError(f"Could not decode object: unknown type of parameter \'{type(param)}\' encountered during parsing")
         

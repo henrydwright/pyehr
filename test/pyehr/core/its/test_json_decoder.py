@@ -2,7 +2,7 @@ import pytest
 
 from pyehr.core.its.json_tools import decode_json
 
-from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef, ObjectVersionID, GenericID
+from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef, ObjectVersionID, GenericID, PartyRef
 from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID
 from pyehr.core.rm.common.generic import PartySelf
 from pyehr.core.rm.data_types.text import DVText, DVUri
@@ -67,4 +67,28 @@ def test_decode_json_rm_ehr_ehr_refs_resolved():
         ehr_status=ObjectRef("pyehr_decode_json", "VERSIONED_EHR_STATUS", GenericID("0", "list_index")),
         ehr_access=ObjectRef("null", "VERSIONED_EHR_ACCESS", HierObjectID("00000000-0000-0000-0000-000000000000")),
         time_created=DVDateTime("2025-12-06T16:53:48.006423Z")
+    ))
+
+def test_decode_json_rm_ehr_ehr_no_type_on_archetyped():
+    # this is the result of GET /ehr with an EHR_STATUS from pyehr
+    j_ehr_type_issue = {"system_id": {"_type": "HIER_OBJECT_ID", "value": "local.ehrbase.org"}, "ehr_id": {"_type": "HIER_OBJECT_ID", "value": "d8a78850-b4f4-4248-97be-0b1b93be9854"}, "ehr_status": {"uid": {"_type": "OBJECT_VERSION_ID", "value": "25fc9cec-f5fb-4c86-b6f4-d7462f1c6591::local.ehrbase.org::1"}, "archetype_node_id": "openEHR-EHR-EHR_STATUS.generic.v1", "name": {"_type": "DV_TEXT", "value": "EHR Status"}, "archetype_details": {"archetype_id": {"value": "openEHR-EHR-EHR_STATUS.generic.v1"}, "rm_version": "1.1.0"}, "subject": {"_type": "PARTY_SELF", "external_ref": {"_type": "PARTY_REF", "namespace": "nhs_pds", "type": "PERSON", "id": {"_type": "GENERIC_ID", "value": "9449306621", "scheme": "nhs_number"}}}, "is_queryable": True, "is_modifiable": True, "_type": "EHR_STATUS"}, "time_created": {"_type": "DV_DATE_TIME", "value": "2026-01-01T17:53:34.631485Z"}}
+
+    d_lst = decode_json(j_ehr_type_issue, target="EHR")
+    es = EHRStatus(
+        name=DVText("EHR Status"),
+        archetype_node_id="openEHR-EHR-EHR_STATUS.generic.v1",
+        uid=ObjectVersionID("25fc9cec-f5fb-4c86-b6f4-d7462f1c6591::local.ehrbase.org::1"),
+        subject=PartySelf(external_ref=PartyRef("nhs_pds", "PERSON", GenericID("9449306621", "nhs_number"))),
+        is_queryable=True,
+        is_modifiable=True,
+        archetype_details=Archetyped(archetype_id=ArchetypeID("openEHR-EHR-EHR_STATUS.generic.v1"), rm_version="1.1.0")
+    )
+    assert d_lst[0].is_equal(es)
+
+    assert d_lst[1].is_equal(EHR(
+        system_id=HierObjectID("local.ehrbase.org"),
+        ehr_id=HierObjectID("d8a78850-b4f4-4248-97be-0b1b93be9854"),
+        ehr_status=ObjectRef("pyehr_decode_json", "VERSIONED_EHR_STATUS", GenericID("0", "list_index")),
+        ehr_access=ObjectRef("null", "VERSIONED_EHR_ACCESS", HierObjectID("00000000-0000-0000-0000-000000000000")),
+        time_created=DVDateTime("2026-01-01T17:53:34.631485Z")
     ))
