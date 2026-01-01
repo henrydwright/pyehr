@@ -283,6 +283,9 @@
                     "$ref": "#/definitions/CONTACT"
                 },
                 {
+                    "$ref": "#/definitions/PARTY_RELATIONSHIP"
+                },
+                {
                     "$ref": "#/definitions/ADDRESS"
                 }
             ]

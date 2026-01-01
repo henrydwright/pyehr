@@ -28,7 +28,7 @@ from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecificati
 from pyehr.core.rm.composition import Composition, EventContext
 from pyehr.core.rm.composition.content.entry import Action, Activity, AdminEntry, Evaluation, ISMTransition, Instruction, InstructionDetails, Observation
 from pyehr.core.rm.composition.content.navigation import Section
-from pyehr.core.rm.demographic import Address, Contact, PartyIdentity
+from pyehr.core.rm.demographic import Address, Contact, PartyIdentity, PartyRelationship
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
 from pyehr.core.rm.common.archetyped import FeederAudit, FeederAuditDetails, Link, Archetyped
@@ -1269,7 +1269,26 @@ def test_its_json_rm_demographic_contact():
 
 # TODO: ORGANISATION
 
-# TODO: PARTY_RELATIONSHIP
+def test_its_json_rm_demographic_party_relationship():
+    t_pr = PartyRelationship(
+        rel_type=DVText("NHS employee of"),
+        archetype_node_id="at0001",
+        source=PartyRef("nhs_pds", "PERSON", GenericID("9449306583", "nhs_number")),
+        target=PartyRef("nhs_ods", "ORGANISATION", GenericID("X24", "ods_code")),
+        details=ItemTree(
+            name=DVText("tree"),
+            archetype_node_id="at0010",
+            items=[
+                Element(
+                    name=DVText("employment start date"),
+                    archetype_node_id="at0012",
+                    value=DVDate("2020-11-13")
+                )
+            ]
+        )
+    ).as_json()
+
+    validate(t_pr)
 
 def test_its_json_rm_demographic_address():
     t_addr = Address(
