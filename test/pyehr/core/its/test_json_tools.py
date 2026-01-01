@@ -26,7 +26,7 @@ from pyehr.core.rm.data_types.encapsulated import DVParsable, DVMultimedia
 from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecification, DVPeriodicTimeSpecification
 
 from pyehr.core.rm.ehr.composition import Composition, EventContext
-from pyehr.core.rm.ehr.composition.content.entry import AdminEntry, Evaluation, Observation
+from pyehr.core.rm.ehr.composition.content.entry import Activity, AdminEntry, Evaluation, Observation
 from pyehr.core.rm.ehr.composition.content.navigation import Section
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
@@ -965,7 +965,41 @@ def test_its_json_rm_ehr_composition_admin_entry():
 
     validate(t_ae)
 
-# TODO: ACTIVITY
+def test_its_json_rm_ehr_composition_activity():
+    desc = ItemTree(
+        name=DVText("Tree"),
+        archetype_node_id="at0002",
+        items=[
+            Cluster(
+                name=DVText("medication details"),
+                archetype_node_id="at0143",
+                items=[
+                    Element(
+                        name=DVText("Name"),
+                        archetype_node_id="at0132",
+                        value=DVCodedText("Paracetamol 500mg tablets (product)", CodePhrase(TerminologyID("SNOMED-CT"), "42109611000001109"))
+                    )
+                ]
+            ),
+            Element(
+                name=DVText("route"),
+                archetype_node_id="at0091",
+                value=DVCodedText("Oral", CodePhrase(TerminologyID("SNOMED-CT"), "26643006"))
+            )
+        ]
+    )
+
+    t_act = Activity(
+        name=DVText("Order (paracetamol)"),
+        archetype_node_id="at0001",
+        description=desc,
+        timing=DVParsable(
+            value="R1000/2026-01-01T13:29:00Z/PT6H",
+            formalism="ISO8601"
+        )
+    ).as_json()
+
+    validate(t_act)
 
 def test_its_json_rm_ehr_composition():
     t_c = Composition(

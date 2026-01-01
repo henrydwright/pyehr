@@ -247,6 +247,9 @@
                     "$ref": "#/definitions/ADMIN_ENTRY"
                 },
                 {
+                    "$ref": "#/definitions/ACTIVITY"
+                },
+                {
                     "$ref": "#/definitions/COMPOSITION"
                 },
                 {

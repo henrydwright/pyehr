@@ -7,12 +7,13 @@ from pyehr.core.rm.common.archetyped import Archetyped
 from pyehr.core.rm.common.generic import Participation, PartyIdentified, PartyRelated, PartySelf
 from pyehr.core.rm.data_structures.history import History, PointEvent
 from pyehr.core.rm.data_structures.item_structure import ItemList, ItemSingle, ItemTree
-from pyehr.core.rm.data_structures.representation import Element
+from pyehr.core.rm.data_structures.representation import Cluster, Element
 from pyehr.core.rm.data_types.basic import DVIdentifier
+from pyehr.core.rm.data_types.encapsulated import DVParsable
 from pyehr.core.rm.data_types.quantity import DVQuantity
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
-from pyehr.core.rm.ehr.composition.content.entry import AdminEntry, Evaluation, Observation
+from pyehr.core.rm.ehr.composition.content.entry import Activity, AdminEntry, Evaluation, Observation
 from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers
 
 test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS], [TERMINOLOGY_OPENEHR])
@@ -221,3 +222,76 @@ ev = Evaluation(
 def test_evaluation_item_at_path():
     assert is_equal_value(ev.item_at_path(""), ev)
     assert is_equal_value(ev.item_at_path("data"), dat)
+
+desc = ItemTree(
+        name=DVText("Tree"),
+        archetype_node_id="at0002",
+        items=[
+            Cluster(
+                name=DVText("medication details"),
+                archetype_node_id="at0143",
+                items=[
+                    Element(
+                        name=DVText("Name"),
+                        archetype_node_id="at0132",
+                        value=DVCodedText("Paracetamol 500mg tablets (product)", CodePhrase(TerminologyID("SNOMED-CT"), "42109611000001109"))
+                    )
+                ]
+            ),
+            Element(
+                name=DVText("route"),
+                archetype_node_id="at0091",
+                value=DVCodedText("Oral", CodePhrase(TerminologyID("SNOMED-CT"), "26643006"))
+            )
+        ]
+    )
+
+act = Activity(
+    name=DVText("Order (paracetamol)"),
+    archetype_node_id="at0001",
+    description=desc,
+    timing=DVParsable(
+        value="R1000/2026-01-01T13:29:00Z/PT6H",
+        formalism="ISO8601"
+    )
+)
+
+def test_activity_action_archetype_id_valid():
+    # OK (see above)
+    # Not OK - empty action archetype_id
+    with pytest.raises(ValueError):
+        bad_act = Activity(
+            name=DVText("Order (paracetamol)"),
+            archetype_node_id="at0001",
+            action_archetype_id="",
+            description=ItemTree(
+                name=DVText("Tree"),
+                archetype_node_id="at0002",
+                items=[
+                    Cluster(
+                        name=DVText("medication details"),
+                        archetype_node_id="at0143",
+                        items=[
+                            Element(
+                                name=DVText("Name"),
+                                archetype_node_id="at0132",
+                                value=DVCodedText("Paracetamol 500mg tablets (product)", CodePhrase(TerminologyID("SNOMED-CT"), "42109611000001109"))
+                            )
+                        ]
+                    ),
+                    Element(
+                        name=DVText("route"),
+                        archetype_node_id="at0091",
+                        value=DVCodedText("Oral", CodePhrase(TerminologyID("SNOMED-CT"), "26643006"))
+                    )
+                ]
+            ),
+            timing=DVParsable(
+                value="R1000/2026-01-01T13:29:00Z/PT6H",
+                formalism="ISO8601"
+            )
+        )
+
+def test_activity_item_at_path():
+    assert is_equal_value(act.item_at_path(""), act)
+    assert is_equal_value(act.item_at_path("description"), desc)

@@ -7,10 +7,11 @@ from typing import Optional
 
 from pyehr.core.base.base_types.identification import ObjectRef, UIDBasedID
 from pyehr.core.base.foundation_types.structure import is_equal_value
-from pyehr.core.rm.common.archetyped import Archetyped, FeederAudit, Link, Pathable, PyehrInternalProcessedPath
+from pyehr.core.rm.common.archetyped import Archetyped, FeederAudit, Link, Locatable, Pathable, PyehrInternalProcessedPath
 from pyehr.core.rm.common.generic import Participation, PartyProxy, PartySelf
 from pyehr.core.rm.data_structures.history import History
 from pyehr.core.rm.data_structures.item_structure import ItemStructure
+from pyehr.core.rm.data_types.encapsulated import DVParsable
 from pyehr.core.rm.data_types.text import CodePhrase, DVText
 from pyehr.core.rm.ehr.composition.content import ContentItem
 from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers, TerminologyService, util_verify_code_in_openehr_codeset_or_error
@@ -446,3 +447,95 @@ class Evaluation(CareEntry):
             return True
         except (ValueError):
             return False
+        
+class Activity(Locatable):
+    """Defines a single activity within an Instruction, such as a medication 
+    administration."""
+    
+    timing: Optional[DVParsable]
+    """Timing of the activity, in the form of a parsable string. If used, the 
+    preferred syntax is ISO8601 'R' format, but other formats may be used 
+    including HL7 GTS.
+
+    May be omitted if:
+    * timing is represented structurally in the description attribute (e.g. via archetyped elements), or
+    * unavailable, e.g. imported legacy data; in such cases, the INSTRUCTION.narrative should carry text that indicates the timing of its activities."""
+
+    action_archetype_id: str
+    """Perl-compliant regular expression pattern, enclosed in '//' delimiters, 
+    indicating the valid identifiers of archetypes for Actions corresponding to 
+    this Activity specification.
+
+    Defaults to /.*/, meaning any archetype."""
+
+    description: ItemStructure
+    """Description of the activity, in the form of an archetyped structure."""
+
+    def __init__(self, 
+                name: DVText, 
+                archetype_node_id: str, 
+                description: ItemStructure,
+                action_archetype_id: str = "/.*/",
+                timing: Optional[DVParsable] = None,
+                uid : Optional[UIDBasedID] = None, 
+                links : Optional[list[Link]] = None,  
+                archetype_details : Optional[Archetyped] = None,
+                feeder_audit : Optional[FeederAudit] = None,
+                parent: Optional[Pathable] = None,
+                parent_container_attribute_name: Optional[str] = None,
+                **kwargs):
+        self.description = description
+        if action_archetype_id == "":
+            raise ValueError("action_archetype_id cannot be empty (invariant: action_archetype_id_valid)")
+        self.action_archetype_id = action_archetype_id
+        self.timing = timing
+        super().__init__(name, archetype_node_id, uid, links, archetype_details, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def _path_eval(self, a_path: str, single_item: bool, check_only: bool):
+        path = PyehrInternalProcessedPath(a_path)
+        if path.is_self_path():
+            if check_only:
+                return True
+            if single_item:
+                return self
+            else:
+                raise ValueError("Items not found: reached single item (ACTIVITY)")
+
+        if path.current_node_attribute == "description":
+            return self._path_resolve_single(path, self.description, single_item, check_only)
+        else:
+            if check_only:
+                return False
+            raise ValueError(f"Path invalid: expected 'description' at ACTIVITY but found \'{path.current_node_attribute}\'")
+         
+    def item_at_path(self, a_path):
+        return self._path_eval(a_path, True, False)
+    
+    def items_at_path(self, a_path):
+        return self._path_eval(a_path, False, False)
+    
+    def path_exists(self, a_path):
+        return self._path_eval(a_path, None, True)
+    
+    def path_unique(self, a_path):
+        try:
+            self.item_at_path(a_path)
+            return True
+        except (ValueError):
+            return False
+        
+    def is_equal(self, other):
+        return (super().is_equal(other) and
+                is_equal_value(self.timing, other.timing) and
+                is_equal_value(self.action_archetype_id, other.action_archetype_id) and
+                is_equal_value(self.description, other.description))
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Composition/ACTIVITY.json
+        draft = super().as_json()
+        draft["action_archetype_id"] = self.action_archetype_id
+        draft["description"] = self.description.as_json()
+        if self.timing is not None:
+            draft["timing"] = self.timing.as_json()
+        draft["_type"] = "ACTIVITY"
+        return draft
