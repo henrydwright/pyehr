@@ -12,6 +12,7 @@ from pyehr.core.rm.common.generic import Participation, PartyProxy, PartySelf
 from pyehr.core.rm.data_structures.history import History
 from pyehr.core.rm.data_structures.item_structure import ItemStructure
 from pyehr.core.rm.data_types.encapsulated import DVParsable
+from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVText
 from pyehr.core.rm.ehr.composition.content import ContentItem
 from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers, TerminologyService, util_verify_code_in_openehr_codeset_or_error
@@ -538,4 +539,113 @@ class Activity(Locatable):
         if self.timing is not None:
             draft["timing"] = self.timing.as_json()
         draft["_type"] = "ACTIVITY"
+        return draft
+    
+class Instruction(CareEntry):
+    """Used to specify actions in the future. Enables simple and complex 
+    specifications to be expressed, including in a fully-computable workflow 
+    form. Used for any actionable statement such as medication and therapeutic 
+    orders, monitoring, recall and review. Enough details must be provided for 
+    the specification to be directly executed by an actor, either human or machine.
+
+    Not to be used for plan items which are only specified in general terms."""
+
+    narrative: DVText
+    """Mandatory human-readable version of what the Instruction is about."""
+
+    expiry_time: Optional[DVDateTime]
+    """Optional expiry date/time to assist determination of when an Instruction 
+    can be assumed to have expired. This helps prevent false listing of 
+    Instructions as Active when they clearly must have been terminated in some 
+    way or other."""
+
+    wf_definition: Optional[DVParsable]
+    """Optional workflow engine executable expression of the Instruction."""
+
+    activities: Optional[list[Activity]]
+    """List of all activities in Instruction."""
+
+    def __init__(self, 
+        name: DVText, 
+        archetype_node_id: str,
+        language: CodePhrase,
+        encoding: CodePhrase,
+        subject: PartyProxy,
+        archetype_details : Archetyped,
+        narrative: DVText,
+        terminology_service: TerminologyService,
+        expiry_time: Optional[DVDateTime] = None,
+        wf_definition: Optional[DVParsable] = None,
+        activities: Optional[list[Activity]] = None,
+        protocol: Optional[ItemStructure] = None,
+        guideline_id: Optional[ObjectRef] = None,
+        other_participations : Optional[list[Participation]] = None,
+        workflow_id : Optional[ObjectRef] = None,
+        provider: Optional[PartyProxy] = None, 
+        uid : Optional[UIDBasedID] = None, 
+        links : Optional[list[Link]] = None,  
+        feeder_audit : Optional[FeederAudit] = None,
+        parent: Optional[Pathable] = None,
+        parent_container_attribute_name: Optional[str] = None,
+        **kwargs):
+        self.narrative = narrative
+        self.expiry_time = expiry_time
+        self.wf_definition = wf_definition
+        self.activities = activities
+        super().__init__(name, archetype_node_id, language, encoding, subject, archetype_details, terminology_service, protocol, guideline_id, other_participations, workflow_id, provider, uid, links, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def _path_eval(self, a_path: str, single_item: bool, check_only: bool):
+        path = PyehrInternalProcessedPath(a_path)
+        if path.is_self_path():
+            if check_only:
+                return True
+            if single_item:
+                return self
+            else:
+                raise ValueError("Items not found: reached single item (INSTRUCTION)")
+
+        if path.current_node_attribute == "activities":
+            return self._path_resolve_item_list(path, self.activities, single_item, check_only)
+        elif path.current_node_attribute == "protocol":
+            return self._path_resolve_single(path, self.protocol, single_item, check_only)
+        else:
+            if check_only:
+                return False
+            raise ValueError(f"Path invalid: expected 'description' at ACTIVITY but found \'{path.current_node_attribute}\'")
+         
+    def item_at_path(self, a_path):
+        return self._path_eval(a_path, True, False)
+    
+    def items_at_path(self, a_path):
+        return self._path_eval(a_path, False, False)
+    
+    def path_exists(self, a_path):
+        return self._path_eval(a_path, None, True)
+    
+    def path_unique(self, a_path):
+        try:
+            self.item_at_path(a_path)
+            return True
+        except (ValueError):
+            return False
+        
+    def is_equal(self, other):
+        return (
+            super().is_equal(other)
+            and is_equal_value(self.narrative, other.narrative)
+            and is_equal_value(self.expiry_time, other.expiry_time)
+            and is_equal_value(self.wf_definition, other.wf_definition)
+            and is_equal_value(self.activities, other.activities)
+        )
+    
+    def as_json(self):
+        draft = super().as_json()
+        draft["narrative"] = self.narrative.as_json()
+        if self.expiry_time is not None:
+            draft["expiry_time"] = self.expiry_time.as_json()
+        if self.wf_definition is not None:
+            draft["wf_definition"] = self.wf_definition.as_json()
+        if self.activities is not None:
+            draft["activities"] = [a.as_json() for a in self.activities]
+        draft["_type"] = "INSTRUCTION"
         return draft

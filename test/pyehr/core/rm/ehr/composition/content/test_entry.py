@@ -13,7 +13,7 @@ from pyehr.core.rm.data_types.encapsulated import DVParsable
 from pyehr.core.rm.data_types.quantity import DVQuantity
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
-from pyehr.core.rm.ehr.composition.content.entry import Activity, AdminEntry, Evaluation, Observation
+from pyehr.core.rm.ehr.composition.content.entry import Activity, AdminEntry, Evaluation, Instruction, Observation
 from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers
 
 test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS], [TERMINOLOGY_OPENEHR])
@@ -247,13 +247,27 @@ desc = ItemTree(
     )
 
 act = Activity(
-    name=DVText("Order (paracetamol)"),
+    name=DVText("Order (Paracetamol 500mg tablets)"),
     archetype_node_id="at0001",
     description=desc,
     timing=DVParsable(
         value="R1000/2026-01-01T13:29:00Z/PT6H",
         formalism="ISO8601"
     )
+)
+
+ins = Instruction(
+    name=DVText("Medication order"),
+    archetype_node_id="openEHR-EHR-INSTRUCTION.medication_order.v3",
+    archetype_details=Archetyped(ArchetypeID("openEHR-EHR-INSTRUCTION.medication_order.v3"), "1.1.0"),
+    language=CodePhrase(TerminologyID("ISO_639-1"), "en-gb"),
+    encoding=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
+    subject=PartySelf(),
+    narrative=DVText("500mg paracetamol tablets to be taken orally 4 times a day"),
+    terminology_service=test_ts,
+    activities=[
+        act
+    ]
 )
 
 def test_activity_action_archetype_id_valid():
@@ -295,3 +309,11 @@ def test_activity_action_archetype_id_valid():
 def test_activity_item_at_path():
     assert is_equal_value(act.item_at_path(""), act)
     assert is_equal_value(act.item_at_path("description"), desc)
+
+def test_instruction_item_at_path():
+    assert is_equal_value(ins.item_at_path("activities[at0001]"), act)
+    assert is_equal_value(ins.item_at_path(""), ins)
+    assert is_equal_value(ins.item_at_path("activities[0]/description"), desc)
+
+def test_instruction_items_at_path():
+    assert is_equal_value(ins.items_at_path("activities"), [act])
