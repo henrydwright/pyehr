@@ -10,7 +10,7 @@ from pyehr.core.base.foundation_types.time import ISODate, ISOTime, ISODuration,
 from pyehr.core.base.foundation_types.interval import PointInterval, ProperInterval, MultiplicityInterval
 from pyehr.core.base.foundation_types.primitive_types import Uri
 from pyehr.core.base.foundation_types.terminology import TerminologyCode, TerminologyTerm
-from pyehr.core.base.base_types.identification import TerminologyID
+from pyehr.core.base.base_types.identification import LocatableRef, TerminologyID
 from pyehr.core.base.base_types.identification import TerminologyID, ISOOID, UUID, InternetID, VersionTreeID, HierObjectID, ObjectVersionID, ArchetypeID, TemplateID, GenericID, ObjectRef, PartyRef
 from pyehr.core.base.resource import TranslationDetails, ResourceDescriptionItem, ResourceDescription, AuthoredResource
 
@@ -25,8 +25,9 @@ from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVTime, DVDurati
 from pyehr.core.rm.data_types.encapsulated import DVParsable, DVMultimedia
 from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecification, DVPeriodicTimeSpecification
 
-from pyehr.core.rm.ehr.composition import Composition, EventContext
-from pyehr.core.rm.ehr.composition.content.navigation import Section
+from pyehr.core.rm.composition import Composition, EventContext
+from pyehr.core.rm.composition.content.entry import Action, Activity, AdminEntry, Evaluation, ISMTransition, Instruction, InstructionDetails, Observation
+from pyehr.core.rm.composition.content.navigation import Section
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
 from pyehr.core.rm.common.archetyped import FeederAudit, FeederAuditDetails, Link, Archetyped
@@ -37,7 +38,7 @@ from pyehr.core.rm.common.directory import Folder
 from pyehr.core.rm.data_structures.representation import Cluster, Element
 from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemList, ItemTable, ItemTree
 
-from pyehr.core.rm.ehr.ehr import EHR
+from pyehr.core.rm.ehr import EHR
 
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
@@ -140,7 +141,10 @@ def test_its_json_base_version_tree_id():
 
     validate(v_json)
 
-# TODO: LOCATABLE_REF
+def test_its_json_base_locatable_ref():
+    v_lr = LocatableRef("local", "INSTRUCTION", HierObjectID("d2adf197-dfed-43d0-81f8-ccd27e5e127c"), "content[0]").as_json()
+
+    validate(v_lr)
 
 def test_its_json_base_generic_id():
     gid_json = GenericID("QQ123456A", "https://www.gov.uk/hmrc-internal-manuals/national-insurance-manual/nim39110").as_json()
@@ -917,17 +921,145 @@ def test_its_json_rm_ehr_ehr():
     validate(t_ehr)
 
 # ==========
-# RM.ehr.composition: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Composition
+# RM.composition: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Composition
 
-# TODO: ISM_TRANSACTION
+def test_its_json_rm_composition_ism_transition():
+    t_ism = ISMTransition(
+        current_state=DVCodedText("planned", CodePhrase(TerminologyID("openehr"), "526")),
+        transition=DVCodedText("initiate", CodePhrase(TerminologyID("openehr"), "535")),
+        terminology_service=test_ts
+    ).as_json()
+    
+    validate(t_ism)
 
-# TODO: INSTRUCTION
+def test_its_json_rm_composition_instruction():
+    desc = ItemTree(
+        name=DVText("Tree"),
+        archetype_node_id="at0002",
+        items=[
+            Cluster(
+                name=DVText("medication details"),
+                archetype_node_id="at0143",
+                items=[
+                    Element(
+                        name=DVText("Name"),
+                        archetype_node_id="at0132",
+                        value=DVCodedText("Paracetamol 500mg tablets (product)", CodePhrase(TerminologyID("SNOMED-CT"), "42109611000001109"))
+                    )
+                ]
+            ),
+            Element(
+                name=DVText("route"),
+                archetype_node_id="at0091",
+                value=DVCodedText("Oral", CodePhrase(TerminologyID("SNOMED-CT"), "26643006"))
+            )
+        ]
+    )
 
-# TODO: ADMIN_ENTRY
+    act = Activity(
+        name=DVText("Order (Paracetamol 500mg tablets)"),
+        archetype_node_id="at0001",
+        description=desc,
+        timing=DVParsable(
+            value="R1000/2026-01-01T13:29:00Z/PT6H",
+            formalism="ISO8601"
+        )
+    )
 
-# TODO: ACTIVITY
+    t_ins = Instruction(
+        name=DVText("Medication order"),
+        archetype_node_id="openEHR-EHR-INSTRUCTION.medication_order.v3",
+        archetype_details=Archetyped(ArchetypeID("openEHR-EHR-INSTRUCTION.medication_order.v3"), "1.1.0"),
+        language=CodePhrase(TerminologyID("ISO_639-1"), "en-gb"),
+        encoding=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
+        subject=PartySelf(),
+        narrative=DVText("500mg paracetamol tablets to be taken orally 4 times a day"),
+        terminology_service=test_ts,
+        activities=[
+            act
+        ]
+    ).as_json()
 
-def test_its_json_rm_ehr_composition():
+    validate(t_ins)
+
+def test_its_json_rm_composition_admin_entry():
+    it0 = Element(
+                name=DVText("hospital provider spell identifier"),
+                archetype_node_id="at0011",
+                value=DVIdentifier("AA-000-000-000")
+            )
+
+    it_lst = ItemList(
+            name=DVText("admission characteristics"),
+            archetype_node_id="at0001",
+            items=[
+                it0,
+                Element(
+                    name=DVText("administrative category code (on admission)"),
+                    archetype_node_id="at0012",
+                    value=DVCodedText("NHS PATIENT, including Overseas Visitors charged under the National Health Service (Overseas Visitors Hospital Charging Regulations)", CodePhrase(TerminologyID("NHS_NATIONAL_ADMINISTRATIVE_CATEGORY_CODE"), "01"))
+                ),
+                Element(
+                    name=DVText("patient classification code"),
+                    archetype_node_id="at0013",
+                    value=DVCodedText("Ordinary admission", CodePhrase(TerminologyID("NHS_NATIONAL_PATIENT_CLASSIFICATION_CODE"), "1"))
+                )
+            ]
+        )
+
+    t_ae = AdminEntry(
+        name=DVText("Admission 30/12/2025"),
+        archetype_node_id="openEHR-EHR-ADMIN_ENTRY.cds_admission.v0",
+        archetype_details=Archetyped(ArchetypeID("openEHR-EHR-ADMIN_ENTRY.cds_admission.v0"), "1.1.0"),
+        language=CodePhrase(TerminologyID("ISO_639-1"), "en-gb", "English (United Kingdom)"),
+        encoding=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
+        subject=PartySelf(),
+        data=it_lst,
+        terminology_service=test_ts,
+        other_participations=[
+            Participation(DVText("observer"), PartyIdentified(name="Miss M Student"))
+        ]
+    ).as_json()
+
+    validate(t_ae)
+
+def test_its_json_rm_composition_activity():
+    desc = ItemTree(
+        name=DVText("Tree"),
+        archetype_node_id="at0002",
+        items=[
+            Cluster(
+                name=DVText("medication details"),
+                archetype_node_id="at0143",
+                items=[
+                    Element(
+                        name=DVText("Name"),
+                        archetype_node_id="at0132",
+                        value=DVCodedText("Paracetamol 500mg tablets (product)", CodePhrase(TerminologyID("SNOMED-CT"), "42109611000001109"))
+                    )
+                ]
+            ),
+            Element(
+                name=DVText("route"),
+                archetype_node_id="at0091",
+                value=DVCodedText("Oral", CodePhrase(TerminologyID("SNOMED-CT"), "26643006"))
+            )
+        ]
+    )
+
+    t_act = Activity(
+        name=DVText("Order (paracetamol)"),
+        archetype_node_id="at0001",
+        description=desc,
+        timing=DVParsable(
+            value="R1000/2026-01-01T13:29:00Z/PT6H",
+            formalism="ISO8601"
+        )
+    ).as_json()
+
+    validate(t_act)
+
+def test_its_json_rm_composition_composition():
     t_c = Composition(
         name=DVText("GP appointment - 29th Dec 2025"),
         archetype_node_id="openEHR-EHR-COMPOSITION.gp_appointment.v0",
@@ -941,13 +1073,41 @@ def test_its_json_rm_ehr_composition():
 
     validate(t_c)
 
-# TODO: INSTRUCTION_DETAILS
+def test_its_json_rm_composition_instruction_details():
+    t_insd = InstructionDetails(
+        instruction_id=LocatableRef("local", "INSTRUCTION", HierObjectID("d2adf197-dfed-43d0-81f8-ccd27e5e127c"), "content[0]"),
+        activity_id="activities[at0001]"
+    ).as_json()
 
-# TODO: EVALUATION
+    validate(t_insd)
+
+def test_its_json_rm_composition_evaluation():
+    t_ev = Evaluation(
+        name=DVText("Tobacco smoking summary"),
+        archetype_node_id="openEHR-EHR-EVALUATION.tobacco_smoking_summary.v1",
+        archetype_details=Archetyped(ArchetypeID("openEHR-EHR-EVALUATION.tobacco_smoking_summary.v1"), "1.1.0"),
+        language=CodePhrase(TerminologyID("ISO_639-1"), "en-gb"),
+        encoding=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
+        subject=PartySelf(),
+        data=ItemTree(
+            DVText("Tree"),
+            archetype_node_id="at0001",
+            items=[
+                Element(
+                    name=DVText("Overall status"),
+                    archetype_node_id="at0089",
+                    value=DVCodedText("Never smoked", CodePhrase(TerminologyID("local"), "at0006"))
+                )
+            ]
+        ),
+        terminology_service=test_ts
+    ).as_json()
+
+    validate(t_ev)
 
 # TODO: GENERIC_ENTRY
 
-def test_its_json_rm_ehr_composition_event_context():
+def test_its_json_rm_composition_event_context():
     t_ec = EventContext(
         start_time=DVDateTime("2025-12-29"),
         setting=DVCodedText("home", CodePhrase(TerminologyID("openehr"), "225")),
@@ -957,7 +1117,7 @@ def test_its_json_rm_ehr_composition_event_context():
 
     validate(t_ec)
 
-def test_its_json_rm_ehr_composition_section():
+def test_its_json_rm_composition_section():
     t_s = Section(
         name=DVText("subjective"),
         archetype_node_id="at0011"
@@ -965,6 +1125,88 @@ def test_its_json_rm_ehr_composition_section():
 
     validate(t_s)
 
-# TODO: OBSERVATION
+def test_its_json_rm_composition_observation():
+    
+    his = History[ItemTree](
+            name=DVText("history"),
+            archetype_node_id="at0002",
+            origin=DVDateTime("2026-01-01T12:28:00Z")
+        )
+    his.events = [
+                PointEvent[ItemTree](
+                    name=DVText("weight at 12:28"),
+                    archetype_node_id="at0003",
+                    time=DVDateTime("2026-01-01T12:28:00Z"),
+                    data=ItemTree(
+                        name=DVText("weight observation"),
+                        archetype_node_id="at0001",
+                        items=[
+                            Element(
+                                name=DVText("weight"),
+                                archetype_node_id="at0004",
+                                value=DVQuantity(82.0, "kg")
+                            )
+                        ]
+                    ),
+                    parent=his
+                )
+            ]
+    t_obs = Observation(
+        name=DVText("Body weight"),
+        archetype_node_id="openEHR-EHR-OBSERVATION.body_weight.v2",
+        language=CodePhrase(TerminologyID("ISO_639-1"), "en-gb"),
+        encoding=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
+        subject=PartySelf(),
+        archetype_details=Archetyped(ArchetypeID("openEHR-EHR-OBSERVATION.body_weight.v2"), "1.1.0"),
+        data=his,
+        terminology_service=test_ts
+    ).as_json()
 
-# TODO: ACTION
+    validate(t_obs)
+
+def test_its_json_rm_composition_action():
+    insd = InstructionDetails(
+        instruction_id=LocatableRef("local", "INSTRUCTION", HierObjectID("d2adf197-dfed-43d0-81f8-ccd27e5e127c"), "content[0]"),
+        activity_id="activities[at0001]"
+    )
+
+    ism = ISMTransition(
+        current_state=DVCodedText("active", CodePhrase(TerminologyID("openehr"), "245")),
+        transition=DVCodedText("start", CodePhrase(TerminologyID("openehr"), "540")),
+        careflow_step=DVCodedText("Dose administered", CodePhrase(TerminologyID("local"), "at0006")),
+        terminology_service=test_ts
+    )
+
+    ad_desc = ItemTree(
+        name=DVText("Tree"),
+        archetype_node_id=",",
+        items=[
+            Cluster(
+                name=DVText("medication details"),
+                archetype_node_id="at0104",
+                items=[
+                    Element(
+                        name=DVText("Name"),
+                        archetype_node_id="at0132",
+                        value=DVCodedText("Paracetamol 500mg tablets (product)", CodePhrase(TerminologyID("SNOMED-CT"), "42109611000001109"))
+                    )
+                ]
+            )
+        ]
+    )
+
+    t_act = Action(
+        DVText("Medication management"),
+        archetype_node_id="openEHR-EHR-ACTION.medication.v1",
+        archetype_details=Archetyped(ArchetypeID("openEHR-EHR-ACTION.medication.v1"), "1.1.0"),
+        language=CodePhrase(TerminologyID("ISO_639-1"), "en-gb"),
+        encoding=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
+        subject=PartySelf(),
+        time=DVDateTime("2026-01-01T16:17:23Z"),
+        ism_transition=ism,
+        instruction_details=insd,
+        description=ad_desc,
+        terminology_service=test_ts
+    ).as_json()
+
+    validate(t_act)

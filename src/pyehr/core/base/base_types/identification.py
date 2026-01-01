@@ -571,9 +571,13 @@ class PartyRef(ObjectRef):
         return oref_json
 
 class LocatableRef(ObjectRef):
-    """Purpose Reference to a `LOCATABLE` instance inside the top-level content structure 
+    """Reference to a `LOCATABLE` instance in the top-level content structure 
     inside a `VERSION<T>`; the path attribute is applied to the object that `VERSION.data`
-    points to."""
+    points to.
+
+    e.g. Reference to an `INSTRUCTION` within a `VERSION<COMPOSITION>` would have path like 'content[at0003]'
+    ref_type of `INSTRUCTION` and the relevant namespace and UID.
+    """
 
     _path : Optional[str]
 
@@ -588,7 +592,6 @@ class LocatableRef(ObjectRef):
     specified."""
 
     def __init__(self, namespace: str, type: str, id: UIDBasedID, path : Optional[str] = None, **kwargs):
-        raise NotImplementedError("Locatable refs are not yet implemented (as I don't understand them!)")
         self._path = path
         super().__init__(namespace, type, id, **kwargs)
 
@@ -597,7 +600,12 @@ class LocatableRef(ObjectRef):
         * scheme, e.g. ehr:, derived from namespace
         * id.value
         * / + path, where path is non-empty"""
-        raise NotImplementedError("Locatable refs are not yet implemented (as I don't understand them!)")
+        scheme = "ehr:/" if self.namespace == "local" else self.namespace
+        return scheme + self.id.value + "/" + self._path
     
     def as_json(self):
-        raise NotImplementedError("Locatable refs are not yet implemented (as I don't understand them!)")
+        draft = super().as_json()
+        if self._path is not None:
+            draft["path"] = self._path
+        draft["_type"] = "LOCATABLE_REF"
+        return draft

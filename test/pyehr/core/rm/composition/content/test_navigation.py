@@ -2,7 +2,7 @@ import pytest
 
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.data_types.text import DVText
-from pyehr.core.rm.ehr.composition.content.navigation import Section
+from pyehr.core.rm.composition.content.navigation import Section
 
 ins = Section(
     name=DVText("inner"),

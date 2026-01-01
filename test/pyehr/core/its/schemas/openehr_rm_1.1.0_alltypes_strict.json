@@ -244,13 +244,37 @@
                     "$ref": "#/definitions/EHR"
                 },
                 {
+                    "$ref": "#/definitions/ISM_TRANSITION"
+                },
+                {
+                    "$ref": "#/definitions/INSTRUCTION"
+                },
+                {
+                    "$ref": "#/definitions/ADMIN_ENTRY"
+                },
+                {
+                    "$ref": "#/definitions/ACTIVITY"
+                },
+                {
                     "$ref": "#/definitions/COMPOSITION"
+                },
+                {
+                    "$ref": "#/definitions/INSTRUCTION_DETAILS"
+                },
+                {
+                    "$ref": "#/definitions/EVALUATION"
                 },
                 {
                     "$ref": "#/definitions/EVENT_CONTEXT"
                 },
                 {
                     "$ref": "#/definitions/SECTION"
+                },
+                {
+                    "$ref": "#/definitions/OBSERVATION"
+                },
+                {
+                    "$ref": "#/definitions/ACTION"
                 }
             ]
         }

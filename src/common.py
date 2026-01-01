@@ -983,6 +983,41 @@ GROUPLIST_OPENEHR_SETTING = [
     CodePhrase(TERMINOLOGYID_OPENEHR, "802", "mental healthcare"),
     CodePhrase(TERMINOLOGYID_OPENEHR, "238", "other care"),
 ]
+GROUPLIST_OPENEHR_INSTRUCTION_STATE = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "524", "initial"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "526", "planned"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "527", "postponed"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "528", "cancelled"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "529", "scheduled"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "245", "active"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "530", "suspended"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "531", "aborted"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "532", "completed"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "533", "expired")
+]
+GROUPLIST_OPENEHR_INSTRUCTION_TRANSITION = [
+    CodePhrase(TERMINOLOGYID_OPENEHR, "535", "initiate"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "536", "plan step"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "537", "postpone"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "538", "restore"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "166", "cancel"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "542", "postponed step"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "539", "schedule"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "534", "scheduled step"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "540", "start"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "541", "do"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "543", "active step"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "544", "suspend"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "545", "suspended step"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "546", "resume"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "547", "abort"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "548", "finish"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "549", "time out"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "550", "notify aborted"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "551", "notify completed"),
+    CodePhrase(TERMINOLOGYID_OPENEHR, "552", "notify cancelled")
+]
+
 
 CODESET_OPENEHR_CHARACTER_SETS = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_CHARACTER_SETS.name(), "en", CODELIST_OPENEHR_CHARACTER_SETS)
 CODESET_OPENEHR_COUNTRIES = ListCodeSetAccess(TERMINOLOGYID_OPENEHR_COUNTRIES.name(), "en", CODELIST_OPENEHR_COUNTRIES)
@@ -1003,5 +1038,7 @@ TERMINOLOGY_OPENEHR = DictTerminologyAccess("openehr", "en", {
     ("null_flavours", "null flavours"): GROUPLIST_OPENEHR_NULL_FLAVOURS,
     ("event_math_function", "event math function"): GROUPLIST_OPENEHR_EVENT_MATH_FUNCTION,
     ("composition_category", "composition category"): GROUPLIST_OPENEHR_COMPOSITION_CATEGORY,
-    ("setting", "setting"): GROUPLIST_OPENEHR_SETTING
+    ("setting", "setting"): GROUPLIST_OPENEHR_SETTING,
+    ("instruction_states", "instruction states"): GROUPLIST_OPENEHR_INSTRUCTION_STATE,
+    ("instruction_transitions", "instruction transitions"): GROUPLIST_OPENEHR_INSTRUCTION_TRANSITION
 })

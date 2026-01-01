@@ -7,9 +7,9 @@ from pyehr.core.rm.common.archetyped import Archetyped
 from pyehr.core.rm.common.generic import Participation, PartyIdentified, PartyProxy
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
-from pyehr.core.rm.ehr.composition import Composition, EventContext
-from pyehr.core.rm.ehr.composition.content import ContentItem
-from pyehr.core.rm.ehr.composition.content.navigation import Section
+from pyehr.core.rm.composition import Composition, EventContext
+from pyehr.core.rm.composition.content import ContentItem
+from pyehr.core.rm.composition.content.navigation import Section
 
 test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES], [TERMINOLOGY_OPENEHR])
 

@@ -7,7 +7,7 @@ from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID
 from pyehr.core.rm.common.generic import PartySelf
 from pyehr.core.rm.data_types.text import DVText, DVUri
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
-from pyehr.core.rm.ehr.ehr import EHR, EHRStatus
+from pyehr.core.rm.ehr import EHR, EHRStatus
 
 def test_decode_json_base_object_version_id():
     j_ovid = {"_type": "OBJECT_VERSION_ID", "value": "154b1047-23aa-4d4d-8713-df848fd4d60a::net.example.ehr::1"}
