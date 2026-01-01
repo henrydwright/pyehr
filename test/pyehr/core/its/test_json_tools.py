@@ -932,7 +932,7 @@ def test_its_json_rm_composition_ism_transition():
     
     validate(t_ism)
 
-def test_its_json_rm_ehr_composition_instruction():
+def test_its_json_rm_composition_instruction():
     desc = ItemTree(
         name=DVText("Tree"),
         archetype_node_id="at0002",
@@ -982,7 +982,7 @@ def test_its_json_rm_ehr_composition_instruction():
 
     validate(t_ins)
 
-def test_its_json_rm_ehr_composition_admin_entry():
+def test_its_json_rm_composition_admin_entry():
     it0 = Element(
                 name=DVText("hospital provider spell identifier"),
                 archetype_node_id="at0011",
@@ -1023,7 +1023,7 @@ def test_its_json_rm_ehr_composition_admin_entry():
 
     validate(t_ae)
 
-def test_its_json_rm_ehr_composition_activity():
+def test_its_json_rm_composition_activity():
     desc = ItemTree(
         name=DVText("Tree"),
         archetype_node_id="at0002",
@@ -1059,7 +1059,7 @@ def test_its_json_rm_ehr_composition_activity():
 
     validate(t_act)
 
-def test_its_json_rm_ehr_composition():
+def test_its_json_rm_composition_composition():
     t_c = Composition(
         name=DVText("GP appointment - 29th Dec 2025"),
         archetype_node_id="openEHR-EHR-COMPOSITION.gp_appointment.v0",
@@ -1073,7 +1073,7 @@ def test_its_json_rm_ehr_composition():
 
     validate(t_c)
 
-def test_its_json_rm_ehr_composition_instruction_details():
+def test_its_json_rm_composition_instruction_details():
     t_insd = InstructionDetails(
         instruction_id=LocatableRef("local", "INSTRUCTION", HierObjectID("d2adf197-dfed-43d0-81f8-ccd27e5e127c"), "content[0]"),
         activity_id="activities[at0001]"
@@ -1081,7 +1081,7 @@ def test_its_json_rm_ehr_composition_instruction_details():
 
     validate(t_insd)
 
-def test_its_json_rm_ehr_composition_evaluation():
+def test_its_json_rm_composition_evaluation():
     t_ev = Evaluation(
         name=DVText("Tobacco smoking summary"),
         archetype_node_id="openEHR-EHR-EVALUATION.tobacco_smoking_summary.v1",
@@ -1107,7 +1107,7 @@ def test_its_json_rm_ehr_composition_evaluation():
 
 # TODO: GENERIC_ENTRY
 
-def test_its_json_rm_ehr_composition_event_context():
+def test_its_json_rm_composition_event_context():
     t_ec = EventContext(
         start_time=DVDateTime("2025-12-29"),
         setting=DVCodedText("home", CodePhrase(TerminologyID("openehr"), "225")),
@@ -1117,7 +1117,7 @@ def test_its_json_rm_ehr_composition_event_context():
 
     validate(t_ec)
 
-def test_its_json_rm_ehr_composition_section():
+def test_its_json_rm_composition_section():
     t_s = Section(
         name=DVText("subjective"),
         archetype_node_id="at0011"
@@ -1125,7 +1125,7 @@ def test_its_json_rm_ehr_composition_section():
 
     validate(t_s)
 
-def test_its_json_rm_ehr_composition_observation():
+def test_its_json_rm_composition_observation():
     
     his = History[ItemTree](
             name=DVText("history"),
