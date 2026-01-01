@@ -13,7 +13,7 @@ from pyehr.core.rm.data_types.encapsulated import DVParsable
 from pyehr.core.rm.data_types.quantity import DVQuantity
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
-from pyehr.core.rm.composition.content.entry import Activity, AdminEntry, Evaluation, Instruction, InstructionDetails, Observation
+from pyehr.core.rm.composition.content.entry import Activity, AdminEntry, Evaluation, ISMTransition, Instruction, InstructionDetails, Observation
 from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers
 
 test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS], [TERMINOLOGY_OPENEHR])
@@ -330,4 +330,29 @@ def test_instruction_details_activity_path_valid():
         insd = InstructionDetails(
             instruction_id=LocatableRef("local", "INSTRUCTION", HierObjectID("d2adf197-dfed-43d0-81f8-ccd27e5e127c"), "content[0]"),
             activity_id=""
+        )
+
+ism = ISMTransition(
+    current_state=DVCodedText("planned", CodePhrase(TerminologyID("openehr"), "526")),
+    transition=DVCodedText("initiate", CodePhrase(TerminologyID("openehr"), "535")),
+    terminology_service=test_ts
+)
+
+def test_ism_transition_current_state_valid():
+    # OK (above)
+    # not OK (state not in list)
+    with pytest.raises(ValueError):
+        bad_ism = ISMTransition(
+            current_state=DVCodedText("English (United Kingdom)", CodePhrase(TerminologyID("ISO_639-1"), "en-gb")),
+            terminology_service=test_ts
+        )
+
+def test_ism_transition_transition_valid():
+    # OK (above)
+    # not OK (state not in list)
+    with pytest.raises(ValueError):
+        ism = ISMTransition(
+            current_state=DVCodedText("planned", CodePhrase(TerminologyID("openehr"), "526")),
+            transition=DVCodedText("English (United Kingdom)", CodePhrase(TerminologyID("ISO_639-1"), "en-gb")),
+            terminology_service=test_ts
         )

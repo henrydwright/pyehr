@@ -26,7 +26,7 @@ from pyehr.core.rm.data_types.encapsulated import DVParsable, DVMultimedia
 from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecification, DVPeriodicTimeSpecification
 
 from pyehr.core.rm.composition import Composition, EventContext
-from pyehr.core.rm.composition.content.entry import Activity, AdminEntry, Evaluation, Instruction, InstructionDetails, Observation
+from pyehr.core.rm.composition.content.entry import Activity, AdminEntry, Evaluation, ISMTransition, Instruction, InstructionDetails, Observation
 from pyehr.core.rm.composition.content.navigation import Section
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
@@ -921,9 +921,16 @@ def test_its_json_rm_ehr_ehr():
     validate(t_ehr)
 
 # ==========
-# RM.ehr.composition: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Composition
+# RM.composition: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Composition
 
-# TODO: ISM_TRANSACTION
+def test_its_json_rm_composition_ism_transition():
+    t_ism = ISMTransition(
+        current_state=DVCodedText("planned", CodePhrase(TerminologyID("openehr"), "526")),
+        transition=DVCodedText("initiate", CodePhrase(TerminologyID("openehr"), "535")),
+        terminology_service=test_ts
+    ).as_json()
+    
+    validate(t_ism)
 
 def test_its_json_rm_ehr_composition_instruction():
     desc = ItemTree(

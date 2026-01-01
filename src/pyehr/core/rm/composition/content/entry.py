@@ -13,9 +13,9 @@ from pyehr.core.rm.data_structures.history import History
 from pyehr.core.rm.data_structures.item_structure import ItemStructure
 from pyehr.core.rm.data_types.encapsulated import DVParsable
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
-from pyehr.core.rm.data_types.text import CodePhrase, DVText
+from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
 from pyehr.core.rm.composition.content import ContentItem
-from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers, TerminologyService, util_verify_code_in_openehr_codeset_or_error
+from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers, OpenEHRTerminologyGroupIdentifiers, TerminologyService, util_verify_code_in_openehr_codeset_or_error, util_verify_code_in_openehr_terminology_group_or_error
 
 
 class Entry(ContentItem):
@@ -730,3 +730,92 @@ class InstructionDetails(Pathable):
             return True
         except (ValueError):
             return False
+        
+class ISMTransition(Pathable):
+    """Model of a transition in the Instruction State Machine, caused by a careflow 
+    step. The attributes document the careflow step as well as the ISM transition."""
+
+    current_state: DVCodedText
+    """The ISM current state. Coded by openEHR terminology group Instruction states."""
+
+    transition: Optional[DVCodedText]
+    """The ISM transition which occurred to arrive in the current_state. Coded by 
+    openEHR terminology group Instruction transitions."""
+
+    careflow_step: Optional[DVCodedText]
+    """The step in the careflow process which occurred as part of generating this 
+    action, e.g. dispense , start_administration. This attribute represents the 
+    clinical label for the activity, as opposed to current_state which represents 
+    the state machine (ISM) computable form. Defined in archetype."""
+
+    reason: Optional[list[DVText]]
+    """Optional possibility of adding one or more reasons for this careflow step 
+    having been taken. Multiple reasons may occur in medication management for 
+    example."""
+
+    def __init__(self, 
+                 current_state: DVCodedText,
+                 terminology_service: TerminologyService,
+                 transition: Optional[DVCodedText] = None,
+                 careflow_step: Optional[DVCodedText] = None,
+                 reason: Optional[list[DVText]] = None,
+                parent: Optional['Pathable'] = None,
+                parent_container_attribute_name: Optional[str] = None,
+                **kwargs):
+        util_verify_code_in_openehr_terminology_group_or_error(
+            code=current_state.defining_code,
+            terminology_group_id=OpenEHRTerminologyGroupIdentifiers.GROUP_ID_INSTRUCTION_STATES,
+            invariant_name_for_error="current_state_valid",
+            terminology_service=terminology_service
+        )
+        self.current_state = current_state
+        if transition is not None:
+            util_verify_code_in_openehr_terminology_group_or_error(
+                code=transition.defining_code,
+                terminology_group_id=OpenEHRTerminologyGroupIdentifiers.GROUP_ID_INSTRUCTION_TRANSITIONS,
+                invariant_name_for_error="transition_valid",
+                terminology_service=terminology_service
+            )
+        self.transition = transition
+        self.careflow_step = careflow_step
+        self.reason = reason
+        super().__init__(parent, parent_container_attribute_name, **kwargs)
+
+    def is_equal(self, other: 'ISMTransition'):
+        return (type(self) == type(other) and
+                is_equal_value(self.current_state, other.current_state) and
+                is_equal_value(self.transition, other.transition) and
+                is_equal_value(self.careflow_step, other.careflow_step) and
+                is_equal_value(self.reason, other.reason))
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Composition/ISM_TRANSITION.json
+        draft = {
+            "current_state": self.current_state.as_json()
+        }
+        if self.transition is not None:
+            draft["transition"] = self.transition.as_json()
+        if self.careflow_step is not None:
+            draft["careflow_step"] = self.careflow_step.as_json()
+        if self.reason is not None:
+            draft["reason"] = [r.as_json() for r in self.reason]
+        draft["_type"] = "ISM_TRANSITION"
+        return draft
+    
+    def item_at_path(self, a_path):
+        if a_path == "":
+            return self
+        else:
+            raise ValueError("Invalid path: reached ISM_TRANSITION from which no other item is reachable")
+    
+    def items_at_path(self, a_path):
+        if a_path == "":
+            raise ValueError("Items not found: reached single item (ISM_TRANSITION)")
+        else:
+            raise ValueError("Invalid path: reached ISM_TRANSITION from which no other item is reachable")
+        
+    def path_exists(self, a_path):
+        return a_path == ""
+    
+    def path_unique(self, a_path):
+        return a_path == ""
