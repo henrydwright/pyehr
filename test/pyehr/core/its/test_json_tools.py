@@ -26,7 +26,7 @@ from pyehr.core.rm.data_types.encapsulated import DVParsable, DVMultimedia
 from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecification, DVPeriodicTimeSpecification
 
 from pyehr.core.rm.composition import Composition, EventContext
-from pyehr.core.rm.composition.content.entry import Activity, AdminEntry, Evaluation, ISMTransition, Instruction, InstructionDetails, Observation
+from pyehr.core.rm.composition.content.entry import Action, Activity, AdminEntry, Evaluation, ISMTransition, Instruction, InstructionDetails, Observation
 from pyehr.core.rm.composition.content.navigation import Section
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
@@ -1164,4 +1164,49 @@ def test_its_json_rm_ehr_composition_observation():
 
     validate(t_obs)
 
-# TODO: ACTION
+def test_its_json_rm_composition_action():
+    insd = InstructionDetails(
+        instruction_id=LocatableRef("local", "INSTRUCTION", HierObjectID("d2adf197-dfed-43d0-81f8-ccd27e5e127c"), "content[0]"),
+        activity_id="activities[at0001]"
+    )
+
+    ism = ISMTransition(
+        current_state=DVCodedText("active", CodePhrase(TerminologyID("openehr"), "245")),
+        transition=DVCodedText("start", CodePhrase(TerminologyID("openehr"), "540")),
+        careflow_step=DVCodedText("Dose administered", CodePhrase(TerminologyID("local"), "at0006")),
+        terminology_service=test_ts
+    )
+
+    ad_desc = ItemTree(
+        name=DVText("Tree"),
+        archetype_node_id=",",
+        items=[
+            Cluster(
+                name=DVText("medication details"),
+                archetype_node_id="at0104",
+                items=[
+                    Element(
+                        name=DVText("Name"),
+                        archetype_node_id="at0132",
+                        value=DVCodedText("Paracetamol 500mg tablets (product)", CodePhrase(TerminologyID("SNOMED-CT"), "42109611000001109"))
+                    )
+                ]
+            )
+        ]
+    )
+
+    t_act = Action(
+        DVText("Medication management"),
+        archetype_node_id="openEHR-EHR-ACTION.medication.v1",
+        archetype_details=Archetyped(ArchetypeID("openEHR-EHR-ACTION.medication.v1"), "1.1.0"),
+        language=CodePhrase(TerminologyID("ISO_639-1"), "en-gb"),
+        encoding=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
+        subject=PartySelf(),
+        time=DVDateTime("2026-01-01T16:17:23Z"),
+        ism_transition=ism,
+        instruction_details=insd,
+        description=ad_desc,
+        terminology_service=test_ts
+    ).as_json()
+
+    validate(t_act)

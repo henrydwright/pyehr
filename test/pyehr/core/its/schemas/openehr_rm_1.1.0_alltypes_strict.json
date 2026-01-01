@@ -272,6 +272,9 @@
                 },
                 {
                     "$ref": "#/definitions/OBSERVATION"
+                },
+                {
+                    "$ref": "#/definitions/ACTION"
                 }
             ]
         }

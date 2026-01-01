@@ -819,3 +819,106 @@ class ISMTransition(Pathable):
     
     def path_unique(self, a_path):
         return a_path == ""
+
+class Action(CareEntry):
+    """Used to record a clinical action that has been performed, which may have 
+    been ad hoc, or due to the execution of an Activity in an Instruction workflow. 
+    Every Action corresponds to a careflow step of some kind or another."""
+
+    time: DVDateTime
+    """Point in time at which this action completed."""
+
+    ism_transition: ISMTransition
+    """Details of transition in the Instruction state machine caused by this Action."""
+
+    instruction_details: Optional[InstructionDetails]
+    """Details of the Instruction that caused this Action to be performed, if there 
+    was one."""
+
+    description: ItemStructure
+    """Description of the action that has been performed, in the form of an 
+    archetyped structure."""
+
+    def __init__(self, 
+        name: DVText, 
+        archetype_node_id: str,
+        language: CodePhrase,
+        encoding: CodePhrase,
+        subject: PartyProxy,
+        archetype_details : Archetyped,
+        time: DVDateTime,
+        ism_transition: ISMTransition,
+        description: ItemStructure,
+        terminology_service: TerminologyService,
+        instruction_details: Optional[InstructionDetails] = None,
+        protocol: Optional[ItemStructure] = None,
+        guideline_id: Optional[ObjectRef] = None,
+        other_participations : Optional[list[Participation]] = None,
+        workflow_id : Optional[ObjectRef] = None,
+        provider: Optional[PartyProxy] = None, 
+        uid : Optional[UIDBasedID] = None, 
+        links : Optional[list[Link]] = None,  
+        feeder_audit : Optional[FeederAudit] = None,
+        parent: Optional[Pathable] = None,
+        parent_container_attribute_name: Optional[str] = None,
+        **kwargs):
+        self.time = time
+        self.ism_transition = ism_transition
+        self.description = description
+        self.instruction_details = instruction_details
+        super().__init__(name, archetype_node_id, language, encoding, subject, archetype_details, terminology_service, protocol, guideline_id, other_participations, workflow_id, provider, uid, links, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def is_equal(self, other):
+        return (super().is_equal(other) and
+                is_equal_value(self.time, other.time) and
+                is_equal_value(self.ism_transition, other.ism_transition) and
+                is_equal_value(self.instruction_details, other.instruction_details) and
+                is_equal_value(self.description, other.description))
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Composition/ACTION.json
+        draft = super().as_json()
+        draft["time"] = self.time.as_json()
+        draft["ism_transition"] = self.ism_transition.as_json()
+        draft["description"] = self.description.as_json()
+        if self.instruction_details is not None:
+            draft["instruction_details"] = self.instruction_details.as_json()
+        draft["_type"] = "ACTION"
+        return draft
+    
+    def _path_eval(self, a_path: str, single_item: bool, check_only: bool):
+        path = PyehrInternalProcessedPath(a_path)
+        if path.is_self_path():
+            if check_only:
+                return True
+            if single_item:
+                return self
+            else:
+                raise ValueError("Items not found: reached single item (ACTION)")
+
+        if path.current_node_attribute == "ism_transition":
+            return self._path_resolve_single(path, self.ism_transition, single_item, check_only)
+        elif path.current_node_attribute == "instruction_details":
+            return self._path_resolve_single(path, self.instruction_details, single_item, check_only)
+        elif path.current_node_attribute == "description":
+            return self._path_resolve_single(path, self.description, single_item, check_only)
+        else:
+            if check_only:
+                return False
+            raise ValueError(f"Path invalid: expected 'ism_transition', 'instruction_details' or 'description' at INSTRUCTION_DETAILS but found \'{path.current_node_attribute}\'")
+         
+    def item_at_path(self, a_path):
+        return self._path_eval(a_path, True, False)
+    
+    def items_at_path(self, a_path):
+        return self._path_eval(a_path, False, False)
+    
+    def path_exists(self, a_path):
+        return self._path_eval(a_path, None, True)
+    
+    def path_unique(self, a_path):
+        try:
+            self.item_at_path(a_path)
+            return True
+        except (ValueError):
+            return False

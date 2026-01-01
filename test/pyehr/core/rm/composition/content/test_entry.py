@@ -13,7 +13,7 @@ from pyehr.core.rm.data_types.encapsulated import DVParsable
 from pyehr.core.rm.data_types.quantity import DVQuantity
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
-from pyehr.core.rm.composition.content.entry import Activity, AdminEntry, Evaluation, ISMTransition, Instruction, InstructionDetails, Observation
+from pyehr.core.rm.composition.content.entry import Action, Activity, AdminEntry, Evaluation, ISMTransition, Instruction, InstructionDetails, Observation
 from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers
 
 test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS], [TERMINOLOGY_OPENEHR])
@@ -333,8 +333,9 @@ def test_instruction_details_activity_path_valid():
         )
 
 ism = ISMTransition(
-    current_state=DVCodedText("planned", CodePhrase(TerminologyID("openehr"), "526")),
-    transition=DVCodedText("initiate", CodePhrase(TerminologyID("openehr"), "535")),
+    current_state=DVCodedText("active", CodePhrase(TerminologyID("openehr"), "245")),
+    transition=DVCodedText("start", CodePhrase(TerminologyID("openehr"), "540")),
+    careflow_step=DVCodedText("Dose administered", CodePhrase(TerminologyID("local"), "at0006")),
     terminology_service=test_ts
 )
 
@@ -356,3 +357,41 @@ def test_ism_transition_transition_valid():
             transition=DVCodedText("English (United Kingdom)", CodePhrase(TerminologyID("ISO_639-1"), "en-gb")),
             terminology_service=test_ts
         )
+
+ad_desc = ItemTree(
+        name=DVText("Tree"),
+        archetype_node_id=",",
+        items=[
+            Cluster(
+                name=DVText("medication details"),
+                archetype_node_id="at0104",
+                items=[
+                    Element(
+                        name=DVText("Name"),
+                        archetype_node_id="at0132",
+                        value=DVCodedText("Paracetamol 500mg tablets (product)", CodePhrase(TerminologyID("SNOMED-CT"), "42109611000001109"))
+                    )
+                ]
+            )
+        ]
+    )
+
+med_ad = Action(
+    DVText("Medication management"),
+    archetype_node_id="openEHR-EHR-ACTION.medication.v1",
+    archetype_details=Archetyped(ArchetypeID("openEHR-EHR-ACTION.medication.v1"), "1.1.0"),
+    language=CodePhrase(TerminologyID("ISO_639-1"), "en-gb"),
+    encoding=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
+    subject=PartySelf(),
+    time=DVDateTime("2026-01-01T16:17:23Z"),
+    ism_transition=ism,
+    instruction_details=insd,
+    description=ad_desc,
+    terminology_service=test_ts
+)
+
+def test_action_item_at_path():
+    assert is_equal_value(med_ad.item_at_path(""), med_ad)
+    assert is_equal_value(med_ad.item_at_path("ism_transition"), ism)
+    assert is_equal_value(med_ad.item_at_path("instruction_details"), insd)
+    assert is_equal_value(med_ad.item_at_path("description"), ad_desc)
