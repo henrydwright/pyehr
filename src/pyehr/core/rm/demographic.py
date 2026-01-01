@@ -6,7 +6,7 @@ latter situation, it is used to add the required openEHR semantics, particularly
 versioning, to an existing service."""
 
 from typing import Optional
-from pyehr.core.base.base_types.identification import UIDBasedID
+from pyehr.core.base.base_types.identification import PartyRef, UIDBasedID
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.common.archetyped import Archetyped, FeederAudit, Link, Locatable, Pathable, PyehrInternalProcessedPath
 from pyehr.core.rm.data_structures.item_structure import ItemStructure
@@ -232,6 +232,97 @@ class Contact(Locatable):
     def purpose(self) -> DVText:
         """Purpose for which this contact is used, e.g. mail, daytime phone, etc. 
         Taken from value of inherited name attribute."""
+        return self.name
+    
+class PartyRelationship(Locatable):
+    """Generic description of a relationship between parties."""
+
+    details: Optional[ItemStructure]
+    """The detailed description of the relationship."""
+
+    target: PartyRef
+    """Target of relationship."""
+
+    time_validity: Optional[DVInterval[DVDate]]
+    """Valid time interval for this relationship."""
+
+    source: PartyRef
+    """Source of relationship."""
+
+    def __init__(self, 
+                rel_type: DVText, 
+                archetype_node_id: str, 
+                source: PartyRef,
+                target: PartyRef,
+                details: Optional[ItemStructure] = None,
+                time_validity: Optional[DVInterval[DVDate]] = None,
+                uid : Optional[UIDBasedID] = None, 
+                links : Optional[list[Link]] = None,  
+                archetype_details : Optional[Archetyped] = None,
+                feeder_audit : Optional[FeederAudit] = None,
+                parent: Optional[Pathable] = None,
+                parent_container_attribute_name: Optional[str] = None,
+                **kwargs):
+            self.details = details
+            self.target = target
+            self.time_validity = time_validity
+            self.source = source
+            super().__init__(rel_type, archetype_node_id, uid, links, archetype_details, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def is_equal(self, other: 'PartyRelationship'):
+        return (super().is_equal(other)
+                and is_equal_value(self.details, other.details)
+                and is_equal_value(self.target, other.target)
+                and is_equal_value(self.time_validity, other.time_validity)
+                and is_equal_value(self.source, other.source))
+    
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Demographic/PARTY_RELATIONSHIP.json
+        draft = super().as_json()
+        draft["target"] = self.target.as_json()
+        draft["source"] = self.source.as_json()
+        if self.details is not None:
+            draft["details"] = self.details.as_json()
+        if self.time_validity is not None:
+            draft["time_validity"] = self.time_validity.as_json()
+        draft["_type"] = "PARTY_RELATIONSHIP"
+        return draft
+
+    def _path_eval(self, a_path: str, single_item: bool, check_only: bool):
+        path = PyehrInternalProcessedPath(a_path)
+        if path.is_self_path():
+            if check_only:
+                return True
+            if single_item:
+                return self
+            else:
+                raise ValueError("Items not found: reached single item (PARTY_RELATIONSHIP)")
+
+        if path.current_node_attribute == "details":
+            return self._path_resolve_single(path, self.details, single_item, check_only)
+        else:
+            if check_only:
+                return False
+            raise ValueError(f"Path invalid: expected 'details' at PARTY_RELATIONSHIP but found \'{path.current_node_attribute}\'")
+            
+    def item_at_path(self, a_path):
+        return self._path_eval(a_path, True, False)
+    
+    def items_at_path(self, a_path):
+        return self._path_eval(a_path, False, False)
+    
+    def path_exists(self, a_path):
+        return self._path_eval(a_path, None, True)
+    
+    def path_unique(self, a_path):
+        try:
+            self.item_at_path(a_path)
+            return True
+        except (ValueError):
+            return False
+        
+    def relationship_type(self):
+        """Type of relationship, such as employment, authority, health provision"""
         return self.name
 
 class Party(Locatable):
