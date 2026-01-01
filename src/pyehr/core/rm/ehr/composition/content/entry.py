@@ -5,7 +5,7 @@ and a number of descendants."""
 from abc import abstractmethod
 from typing import Optional
 
-from pyehr.core.base.base_types.identification import ObjectRef, UIDBasedID
+from pyehr.core.base.base_types.identification import LocatableRef, ObjectRef, UIDBasedID
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.common.archetyped import Archetyped, FeederAudit, Link, Locatable, Pathable, PyehrInternalProcessedPath
 from pyehr.core.rm.common.generic import Participation, PartyProxy, PartySelf
@@ -649,3 +649,84 @@ class Instruction(CareEntry):
             draft["activities"] = [a.as_json() for a in self.activities]
         draft["_type"] = "INSTRUCTION"
         return draft
+    
+class InstructionDetails(Pathable):
+    """Used to record details of the Instruction causing an Action."""
+
+    instruction_id: LocatableRef
+    """Reference to causing Instruction."""
+
+    activity_id: str
+    """Identifier of Activity within Instruction, in the form of its archetype path."""
+
+    wf_details: Optional[ItemStructure]
+    """Various workflow engine state details, potentially including such things as:
+    * condition that fired to cause this Action to be done (with actual variables 
+    substituted);
+    * list of notifications which actually occurred (with all variables substituted);
+    * other workflow engine state.
+
+    This specification does not currently define the actual structure or semantics of this field."""
+
+    def __init__(self, 
+                 instruction_id: LocatableRef,
+                 activity_id: str,
+                 wf_details: Optional[ItemStructure] = None,
+                parent: Optional['Pathable'] = None,
+                parent_container_attribute_name: Optional[str] = None,
+                **kwargs):
+        self.instruction_id = instruction_id
+        if activity_id == "":
+            raise ValueError("activity_id cannot be empty (invariant: activity_path_valid)")
+        self.activity_id = activity_id
+        self.wf_details = wf_details
+        super().__init__(parent, parent_container_attribute_name, **kwargs)
+
+    def is_equal(self, other):
+        return (type(self) == type(other) and
+                is_equal_value(self.instruction_id, other.instruction_id) and
+                is_equal_value(self.activity_id, other.activity_id) and
+                is_equal_value(self.wf_details, other.wf_details))
+
+    def as_json(self):
+        draft = {
+            "instruction_id": self.instruction_id.as_json(),
+            "activity_id": self.activity_id
+        }
+        if self.wf_details is not None:
+            draft["wf_details"] = self.wf_details.as_json()
+        draft["_type"] = "INSTRUCTION_DETAILS"
+        return draft
+    
+    def _path_eval(self, a_path: str, single_item: bool, check_only: bool):
+        path = PyehrInternalProcessedPath(a_path)
+        if path.is_self_path():
+            if check_only:
+                return True
+            if single_item:
+                return self
+            else:
+                raise ValueError("Items not found: reached single item (INSTRUCTION_DETAILS)")
+
+        if path.current_node_attribute == "wf_details":
+            return self._path_resolve_single(path, self.wf_details, single_item, check_only)
+        else:
+            if check_only:
+                return False
+            raise ValueError(f"Path invalid: expected 'wf_details' at INSTRUCTION_DETAILS but found \'{path.current_node_attribute}\'")
+         
+    def item_at_path(self, a_path):
+        return self._path_eval(a_path, True, False)
+    
+    def items_at_path(self, a_path):
+        return self._path_eval(a_path, False, False)
+    
+    def path_exists(self, a_path):
+        return self._path_eval(a_path, None, True)
+    
+    def path_unique(self, a_path):
+        try:
+            self.item_at_path(a_path)
+            return True
+        except (ValueError):
+            return False

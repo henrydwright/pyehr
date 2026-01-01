@@ -1,7 +1,7 @@
 import pytest
 
 from common import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_LANGUAGES, TERMINOLOGY_OPENEHR, PythonTerminologyService
-from pyehr.core.base.base_types.identification import ArchetypeID, TerminologyID
+from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, LocatableRef, TerminologyID, UIDBasedID
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.common.archetyped import Archetyped
 from pyehr.core.rm.common.generic import Participation, PartyIdentified, PartyRelated, PartySelf
@@ -13,7 +13,7 @@ from pyehr.core.rm.data_types.encapsulated import DVParsable
 from pyehr.core.rm.data_types.quantity import DVQuantity
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
-from pyehr.core.rm.ehr.composition.content.entry import Activity, AdminEntry, Evaluation, Instruction, Observation
+from pyehr.core.rm.ehr.composition.content.entry import Activity, AdminEntry, Evaluation, Instruction, InstructionDetails, Observation
 from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers
 
 test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS], [TERMINOLOGY_OPENEHR])
@@ -317,3 +317,17 @@ def test_instruction_item_at_path():
 
 def test_instruction_items_at_path():
     assert is_equal_value(ins.items_at_path("activities"), [act])
+
+insd = InstructionDetails(
+    instruction_id=LocatableRef("local", "INSTRUCTION", HierObjectID("d2adf197-dfed-43d0-81f8-ccd27e5e127c"), "content[0]"),
+    activity_id="activities[at0001]"
+)
+
+def test_instruction_details_activity_path_valid():
+    # OK (above)
+    # not OK - empty activity_id
+    with pytest.raises(ValueError):
+        insd = InstructionDetails(
+            instruction_id=LocatableRef("local", "INSTRUCTION", HierObjectID("d2adf197-dfed-43d0-81f8-ccd27e5e127c"), "content[0]"),
+            activity_id=""
+        )

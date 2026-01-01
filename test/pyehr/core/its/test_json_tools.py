@@ -10,7 +10,7 @@ from pyehr.core.base.foundation_types.time import ISODate, ISOTime, ISODuration,
 from pyehr.core.base.foundation_types.interval import PointInterval, ProperInterval, MultiplicityInterval
 from pyehr.core.base.foundation_types.primitive_types import Uri
 from pyehr.core.base.foundation_types.terminology import TerminologyCode, TerminologyTerm
-from pyehr.core.base.base_types.identification import TerminologyID
+from pyehr.core.base.base_types.identification import LocatableRef, TerminologyID
 from pyehr.core.base.base_types.identification import TerminologyID, ISOOID, UUID, InternetID, VersionTreeID, HierObjectID, ObjectVersionID, ArchetypeID, TemplateID, GenericID, ObjectRef, PartyRef
 from pyehr.core.base.resource import TranslationDetails, ResourceDescriptionItem, ResourceDescription, AuthoredResource
 
@@ -26,7 +26,7 @@ from pyehr.core.rm.data_types.encapsulated import DVParsable, DVMultimedia
 from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecification, DVPeriodicTimeSpecification
 
 from pyehr.core.rm.ehr.composition import Composition, EventContext
-from pyehr.core.rm.ehr.composition.content.entry import Activity, AdminEntry, Evaluation, Instruction, Observation
+from pyehr.core.rm.ehr.composition.content.entry import Activity, AdminEntry, Evaluation, Instruction, InstructionDetails, Observation
 from pyehr.core.rm.ehr.composition.content.navigation import Section
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
@@ -141,7 +141,10 @@ def test_its_json_base_version_tree_id():
 
     validate(v_json)
 
-# TODO: LOCATABLE_REF
+def test_its_json_base_locatable_ref():
+    v_lr = LocatableRef("local", "INSTRUCTION", HierObjectID("d2adf197-dfed-43d0-81f8-ccd27e5e127c"), "content[0]").as_json()
+
+    validate(v_lr)
 
 def test_its_json_base_generic_id():
     gid_json = GenericID("QQ123456A", "https://www.gov.uk/hmrc-internal-manuals/national-insurance-manual/nim39110").as_json()
@@ -1063,7 +1066,13 @@ def test_its_json_rm_ehr_composition():
 
     validate(t_c)
 
-# TODO: INSTRUCTION_DETAILS
+def test_its_json_rm_ehr_composition_instruction_details():
+    t_insd = InstructionDetails(
+        instruction_id=LocatableRef("local", "INSTRUCTION", HierObjectID("d2adf197-dfed-43d0-81f8-ccd27e5e127c"), "content[0]"),
+        activity_id="activities[at0001]"
+    ).as_json()
+
+    validate(t_insd)
 
 def test_its_json_rm_ehr_composition_evaluation():
     t_ev = Evaluation(

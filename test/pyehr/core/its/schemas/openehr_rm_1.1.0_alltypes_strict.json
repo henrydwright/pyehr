@@ -256,6 +256,9 @@
                     "$ref": "#/definitions/COMPOSITION"
                 },
                 {
+                    "$ref": "#/definitions/INSTRUCTION_DETAILS"
+                },
+                {
                     "$ref": "#/definitions/EVALUATION"
                 },
                 {
