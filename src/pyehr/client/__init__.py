@@ -6,7 +6,7 @@ from typing import Optional, Union
 
 from pyehr.core.base.base_types.identification import HierObjectID
 from pyehr.core.base.foundation_types.primitive_types import Uri
-from pyehr.core.rm.ehr.ehr import EHR, EHRAccess, EHRStatus
+from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus
 
 from pyehr.core.its.json_tools import decode_json
 
@@ -63,6 +63,31 @@ class OpenEHRRestClient():
             
             return decode_json(result.json(), target="EHR", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
         
+        def get_ehr_by_subject_id(self, subject_id: str, subject_namespace: str) -> Union[EHR, list[Union[EHR, EHRAccess, EHRStatus]]]:
+            """Retrieve the EHR with the specified subject_id and subject_namespace.
+
+            These subject parameters will be matched against EHR's EHR_STATUS.subject.external_ref.id.value and EHR_STATUS.subject.external_ref.namespace values.
+            
+            Executes: `GET` on /ehr
+            
+            :param subject_id: The EHR subject id. Example: `ins01`
+            :param subject_namespace: The EHR subject id namespace. Example: `examples`"""
+            target_url = self.outer._url_from_base("/ehr")
+            result = requests.get(
+                url=target_url,
+                headers=self.outer._build_headers(),
+                params={
+                    "subject_id": subject_id,
+                    "subject_namespace": subject_namespace
+                }
+            )
+            if result.status_code == 404:
+                raise RuntimeError("404 Not Found: EHR with supplied subject parameters does not exist.")
+            elif result.status_code != 200:
+                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+
+            return decode_json(result.json(), target="EHR", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
+
         def create_ehr(self, ehr_status: Optional[EHRStatus] = None) -> Union[EHR, list[Union[EHR, EHRAccess, EHRStatus]]]:
             """Create a new EHR with an auto-generated identifier.
 
@@ -85,12 +110,12 @@ class OpenEHRRestClient():
                 json=request_body
             )
             if result.status_code == 400:
-                raise ValueError("400 Bad Request: Server did not accept provided ehr_status")
+                raise ValueError(f"400 Bad Request: Server did not accept provided ehr_status. Body: {str(result.content)}")
             elif result.status_code == 409:
                 raise RuntimeError("409 Conflict: Unable to create a new EHR due to a conflict with an already existing EHR with the same subject id, namespace pair, whenever EHR_STATUS is supplied.")
             elif result.status_code != 201:
                 raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
-            
+
             return decode_json(result.json(), target="EHR", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
 
     def __init__(self, base_url: Uri, flag_allow_resolved_references : bool = True):
