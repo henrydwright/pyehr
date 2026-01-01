@@ -6,7 +6,7 @@ from typing import Optional
 from pyehr.core.base.base_types.identification import UIDBasedID
 from pyehr.core.rm.common.archetyped import Archetyped, FeederAudit, Link, Pathable, PyehrInternalProcessedPath
 from pyehr.core.rm.data_types.text import DVText
-from pyehr.core.rm.ehr.composition.content import ContentItem
+from pyehr.core.rm.composition.content import ContentItem
 
 
 class Section(ContentItem):

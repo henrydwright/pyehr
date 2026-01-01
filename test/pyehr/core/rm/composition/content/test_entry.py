@@ -13,7 +13,7 @@ from pyehr.core.rm.data_types.encapsulated import DVParsable
 from pyehr.core.rm.data_types.quantity import DVQuantity
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
-from pyehr.core.rm.ehr.composition.content.entry import Activity, AdminEntry, Evaluation, Instruction, InstructionDetails, Observation
+from pyehr.core.rm.composition.content.entry import Activity, AdminEntry, Evaluation, Instruction, InstructionDetails, Observation
 from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers
 
 test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS], [TERMINOLOGY_OPENEHR])

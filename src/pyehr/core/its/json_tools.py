@@ -9,7 +9,7 @@ from pyehr.core.rm.common.generic import PartySelf
 from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import DVText, DVUri
-from pyehr.core.rm.ehr.ehr import EHR, EHRStatus
+from pyehr.core.rm.ehr import EHR, EHRStatus
 
 _type_map = {
     "OBJECT_VERSION_ID": ObjectVersionID,

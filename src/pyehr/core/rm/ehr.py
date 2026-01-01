@@ -16,7 +16,7 @@ from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.data_structures.item_structure import ItemStructure
 from pyehr.core.rm.common.archetyped import Locatable, Archetyped, Link, FeederAudit, Pathable
 from pyehr.core.rm.common.change_control import VersionedObject
-from pyehr.core.rm.ehr.composition import Composition
+from pyehr.core.rm.composition import Composition
 
 class EHR(AnyClass):
     """The EHR object is the root object and access point of an EHR for a subject 

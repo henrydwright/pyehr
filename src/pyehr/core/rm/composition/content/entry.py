@@ -14,7 +14,7 @@ from pyehr.core.rm.data_structures.item_structure import ItemStructure
 from pyehr.core.rm.data_types.encapsulated import DVParsable
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVText
-from pyehr.core.rm.ehr.composition.content import ContentItem
+from pyehr.core.rm.composition.content import ContentItem
 from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers, TerminologyService, util_verify_code_in_openehr_codeset_or_error
 
 

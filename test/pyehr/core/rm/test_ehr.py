@@ -4,7 +4,7 @@ from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import DVText
-from pyehr.core.rm.ehr.ehr import EHR, EHRAccess, EHRStatus
+from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus
 
 def test_ehr_contributions_valid():
     # OK - no contributions

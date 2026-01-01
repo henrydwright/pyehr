@@ -25,9 +25,9 @@ from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVTime, DVDurati
 from pyehr.core.rm.data_types.encapsulated import DVParsable, DVMultimedia
 from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecification, DVPeriodicTimeSpecification
 
-from pyehr.core.rm.ehr.composition import Composition, EventContext
-from pyehr.core.rm.ehr.composition.content.entry import Activity, AdminEntry, Evaluation, Instruction, InstructionDetails, Observation
-from pyehr.core.rm.ehr.composition.content.navigation import Section
+from pyehr.core.rm.composition import Composition, EventContext
+from pyehr.core.rm.composition.content.entry import Activity, AdminEntry, Evaluation, Instruction, InstructionDetails, Observation
+from pyehr.core.rm.composition.content.navigation import Section
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
 from pyehr.core.rm.common.archetyped import FeederAudit, FeederAuditDetails, Link, Archetyped
@@ -38,7 +38,7 @@ from pyehr.core.rm.common.directory import Folder
 from pyehr.core.rm.data_structures.representation import Cluster, Element
 from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemList, ItemTable, ItemTree
 
-from pyehr.core.rm.ehr.ehr import EHR
+from pyehr.core.rm.ehr import EHR
 
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
