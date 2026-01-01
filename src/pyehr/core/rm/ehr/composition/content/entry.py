@@ -9,6 +9,7 @@ from pyehr.core.base.base_types.identification import ObjectRef, UIDBasedID
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.common.archetyped import Archetyped, FeederAudit, Link, Pathable, PyehrInternalProcessedPath
 from pyehr.core.rm.common.generic import Participation, PartyProxy, PartySelf
+from pyehr.core.rm.data_structures.history import History
 from pyehr.core.rm.data_structures.item_structure import ItemStructure
 from pyehr.core.rm.data_types.text import CodePhrase, DVText
 from pyehr.core.rm.ehr.composition.content import ContentItem
@@ -267,4 +268,101 @@ class CareEntry(Entry):
         return (super().is_equal(other) and
                 is_equal_value(self.protocol, other.protocol) and
                 is_equal_value(self.guideline_id, other.guideline_id))
+    
+class Observation(CareEntry):
+    """Entry subtype for all clinical data in the past or present, i.e. which 
+    (by the time it is recorded) has already occurred. OBSERVATION data is 
+    expressed using the class HISTORY<T>, which guarantees that it is situated 
+    in time. OBSERVATION is used for all notionally objective (i.e. measured 
+    in some way) observations of phenomena, and patient-reported phenomena, 
+    e.g. pain.
+
+    Not to be used for recording opinion or future statements of any kind, 
+    including instructions, intentions, plans etc."""
+
+    data: History[ItemStructure]
+    """The data of this observation, in the form of a history of values which may 
+    be of any complexity."""
+
+    state: Optional[History[ItemStructure]]
+    """Optional recording of the state of subject of this observation during the 
+    observation process, in the form of a separate history of values which may be 
+    of any complexity. State may also be recorded within the History of the data 
+    attribute."""
+
+    def __init__(self, 
+        name: DVText, 
+        archetype_node_id: str,
+        language: CodePhrase,
+        encoding: CodePhrase,
+        subject: PartyProxy,
+        archetype_details : Archetyped,
+        data: History[ItemStructure],
+        terminology_service: TerminologyService,
+        state: Optional[History[ItemStructure]] = None,
+        protocol: Optional[ItemStructure] = None,
+        guideline_id: Optional[ObjectRef] = None,
+        other_participations : Optional[list[Participation]] = None,
+        workflow_id : Optional[ObjectRef] = None,
+        provider: Optional[PartyProxy] = None, 
+        uid : Optional[UIDBasedID] = None, 
+        links : Optional[list[Link]] = None,  
+        feeder_audit : Optional[FeederAudit] = None,
+        parent: Optional[Pathable] = None,
+        parent_container_attribute_name: Optional[str] = None,
+        **kwargs):
+        self.data = data
+        self.state = state
+        super().__init__(name, archetype_node_id, language, encoding, subject, archetype_details, terminology_service, protocol, guideline_id, other_participations, workflow_id, provider, uid, links, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def _path_eval(self, a_path: str, single_item: bool, check_only: bool):
+        path = PyehrInternalProcessedPath(a_path)
+        if path.is_self_path():
+            if check_only:
+                return True
+            if single_item:
+                return self
+            else:
+                raise ValueError("Items not found: reached single item (OBSERVATION)")
+
+        if path.current_node_attribute == "data":
+            return self._path_resolve_single(path, self.data, single_item, check_only)
+        elif path.current_node_attribute == "protocol":
+            return self._path_resolve_single(path, self.protocol, single_item, check_only)
+        elif path.current_node_attribute == "state":
+            return self._path_resolve_single(path, self.state, single_item, check_only)
+        else:
+            if check_only:
+                return False
+            raise ValueError(f"Path invalid: expected 'data', 'protocol' or 'state' at OBSERVATION but found \'{path.current_node_attribute}\'")
+         
+    def item_at_path(self, a_path):
+        return self._path_eval(a_path, True, False)
+    
+    def items_at_path(self, a_path):
+        return self._path_eval(a_path, False, False)
+    
+    def path_exists(self, a_path):
+        return self._path_eval(a_path, None, True)
+    
+    def path_unique(self, a_path):
+        try:
+            self.item_at_path(a_path)
+            return True
+        except (ValueError):
+            return False
+        
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Composition/OBSERVATION.json
+        draft = super().as_json()
+        draft["data"] = self.data.as_json()
+        if self.state is not None:
+            draft["state"] = self.state.as_json()
+        draft["_type"] = "OBSERVATION"
+        return draft
+    
+    def is_equal(self, other):
+        return (super().is_equal(other) and
+                is_equal_value(self.data, other.data) and
+                is_equal_value(self.state, other.state))
     

@@ -254,6 +254,9 @@
                 },
                 {
                     "$ref": "#/definitions/SECTION"
+                },
+                {
+                    "$ref": "#/definitions/OBSERVATION"
                 }
             ]
         }

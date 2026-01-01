@@ -26,7 +26,7 @@ from pyehr.core.rm.data_types.encapsulated import DVParsable, DVMultimedia
 from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecification, DVPeriodicTimeSpecification
 
 from pyehr.core.rm.ehr.composition import Composition, EventContext
-from pyehr.core.rm.ehr.composition.content.entry import AdminEntry
+from pyehr.core.rm.ehr.composition.content.entry import AdminEntry, Observation
 from pyehr.core.rm.ehr.composition.content.navigation import Section
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
@@ -1005,6 +1005,43 @@ def test_its_json_rm_ehr_composition_section():
 
     validate(t_s)
 
-# TODO: OBSERVATION
+def test_its_json_rm_ehr_composition_observation():
+    
+    his = History[ItemTree](
+            name=DVText("history"),
+            archetype_node_id="at0002",
+            origin=DVDateTime("2026-01-01T12:28:00Z")
+        )
+    his.events = [
+                PointEvent[ItemTree](
+                    name=DVText("weight at 12:28"),
+                    archetype_node_id="at0003",
+                    time=DVDateTime("2026-01-01T12:28:00Z"),
+                    data=ItemTree(
+                        name=DVText("weight observation"),
+                        archetype_node_id="at0001",
+                        items=[
+                            Element(
+                                name=DVText("weight"),
+                                archetype_node_id="at0004",
+                                value=DVQuantity(82.0, "kg")
+                            )
+                        ]
+                    ),
+                    parent=his
+                )
+            ]
+    t_obs = Observation(
+        name=DVText("Body weight"),
+        archetype_node_id="openEHR-EHR-OBSERVATION.body_weight.v2",
+        language=CodePhrase(TerminologyID("ISO_639-1"), "en-gb"),
+        encoding=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
+        subject=PartySelf(),
+        archetype_details=Archetyped(ArchetypeID("openEHR-EHR-OBSERVATION.body_weight.v2"), "1.1.0"),
+        data=his,
+        terminology_service=test_ts
+    ).as_json()
+
+    validate(t_obs)
 
 # TODO: ACTION
