@@ -8,7 +8,7 @@ from pyehr.core.rm.data_structures.representation import Element
 from pyehr.core.rm.data_types.basic import DVIdentifier
 from pyehr.core.rm.data_types.quantity.date_time import DVDate
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
-from pyehr.core.rm.demographic import Address, Contact, Party, PartyIdentity, PartyRelationship, Person
+from pyehr.core.rm.demographic import Address, Capability, Contact, Party, PartyIdentity, PartyRelationship, Person, Role
 
 def test_party_identity_purpose_valid():
     pur = DVCodedText(
@@ -390,3 +390,70 @@ def test_party_is_archetype_root():
 def test_party_uid_mandatory():
     p = _generate_test_person()
     assert p.uid != None
+
+def test_role_capabilities_valid():
+    # OK - list filled
+    Role(
+        role_type=DVText("HC consumer"),
+        archetype_node_id="openEHR-DEMOGRAPHIC-ROLE.person_role.v0",
+        archetype_details=Archetyped(ArchetypeID("openEHR-DEMOGRAPHIC-ROLE.person_role.v0"), "1.1.0"),
+        uid=HierObjectID("00da28fe-b7fa-4186-bb01-6f4c591e5bfc"),
+        performer=PartyRef("local", "PERSON", HierObjectID("3196a11a-bc7f-4dd1-b52a-16394391a634")),
+        identities=[
+            PartyIdentity(
+                purpose=DVText("internal consumer"),
+                archetype_node_id="at0001",
+                details=ItemSingle(
+                    name=DVText("item"),
+                    archetype_node_id="at0002",
+                    item=Element(
+                        name=DVText("internal consumer identifier"),
+                        archetype_node_id="at0003",
+                        value=DVIdentifier("999-999-999-999", "Local Healthcare System", "Local Hospital")
+                    )
+                )
+
+            )
+        ],
+        capabilities=[
+            Capability(
+                name=DVText("pay for care using medicare"),
+                archetype_node_id="at1001",
+                credentials=ItemSingle(
+                    name=DVText("item"),
+                    archetype_node_id="at1002",
+                    item=Element(
+                        name=DVText("medicare identifier"),
+                        archetype_node_id="at1004",
+                        value=DVIdentifier("999", "Medicare")
+                    )
+                )
+            )
+        ]
+    )
+    # not OK - list empty
+    with pytest.raises(ValueError):
+            Role(
+                role_type=DVText("HC consumer"),
+                archetype_node_id="openEHR-DEMOGRAPHIC-ROLE.person_role.v0",
+                archetype_details=Archetyped(ArchetypeID("openEHR-DEMOGRAPHIC-ROLE.person_role.v0"), "1.1.0"),
+                uid=HierObjectID("00da28fe-b7fa-4186-bb01-6f4c591e5bfc"),
+                performer=PartyRef("local", "PERSON", HierObjectID("3196a11a-bc7f-4dd1-b52a-16394391a634")),
+                identities=[
+                    PartyIdentity(
+                        purpose=DVText("internal consumer"),
+                        archetype_node_id="at0001",
+                        details=ItemSingle(
+                            name=DVText("item"),
+                            archetype_node_id="at0002",
+                            item=Element(
+                                name=DVText("internal consumer identifier"),
+                                archetype_node_id="at0003",
+                                value=DVIdentifier("999-999-999-999", "Local Healthcare System", "Local Hospital")
+                            )
+                        )
+
+                    )
+                ],
+                capabilities=[]
+            )

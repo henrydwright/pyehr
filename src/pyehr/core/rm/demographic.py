@@ -10,6 +10,7 @@ from typing import Optional
 from pyehr.core.base.base_types.identification import LocatableRef, PartyRef, UIDBasedID
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.common.archetyped import Archetyped, FeederAudit, Link, Locatable, Pathable, PyehrInternalProcessedPath
+from pyehr.core.rm.common.change_control import VersionedObject
 from pyehr.core.rm.data_structures.item_structure import ItemStructure
 from pyehr.core.rm.data_types.quantity import DVInterval
 from pyehr.core.rm.data_types.quantity.date_time import DVDate
@@ -607,3 +608,180 @@ class Agent(Actor):
         draft = super().as_json()
         draft["_type"] = "AGENT"
         return draft
+    
+class VersionedParty(VersionedObject[Party]):
+    """Static type formed by binding generic parameter of `VERSIONED_OBJECT<T>` 
+    to `PARTY`."""
+    pass
+
+class Capability(Locatable):
+    """Capability of a role, such as ehr modifier, health care provider. 
+    Capability should be backed up by credentials."""
+
+    credentials: ItemStructure
+    """The qualifications of the performer of the role for this capability. 
+    This might include professional qualifications and official identifications 
+    such as provider numbers etc."""
+
+    time_validity: Optional[DVInterval[DVDate]]
+    """Valid time interval for the credentials of this capability."""
+
+    def __init__(self,
+        name: DVText,
+        archetype_node_id: str,
+        credentials: ItemStructure,
+        time_validity: Optional[DVInterval[DVDate]] = None,
+        uid: Optional[UIDBasedID] = None,
+        links: Optional[list[Link]] = None,
+        archetype_details: Optional[Archetyped] = None,
+        feeder_audit: Optional[FeederAudit] = None,
+        parent: Optional[Pathable] = None,
+        parent_container_attribute_name: Optional[str] = None,
+        **kwargs):
+        self.credentials = credentials
+        self.time_validity = time_validity
+        super().__init__(name, archetype_node_id, uid, links, archetype_details, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def is_equal(self, other: 'Capability'):
+        return (super().is_equal(other)
+            and is_equal_value(self.credentials, other.credentials)
+            and is_equal_value(self.time_validity, other.time_validity))
+
+    def as_json(self):
+        # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Demographic/CAPABILITY.json
+        draft = super().as_json()
+        draft["credentials"] = self.credentials.as_json()
+        if self.time_validity is not None:
+            draft["time_validity"] = self.time_validity.as_json()
+        draft["_type"] = "CAPABILITY"
+        return draft
+
+    def _path_eval(self, a_path: str, single_item: bool, check_only: bool):
+        path = PyehrInternalProcessedPath(a_path)
+        if path.is_self_path():
+            if check_only:
+                return True
+            if single_item:
+                return self
+            else:
+                raise ValueError("Items not found: reached single item (CAPABILITY)")
+
+        if path.current_node_attribute == "credentials":
+            return self._path_resolve_single(path, self.credentials, single_item, check_only)
+        else:
+            if check_only:
+                return False
+            raise ValueError(f"Path invalid: expected 'credentials' at CAPABILITY but found '{path.current_node_attribute}'")
+
+    def item_at_path(self, a_path):
+        return self._path_eval(a_path, True, False)
+
+    def items_at_path(self, a_path):
+        return self._path_eval(a_path, False, False)
+
+    def path_exists(self, a_path):
+        return self._path_eval(a_path, None, True)
+
+    def path_unique(self, a_path):
+        try:
+            self.item_at_path(a_path)
+            return True
+        except (ValueError):
+            return False
+
+class Role(Party):
+    """Generic description of a role performed by an Actor. The role corresponds 
+    to a competency of the Party. Roles are used to define the responsibilities 
+    undertaken by a Party for a purpose. Roles should have credentials qualifying 
+    the performer to perform the role."""
+    
+    time_validity: Optional[DVInterval[DVDate]]
+    """Valid time interval for this role."""
+
+    performer: PartyRef
+    """Reference to Version container of Actor playing the role."""
+
+    capabilities: Optional[list[Capability]]
+    """The capabilities of this role."""
+
+    def __init__(self,
+        role_type: DVText,
+        archetype_node_id: str,
+        archetype_details: Archetyped,
+        identities: list[PartyIdentity],
+        uid: UIDBasedID,
+        performer: PartyRef,
+        contacts: Optional[list[Contact]] = None,
+        details: Optional[ItemStructure] = None,
+        relationships: Optional[list[PartyRelationship]] = None,
+        reverse_relationships: Optional[list[LocatableRef]] = None,
+        time_validity: Optional[DVInterval[DVDate]] = None,
+        capabilities: Optional[list[Capability]] = None,
+        links: Optional[list[Link]] = None,
+        feeder_audit: Optional[FeederAudit] = None,
+        parent: Optional[Pathable] = None,
+        parent_container_attribute_name: Optional[str] = None,
+        **kwargs):
+        self.time_validity = time_validity
+        self.performer = performer
+        if capabilities is not None and len(capabilities) == 0:
+            raise ValueError("If provided, capabilities cannot be an empty list (invariant: capabilities_valid)")
+        self.capabilities = capabilities
+        super().__init__(role_type, archetype_node_id, archetype_details, identities, uid, contacts, details, relationships, reverse_relationships, links, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def is_equal(self, other: 'Role'):
+        return (super().is_equal(other)
+            and is_equal_value(self.time_validity, other.time_validity)
+            and is_equal_value(self.performer, other.performer)
+            and is_equal_value(self.capabilities, other.capabilities))
+
+    def as_json(self):
+        draft = super().as_json()
+        draft["performer"] = self.performer.as_json()
+        if self.time_validity is not None:
+            draft["time_validity"] = self.time_validity.as_json()
+        if self.capabilities is not None:
+            draft["capabilities"] = [c.as_json() for c in self.capabilities]
+        draft["_type"] = "ROLE"
+        return draft
+
+    def _path_eval(self, a_path: str, single_item: bool, check_only: bool):
+        path = PyehrInternalProcessedPath(a_path)
+        if path.is_self_path():
+            if check_only:
+                return True
+            if single_item:
+                return self
+            else:
+                raise ValueError("Items not found: reached single item (ROLE)")
+
+        if path.current_node_attribute == "identities":
+            return self._path_resolve_item_list(path, self.identities, single_item, check_only)
+        elif path.current_node_attribute == "contacts":
+            return self._path_resolve_item_list(path, self.contacts, single_item, check_only)
+        elif path.current_node_attribute == "details":
+            return self._path_resolve_single(path, self.details, single_item, check_only)
+        elif path.current_node_attribute == "relationships":
+            return self._path_resolve_item_list(path, self.relationships, single_item, check_only)
+        elif path.current_node_attribute == "capabilities":
+            return self._path_resolve_item_list(path, self.capabilities, single_item, check_only)
+        else:
+            if check_only:
+                return False
+            raise ValueError(f"Path invalid: expected one of 'identities', 'contacts', 'details', 'relationships', 'capabilities' at ROLE but found '{path.current_node_attribute}'")
+
+    def item_at_path(self, a_path):
+        return self._path_eval(a_path, True, False)
+
+    def items_at_path(self, a_path):
+        return self._path_eval(a_path, False, False)
+
+    def path_exists(self, a_path):
+        return self._path_eval(a_path, None, True)
+
+    def path_unique(self, a_path):
+        try:
+            self.item_at_path(a_path)
+            return True
+        except (ValueError):
+            return False

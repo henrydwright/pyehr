@@ -28,7 +28,7 @@ from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecificati
 from pyehr.core.rm.composition import Composition, EventContext
 from pyehr.core.rm.composition.content.entry import Action, Activity, AdminEntry, Evaluation, ISMTransition, Instruction, InstructionDetails, Observation
 from pyehr.core.rm.composition.content.navigation import Section
-from pyehr.core.rm.demographic import Address, Agent, Contact, Group, Organisation, PartyIdentity, PartyRelationship, Person
+from pyehr.core.rm.demographic import Address, Agent, Capability, Contact, Group, Organisation, PartyIdentity, PartyRelationship, Person, Role
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
 from pyehr.core.rm.common.archetyped import FeederAudit, FeederAuditDetails, Link, Archetyped
@@ -1340,7 +1340,32 @@ def test_its_json_rm_demographic_agent():
 
     validate(t_agt)
 
-# TODO: ROLE
+def test_its_json_rm_demographic_role():
+    t_rol = Role(
+        role_type=DVText("HC consumer"),
+        archetype_node_id="openEHR-DEMOGRAPHIC-ROLE.person_role.v0",
+        archetype_details=Archetyped(ArchetypeID("openEHR-DEMOGRAPHIC-ROLE.person_role.v0"), "1.1.0"),
+        uid=HierObjectID("00da28fe-b7fa-4186-bb01-6f4c591e5bfc"),
+        performer=PartyRef("local", "PERSON", HierObjectID("3196a11a-bc7f-4dd1-b52a-16394391a634")),
+        identities=[
+            PartyIdentity(
+                purpose=DVText("internal consumer"),
+                archetype_node_id="at0001",
+                details=ItemSingle(
+                    name=DVText("item"),
+                    archetype_node_id="at0002",
+                    item=Element(
+                        name=DVText("internal consumer identifier"),
+                        archetype_node_id="at0003",
+                        value=DVIdentifier("999-999-999-999", "Local Healthcare System", "Local Hospital")
+                    )
+                )
+
+            )
+        ]
+    ).as_json()
+    
+    validate(t_rol)
 
 def test_its_json_rm_demographic_contact():
     t_cont = Contact(
@@ -1428,5 +1453,19 @@ def test_its_json_rm_demographic_address():
 
     validate(t_addr)
     
+def test_its_json_rm_demographic_capability():
+    t_cap = Capability(
+        name=DVText("pay for care using medicare"),
+        archetype_node_id="at1001",
+        credentials=ItemSingle(
+            name=DVText("item"),
+            archetype_node_id="at1002",
+            item=Element(
+                name=DVText("medicare identifier"),
+                archetype_node_id="at1004",
+                value=DVIdentifier("999", "Medicare")
+            )
+        )
+    ).as_json()
 
-# TODO: CAPABILITY
+    validate(t_cap)

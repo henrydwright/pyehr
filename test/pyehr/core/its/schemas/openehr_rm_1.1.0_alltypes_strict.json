@@ -289,6 +289,9 @@
                     "$ref": "#/definitions/AGENT"
                 },
                 {
+                    "$ref": "#/definitions/ROLE"
+                },
+                {
                     "$ref": "#/definitions/CONTACT"
                 },
                 {
@@ -299,6 +302,9 @@
                 },
                 {
                     "$ref": "#/definitions/ADDRESS"
+                },
+                {
+                    "$ref": "#/definitions/CAPABILITY"
                 }
             ]
         }
