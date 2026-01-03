@@ -1,4 +1,5 @@
 import pytest
+import json
 
 from common import PythonTerminologyService, TERMINOLOGY_OPENEHR
 from pyehr.core.base.base_types.identification import ObjectRef, TerminologyID, ObjectVersionID, HierObjectID
@@ -556,3 +557,19 @@ def test_versioned_object_uid_validity():
             time_created=DVDateTime("2025-09-20T17:00:00Z")
             )
 
+def test_versioned_object_as_json_include_extras():
+    vo = _generate_versioned_object_three_versions()
+    history_inc = vo.as_json(include_revision_history=True)
+    assert "revision_history" in history_inc
+    versions_inc = vo.as_json(include_versions=True)
+    assert "versions" in versions_inc
+
+def test_versioned_object_create_with_revision_history_and_versions():
+    vo = _generate_versioned_object_three_versions()
+    vo_new = VersionedObject(
+        vo.uid,
+        vo.owner_id,
+        vo.time_created,
+        (vo._revision_history, list(vo._versions_id_lookup.values()))
+    )
+    assert vo.is_equal(vo_new)

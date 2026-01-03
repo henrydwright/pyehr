@@ -5,6 +5,8 @@ path_add.bat
 src/clehr/data/
 # and a scratchpad
 src/scratch.py
+# and a folder for storing random bits
+excluded/
 
 # vscode
 .vscode/

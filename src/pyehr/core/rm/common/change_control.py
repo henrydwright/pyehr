@@ -285,7 +285,7 @@ class VersionedObject[T: AnyClass](AnyClass):
     _revision_history: RevisionHistory
     """Revision history for this versioned object"""
 
-    def __init__(self, uid: HierObjectID, owner_id: ObjectRef, time_created: DVDateTime, **kwargs):
+    def __init__(self, uid: HierObjectID, owner_id: ObjectRef, time_created: DVDateTime, revision_history_and_versions: Optional[tuple[RevisionHistory, list[Version]]] = None, **kwargs):
         if uid.has_extension():
             raise ValueError("UID of a versioned object cannot have an extension (invariant: uid_validity)")
         
@@ -295,7 +295,16 @@ class VersionedObject[T: AnyClass](AnyClass):
         self._version_ids = list()
         self._versions_id_lookup = dict()
         self._versions_time_lookup = dict()
-        self._revision_history = RevisionHistory([])
+        if revision_history_and_versions is None:
+            self._revision_history = RevisionHistory([])
+        else:
+            self._revision_history = revision_history_and_versions[0]
+            versions_list = revision_history_and_versions[1]
+            for version in versions_list:
+                self._version_ids.append(version.uid())
+                self._versions_id_lookup[version.uid().value] = version
+                self._versions_time_lookup[version.commit_audit.time_committed.as_string()] = version
+                
         super().__init__(**kwargs)
 
     def version_count(self) -> np.int32:
@@ -506,14 +515,19 @@ class VersionedObject[T: AnyClass](AnyClass):
             is_equal_value(self._versions_id_lookup, other._versions_id_lookup)
         )
     
-    def as_json(self):
+    def as_json(self, include_revision_history=False, include_versions=False):
         # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Common/VERSIONED_OBJECT.json
-        return {
+        draft = {
             "uid": self.uid.as_json(),
             "owner_id": self.owner_id.as_json(),
-            "time_created": self.time_created.as_json(),
-            "_type": "VERSIONED_OBJECT"
+            "time_created": self.time_created.as_json()
         }
+        if include_revision_history:
+            draft["revision_history"] = self._revision_history.as_json()
+        if include_versions:
+            draft["versions"] = [v.as_json() for v in self._versions_id_lookup.values()]
+        draft["_type"] = "VERSIONED_OBJECT"
+        return draft
 
 class Contribution(AnyClass):
     """Documents a Contribution (change set) of one or more versions added to a 
