@@ -1,7 +1,7 @@
 """The rm.data_types.text package contains classes for representing all textual values in the health record, 
 including plain text, coded terms, and narrative text."""
 
-from typing import Optional
+from typing import Optional, Union
 
 from numpy import uint8
 
@@ -24,8 +24,11 @@ class CodePhrase(AnyClass):
     preferred_term: Optional[str] = None
     """Optional attribute to carry preferred term corresponding to the code or expression in code_string. Typical use in integration situations which create mappings, and representing data for which both a (non-preferred) actual term and a preferred term are both required."""
 
-    def __init__(self, terminology_id: TerminologyID, code_string: str, preferred_term: Optional[str] = None):
-        self.terminology_id = terminology_id
+    def __init__(self, terminology_id: Union[TerminologyID, str], code_string: str, preferred_term: Optional[str] = None):
+        if isinstance(terminology_id, str):
+            self.terminology_id = TerminologyID(terminology_id)
+        else:
+            self.terminology_id = terminology_id
         if code_string == "":
             raise ValueError("Code string cannot be empty (invariant: code_string_valid)")
         self.code_string = code_string

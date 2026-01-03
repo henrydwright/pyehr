@@ -28,6 +28,7 @@ from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecificati
 from pyehr.core.rm.composition import Composition, EventContext
 from pyehr.core.rm.composition.content.entry import Action, Activity, AdminEntry, Evaluation, ISMTransition, Instruction, InstructionDetails, Observation
 from pyehr.core.rm.composition.content.navigation import Section
+from pyehr.core.rm.demographic import Address, Agent, Capability, Contact, Group, Organisation, PartyIdentity, PartyRelationship, Person, Role
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
 from pyehr.core.rm.common.archetyped import FeederAudit, FeederAuditDetails, Link, Archetyped
@@ -1210,3 +1211,261 @@ def test_its_json_rm_composition_action():
     ).as_json()
 
     validate(t_act)
+
+# ==========
+# RM.demographic: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Demographic
+
+def test_its_json_rm_demographic_group():
+    t_grp = Group(
+        actor_type=DVText("care team"),
+        archetype_node_id="openEHR-DEMOGRAPHIC-GROUP.care_group.v0",
+        archetype_details=Archetyped(ArchetypeID("openEHR-DEMOGRAPHIC-GROUP.care_group.v0"), "1.1.0"),
+        uid=HierObjectID("b2b11693-271b-4ee3-8ef0-09abfaed9c99"),
+        identities=[
+            PartyIdentity(
+                purpose=DVText("internal"),
+                archetype_node_id="at0001",
+                details=ItemSingle(
+                    name=DVText("item"),
+                    archetype_node_id="at0002",
+                    item=Element(
+                        name=DVText("name"),
+                        archetype_node_id="at0003",
+                        value=DVText("Urgent Community Response (West)")
+                    )
+                )
+            )
+        ]
+    ).as_json()
+
+    validate(t_grp)
+
+def test_its_json_rm_demographic_party_identity():
+    pur = DVCodedText(
+        value="Official",
+        defining_code=CodePhrase(
+            terminology_id=TerminologyID("FHIR-R4-name-use"),
+            code_string="official"
+        )
+    )
+    det = ItemTree(
+            name=DVText("tree"),
+            archetype_node_id="at0003",
+            items=[]
+        )
+    t_pi = PartyIdentity(
+        purpose=pur,
+        archetype_node_id="at0002",
+        details=det
+    ).as_json()
+
+    validate(t_pi)
+
+def test_its_json_rm_demographic_person():
+    t_p = Person(
+        actor_type=DVCodedText("General practitioner", CodePhrase("SNOMED-CT", "62247001", "Family medicine specialist (occupation)")),
+        archetype_node_id="openEHR-DEMOGRAPHIC-PERSON.nhs_clinician.v0",
+        archetype_details=Archetyped(ArchetypeID("openEHR-DEMOGRAPHIC-PERSON.nhs_clinician.v0"), "1.1.0"),
+        uid=HierObjectID("8e94a778-989e-4682-8c36-76f8c18dda20"),
+        identities=[
+            PartyIdentity(
+                purpose=DVText("Identity"),
+                archetype_node_id="at0001",
+                details=ItemTree(
+                    name=DVText("tree"),
+                    archetype_node_id="at0002",
+                    items=[
+                        Element(
+                            name=DVText("Name"),
+                            archetype_node_id="at0011",
+                            value=DVText("Dr Example General-Practitioner")
+                        ),
+                        Element(
+                            name=DVText("GMC number"),
+                            archetype_node_id="at0012",
+                            value=DVIdentifier("9999999")
+                        )
+                    ]
+                )
+            )
+        ],
+        relationships=[
+            PartyRelationship(
+                rel_type=DVText("NHS employee of"),
+                archetype_node_id="at0001",
+                source=PartyRef("nhs_pds", "PERSON", GenericID("9449306583", "nhs_number")),
+                target=PartyRef("nhs_ods", "ORGANISATION", GenericID("X24", "ods_code")),
+                details=ItemTree(
+                    name=DVText("tree"),
+                    archetype_node_id="at0010",
+                    items=[
+                        Element(
+                            name=DVText("employment start date"),
+                            archetype_node_id="at0012",
+                            value=DVDate("2020-11-13")
+                        )
+                    ]
+                )
+            )
+        ],
+        reverse_relationships=[
+            LocatableRef("local", "PARTY_RELATIONSHIP", HierObjectID("a8fa099f-5c0b-4d50-90e4-825af230f795"), path="relationships[at0001]")
+        ]
+    ).as_json()
+
+    validate(t_p)
+
+def test_its_json_rm_demographic_agent():
+    t_agt = Agent(
+        actor_type=DVText("fitness tracker"),
+        archetype_node_id="openEHR-DEMOGRAPHIC-AGENT.hardware_device.v0",
+        archetype_details=Archetyped(ArchetypeID("openEHR-DEMOGRAPHIC-AGENT.measuring_device.v0"), "1.1.0"),
+        uid=HierObjectID("7c2be56d-231e-44b5-8171-63d6b01f5119"),
+        identities=[
+            PartyIdentity(
+                purpose=DVText("manufacturer"),
+                archetype_node_id="at0002",
+                details=ItemSingle(
+                    name=DVText("item"),
+                    archetype_node_id="at0003",
+                    item=Element(
+                        name=DVText("serial number"),
+                        archetype_node_id="at0004",
+                        value=DVIdentifier("AB15242026", "Fitness Trackers Ltd")
+                    )
+                )
+            )
+        ]
+    ).as_json()
+
+    validate(t_agt)
+
+def test_its_json_rm_demographic_role():
+    t_rol = Role(
+        role_type=DVText("HC consumer"),
+        archetype_node_id="openEHR-DEMOGRAPHIC-ROLE.person_role.v0",
+        archetype_details=Archetyped(ArchetypeID("openEHR-DEMOGRAPHIC-ROLE.person_role.v0"), "1.1.0"),
+        uid=HierObjectID("00da28fe-b7fa-4186-bb01-6f4c591e5bfc"),
+        performer=PartyRef("local", "PERSON", HierObjectID("3196a11a-bc7f-4dd1-b52a-16394391a634")),
+        identities=[
+            PartyIdentity(
+                purpose=DVText("internal consumer"),
+                archetype_node_id="at0001",
+                details=ItemSingle(
+                    name=DVText("item"),
+                    archetype_node_id="at0002",
+                    item=Element(
+                        name=DVText("internal consumer identifier"),
+                        archetype_node_id="at0003",
+                        value=DVIdentifier("999-999-999-999", "Local Healthcare System", "Local Hospital")
+                    )
+                )
+
+            )
+        ]
+    ).as_json()
+    
+    validate(t_rol)
+
+def test_its_json_rm_demographic_contact():
+    t_cont = Contact(
+        purpose=DVText("address"),
+        archetype_node_id="at0001",
+        addresses=[
+            Address(
+                addr_type=DVCodedText("Home", CodePhrase("FHIR-R4-address-use", "home")),
+                archetype_node_id="at0011",
+                details=ItemSingle(
+                    name=DVText("item"),
+                    archetype_node_id="at0012",
+                    item=Element(
+                        name=DVText("postal address"),
+                        archetype_node_id="at0013",
+                        value=DVText("12 Example Way, Anytown, AT1 4BA")
+                    )
+                )
+            )
+        ]
+    ).as_json()
+
+    validate(t_cont)
+
+def test_its_json_rm_demographic_organisation():
+    t_org = Organisation(
+        actor_type=DVText("GP provider"),
+        archetype_node_id="openEHR-DEMOGRAPHIC-ORGANISATION.nhs_organisation.v0",
+        archetype_details=Archetyped(ArchetypeID("openEHR-DEMOGRAPHIC-ORGANISATION.nhs_organisation.v0"), "1.1.0"),
+        uid=HierObjectID("14593b3d-c850-47e3-a17f-4a42636b83e3"),
+        identities=[
+            PartyIdentity(
+                purpose=DVText("official"),
+                archetype_node_id="at0001",
+                details=ItemSingle(
+                    name=DVText("details"),
+                    archetype_node_id="at0002",
+                    item=Element(
+                        name=DVText("organisation name"),
+                        archetype_node_id="at0003",
+                        value=DVText("Anytown Neighbourhood Health Centre")
+                    )
+                )
+            )
+        ]
+    ).as_json()
+
+    validate(t_org)
+
+def test_its_json_rm_demographic_party_relationship():
+    t_pr = PartyRelationship(
+        rel_type=DVText("NHS employee of"),
+        archetype_node_id="at0001",
+        source=PartyRef("nhs_pds", "PERSON", GenericID("9449306583", "nhs_number")),
+        target=PartyRef("nhs_ods", "ORGANISATION", GenericID("X24", "ods_code")),
+        details=ItemTree(
+            name=DVText("tree"),
+            archetype_node_id="at0010",
+            items=[
+                Element(
+                    name=DVText("employment start date"),
+                    archetype_node_id="at0012",
+                    value=DVDate("2020-11-13")
+                )
+            ]
+        )
+    ).as_json()
+
+    validate(t_pr)
+
+def test_its_json_rm_demographic_address():
+    t_addr = Address(
+        addr_type=DVCodedText("Home", CodePhrase("FHIR-R4-address-use", "home")),
+        archetype_node_id="at0011",
+        details=ItemSingle(
+            name=DVText("item"),
+            archetype_node_id="at0012",
+            item=Element(
+                name=DVText("postal address"),
+                archetype_node_id="at0013",
+                value=DVText("12 Example Way, Anytown, AT1 4BA")
+            )
+        )
+    ).as_json()
+
+    validate(t_addr)
+    
+def test_its_json_rm_demographic_capability():
+    t_cap = Capability(
+        name=DVText("pay for care using medicare"),
+        archetype_node_id="at1001",
+        credentials=ItemSingle(
+            name=DVText("item"),
+            archetype_node_id="at1002",
+            item=Element(
+                name=DVText("medicare identifier"),
+                archetype_node_id="at1004",
+                value=DVIdentifier("999", "Medicare")
+            )
+        )
+    ).as_json()
+
+    validate(t_cap)
