@@ -28,7 +28,7 @@ from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecificati
 from pyehr.core.rm.composition import Composition, EventContext
 from pyehr.core.rm.composition.content.entry import Action, Activity, AdminEntry, Evaluation, ISMTransition, Instruction, InstructionDetails, Observation
 from pyehr.core.rm.composition.content.navigation import Section
-from pyehr.core.rm.demographic import Address, Contact, PartyIdentity, PartyRelationship, Person
+from pyehr.core.rm.demographic import Address, Agent, Contact, Group, Organisation, PartyIdentity, PartyRelationship, Person
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
 from pyehr.core.rm.common.archetyped import FeederAudit, FeederAuditDetails, Link, Archetyped
@@ -1215,7 +1215,30 @@ def test_its_json_rm_composition_action():
 # ==========
 # RM.demographic: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Demographic
 
-# TODO: GROUP
+def test_its_json_rm_demographic_group():
+    t_grp = Group(
+        actor_type=DVText("care team"),
+        archetype_node_id="openEHR-DEMOGRAPHIC-GROUP.care_group.v0",
+        archetype_details=Archetyped(ArchetypeID("openEHR-DEMOGRAPHIC-GROUP.care_group.v0"), "1.1.0"),
+        uid=HierObjectID("b2b11693-271b-4ee3-8ef0-09abfaed9c99"),
+        identities=[
+            PartyIdentity(
+                purpose=DVText("internal"),
+                archetype_node_id="at0001",
+                details=ItemSingle(
+                    name=DVText("item"),
+                    archetype_node_id="at0002",
+                    item=Element(
+                        name=DVText("name"),
+                        archetype_node_id="at0003",
+                        value=DVText("Urgent Community Response (West)")
+                    )
+                )
+            )
+        ]
+    ).as_json()
+
+    validate(t_grp)
 
 def test_its_json_rm_demographic_party_identity():
     pur = DVCodedText(
@@ -1292,7 +1315,30 @@ def test_its_json_rm_demographic_person():
 
     validate(t_p)
 
-# TODO: AGENT
+def test_its_json_rm_demographic_agent():
+    t_agt = Agent(
+        actor_type=DVText("fitness tracker"),
+        archetype_node_id="openEHR-DEMOGRAPHIC-AGENT.hardware_device.v0",
+        archetype_details=Archetyped(ArchetypeID("openEHR-DEMOGRAPHIC-AGENT.measuring_device.v0"), "1.1.0"),
+        uid=HierObjectID("7c2be56d-231e-44b5-8171-63d6b01f5119"),
+        identities=[
+            PartyIdentity(
+                purpose=DVText("manufacturer"),
+                archetype_node_id="at0002",
+                details=ItemSingle(
+                    name=DVText("item"),
+                    archetype_node_id="at0003",
+                    item=Element(
+                        name=DVText("serial number"),
+                        archetype_node_id="at0004",
+                        value=DVIdentifier("AB15242026", "Fitness Trackers Ltd")
+                    )
+                )
+            )
+        ]
+    ).as_json()
+
+    validate(t_agt)
 
 # TODO: ROLE
 
@@ -1319,7 +1365,30 @@ def test_its_json_rm_demographic_contact():
 
     validate(t_cont)
 
-# TODO: ORGANISATION
+def test_its_json_rm_demographic_organisation():
+    t_org = Organisation(
+        actor_type=DVText("GP provider"),
+        archetype_node_id="openEHR-DEMOGRAPHIC-ORGANISATION.nhs_organisation.v0",
+        archetype_details=Archetyped(ArchetypeID("openEHR-DEMOGRAPHIC-ORGANISATION.nhs_organisation.v0"), "1.1.0"),
+        uid=HierObjectID("14593b3d-c850-47e3-a17f-4a42636b83e3"),
+        identities=[
+            PartyIdentity(
+                purpose=DVText("official"),
+                archetype_node_id="at0001",
+                details=ItemSingle(
+                    name=DVText("details"),
+                    archetype_node_id="at0002",
+                    item=Element(
+                        name=DVText("organisation name"),
+                        archetype_node_id="at0003",
+                        value=DVText("Anytown Neighbourhood Health Centre")
+                    )
+                )
+            )
+        ]
+    ).as_json()
+
+    validate(t_org)
 
 def test_its_json_rm_demographic_party_relationship():
     t_pr = PartyRelationship(

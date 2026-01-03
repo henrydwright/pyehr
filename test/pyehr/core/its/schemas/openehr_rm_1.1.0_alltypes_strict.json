@@ -277,13 +277,22 @@
                     "$ref": "#/definitions/ACTION"
                 },
                 {
+                    "$ref": "#/definitions/GROUP"
+                },
+                {
                     "$ref": "#/definitions/PARTY_IDENTITY"
                 },
                 {
                     "$ref": "#/definitions/PERSON"
                 },
                 {
+                    "$ref": "#/definitions/AGENT"
+                },
+                {
                     "$ref": "#/definitions/CONTACT"
+                },
+                {
+                    "$ref": "#/definitions/ORGANISATION"
                 },
                 {
                     "$ref": "#/definitions/PARTY_RELATIONSHIP"

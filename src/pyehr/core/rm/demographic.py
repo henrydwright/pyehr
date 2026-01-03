@@ -522,3 +522,88 @@ class Person(Actor):
         draft = super().as_json()
         draft["_type"] = "PERSON"
         return draft
+    
+class Organisation(Actor):
+    """Generic description of organisations. An organisation is a legally constituted body whose existence (in general) outlives the existence of parties considered to be part of it."""
+
+    def __init__(self,
+        actor_type: DVText,
+        archetype_node_id: str,
+        archetype_details: Archetyped,
+        identities: list[PartyIdentity],
+        uid: UIDBasedID,
+        contacts: Optional[list[Contact]] = None,
+        details: Optional[ItemStructure] = None,
+        relationships: Optional[list[PartyRelationship]] = None,
+        reverse_relationships: Optional[list[LocatableRef]] = None,
+        languages: Optional[list[DVText]] = None,
+        roles: Optional[list[PartyRef]] = None,
+        links: Optional[list[Link]] = None,
+        feeder_audit: Optional[FeederAudit] = None,
+        parent: Optional[Pathable] = None,
+        parent_container_attribute_name: Optional[str] = None,
+        **kwargs):
+        super().__init__(actor_type, archetype_node_id, archetype_details, identities, uid, contacts, details, relationships, reverse_relationships, languages, roles, links, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def as_json(self):
+        draft = super().as_json()
+        draft["_type"] = "ORGANISATION"
+        return draft
+    
+class Group(Actor):
+    """A group is a real world group of parties which is created by another party,
+    usually an organisation, for some specific purpose. A typical clinical example
+    is that of the specialist care team, e.g. cardiology team. The members of 
+    the group usually work together."""
+
+    def __init__(self,
+        actor_type: DVText,
+        archetype_node_id: str,
+        archetype_details: Archetyped,
+        identities: list[PartyIdentity],
+        uid: UIDBasedID,
+        contacts: Optional[list[Contact]] = None,
+        details: Optional[ItemStructure] = None,
+        relationships: Optional[list[PartyRelationship]] = None,
+        reverse_relationships: Optional[list[LocatableRef]] = None,
+        languages: Optional[list[DVText]] = None,
+        roles: Optional[list[PartyRef]] = None,
+        links: Optional[list[Link]] = None,
+        feeder_audit: Optional[FeederAudit] = None,
+        parent: Optional[Pathable] = None,
+        parent_container_attribute_name: Optional[str] = None,
+        **kwargs):
+        super().__init__(actor_type, archetype_node_id, archetype_details, identities, uid, contacts, details, relationships, reverse_relationships, languages, roles, links, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def as_json(self):
+        draft = super().as_json()
+        draft["_type"] = "GROUP"
+        return draft
+    
+class Agent(Actor):
+    """Generic concept of any kind of agent, including devices, software systems, 
+    but not humans or organisations."""
+
+    def __init__(self,
+        actor_type: DVText,
+        archetype_node_id: str,
+        archetype_details: Archetyped,
+        identities: list[PartyIdentity],
+        uid: UIDBasedID,
+        contacts: Optional[list[Contact]] = None,
+        details: Optional[ItemStructure] = None,
+        relationships: Optional[list[PartyRelationship]] = None,
+        reverse_relationships: Optional[list[LocatableRef]] = None,
+        languages: Optional[list[DVText]] = None,
+        roles: Optional[list[PartyRef]] = None,
+        links: Optional[list[Link]] = None,
+        feeder_audit: Optional[FeederAudit] = None,
+        parent: Optional[Pathable] = None,
+        parent_container_attribute_name: Optional[str] = None,
+        **kwargs):
+        super().__init__(actor_type, archetype_node_id, archetype_details, identities, uid, contacts, details, relationships, reverse_relationships, languages, roles, links, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def as_json(self):
+        draft = super().as_json()
+        draft["_type"] = "AGENT"
+        return draft
