@@ -5,8 +5,9 @@ service for an existing system such as a patient master index (PMI). In the
 latter situation, it is used to add the required openEHR semantics, particularly 
 versioning, to an existing service."""
 
+from abc import abstractmethod
 from typing import Optional
-from pyehr.core.base.base_types.identification import PartyRef, UIDBasedID
+from pyehr.core.base.base_types.identification import LocatableRef, PartyRef, UIDBasedID
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.common.archetyped import Archetyped, FeederAudit, Link, Locatable, Pathable, PyehrInternalProcessedPath
 from pyehr.core.rm.data_structures.item_structure import ItemStructure
@@ -340,3 +341,184 @@ class Party(Locatable):
 
     contacts: Optional[list[Contact]]
     """Contacts for this party."""
+
+    details: Optional[ItemStructure]
+    """All other details for this Party."""
+
+    reverse_relationships: Optional[list[LocatableRef]]
+    """References to relationships in which this Party takes part as target."""
+
+    relationships: Optional[list[PartyRelationship]]
+    """Relationships in which this Party takes part as source."""
+
+    @abstractmethod
+    def __init__(self,
+                party_type: DVText,
+                archetype_node_id: str,
+                archetype_details: Archetyped,
+                identities: list[PartyIdentity],
+                uid: UIDBasedID,
+                contacts: Optional[list[Contact]] = None,
+                details: Optional[ItemStructure] = None,
+                relationships: Optional[list[PartyRelationship]] = None,
+                reverse_relationships: Optional[list[LocatableRef]] = None,
+                links: Optional[list[Link]] = None,
+                feeder_audit: Optional[FeederAudit] = None,
+                parent: Optional[Pathable] = None,
+                parent_container_attribute_name: Optional[str] = None,
+                **kwargs):
+            self.identities = identities
+            if contacts is not None and len(contacts) == 0:
+                raise ValueError("If provided, contacts cannot be an empty list (invariant: contacts_valid)")
+            self.contacts = contacts
+            self.details = details
+            if relationships is not None and len(relationships) == 0:
+                raise ValueError("If provided, relationships cannot be an empty list (invariant: relationships_valid)")
+            self.relationships = relationships
+            if reverse_relationships is not None and len(reverse_relationships) == 0:
+                raise ValueError("If provided, reverse_relationships cannot be an empty list (invariant: reverse_relationships_validity)")
+            self.reverse_relationships = reverse_relationships
+            super().__init__(party_type, archetype_node_id, uid, links, archetype_details, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    @abstractmethod
+    def is_equal(self, other: 'Party'):
+        return (super().is_equal(other)
+                and is_equal_value(self.identities, other.identities)
+                and is_equal_value(self.contacts, other.contacts)
+                and is_equal_value(self.details, other.details)
+                and is_equal_value(self.relationships, other.relationships)
+                and is_equal_value(self.reverse_relationships, other.reverse_relationships))
+
+    @abstractmethod
+    def as_json(self):
+        draft = super().as_json()
+        draft["identities"] = [i.as_json() for i in self.identities]
+        if self.contacts is not None:
+            draft["contacts"] = [c.as_json() for c in self.contacts]
+        if self.details is not None:
+            draft["details"] = self.details.as_json()
+        if self.relationships is not None:
+            draft["relationships"] = [r.as_json() for r in self.relationships]
+        if self.reverse_relationships is not None:
+            draft["reverse_relationships"] = [rr.as_json() for rr in self.reverse_relationships]
+        return draft
+    
+    def type_party(self):
+        """Type of party, such as PERSON, ORGANISATION, etc. Role name, 
+        e.g. general practitioner , nurse , private citizen. Taken from inherited 
+        name attribute."""
+        return self.name
+
+class Actor(Party):
+    """Ancestor of all real-world types, including people and organisations. An 
+    actor is any real-world entity capable of taking on a role."""
+
+    languages: Optional[list[DVText]]
+    """Languages which can be used to communicate with this actor, in preferred 
+    order of use (if known, else order irrelevant)."""
+
+    roles: Optional[list[PartyRef]]
+    """Identifiers of the Version container for each Role played by this Party."""
+
+    @abstractmethod
+    def __init__(self,
+                actor_type: DVText,
+                archetype_node_id: str,
+                archetype_details: Archetyped,
+                identities: list[PartyIdentity],
+                uid: UIDBasedID,
+                contacts: Optional[list[Contact]] = None,
+                details: Optional[ItemStructure] = None,
+                relationships: Optional[list[PartyRelationship]] = None,
+                reverse_relationships: Optional[list[LocatableRef]] = None,
+                languages: Optional[list[DVText]] = None,
+                roles: Optional[list[PartyRef]] = None,
+                links: Optional[list[Link]] = None,
+                feeder_audit: Optional[FeederAudit] = None,
+                parent: Optional[Pathable] = None,
+                parent_container_attribute_name: Optional[str] = None,
+                **kwargs):
+            self.languages = languages
+            self.roles = roles
+            super().__init__(actor_type, archetype_node_id, archetype_details, identities, uid, contacts, details, relationships, reverse_relationships, links, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def is_equal(self, other: 'Actor'):
+        return (super().is_equal(other)
+                and is_equal_value(self.languages, other.languages)
+                and is_equal_value(self.roles, other.roles))
+
+    @abstractmethod
+    def as_json(self):
+        draft = super().as_json()
+        if self.languages is not None:
+            draft["languages"] = [l.as_json() for l in self.languages]
+        if self.roles is not None:
+            draft["roles"] = [r.as_json() for r in self.roles]
+        return draft
+    
+    def _path_eval(self, a_path: str, single_item: bool, check_only: bool):
+        path = PyehrInternalProcessedPath(a_path)
+        if path.is_self_path():
+            if check_only:
+                return True
+            if single_item:
+                return self
+            else:
+                raise ValueError("Items not found: reached single item (subclass of ACTOR)")
+
+        if path.current_node_attribute == "identities":
+            return self._path_resolve_item_list(path, self.identities, single_item, check_only)
+        elif path.current_node_attribute == "contacts":
+            return self._path_resolve_item_list(path, self.contacts, single_item, check_only)
+        elif path.current_node_attribute == "details":
+            return self._path_resolve_single(path, self.details, single_item, check_only)
+        elif path.current_node_attribute == "relationships":
+            return self._path_resolve_item_list(path, self.relationships, single_item, check_only)
+        else:
+            if check_only:
+                return False
+            raise ValueError(f"Path invalid: expected one of 'identities', 'contacts', 'details', 'relationships', or 'reverse_relationships' at subclass of ACTOR but found '{path.current_node_attribute}'")
+
+    def item_at_path(self, a_path):
+        return self._path_eval(a_path, True, False)
+
+    def items_at_path(self, a_path):
+        return self._path_eval(a_path, False, False)
+
+    def path_exists(self, a_path):
+        return self._path_eval(a_path, None, True)
+
+    def path_unique(self, a_path):
+        try:
+            self.item_at_path(a_path)
+            return True
+        except (ValueError):
+            return False
+    
+class Person(Actor):
+    """Generic description of persons. Provides a dedicated type to which Person 
+    archetypes can be targeted."""
+
+    def __init__(self,
+            actor_type: DVText,
+            archetype_node_id: str,
+            archetype_details: Archetyped,
+            identities: list[PartyIdentity],
+            uid: UIDBasedID,
+            contacts: Optional[list[Contact]] = None,
+            details: Optional[ItemStructure] = None,
+            relationships: Optional[list[PartyRelationship]] = None,
+            reverse_relationships: Optional[list[LocatableRef]] = None,
+            languages: Optional[list[DVText]] = None,
+            roles: Optional[list[PartyRef]] = None,
+            links: Optional[list[Link]] = None,
+            feeder_audit: Optional[FeederAudit] = None,
+            parent: Optional[Pathable] = None,
+            parent_container_attribute_name: Optional[str] = None,
+            **kwargs):
+        super().__init__(actor_type, archetype_node_id, archetype_details, identities, uid, contacts, details, relationships, reverse_relationships, languages, roles, links, feeder_audit, parent, parent_container_attribute_name, **kwargs)
+
+    def as_json(self):
+        draft = super().as_json()
+        draft["_type"] = "PERSON"
+        return draft

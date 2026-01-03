@@ -280,6 +280,9 @@
                     "$ref": "#/definitions/PARTY_IDENTITY"
                 },
                 {
+                    "$ref": "#/definitions/PERSON"
+                },
+                {
                     "$ref": "#/definitions/CONTACT"
                 },
                 {
