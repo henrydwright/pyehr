@@ -3,12 +3,16 @@
 from json import JSONEncoder, dumps
 from typing import Union, Optional
 
-from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef, ObjectVersionID, GenericID, PartyRef
+from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef, ObjectVersionID, GenericID, PartyRef, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.rm.common.generic import PartySelf
 from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID
+from pyehr.core.rm.data_structures.item_structure import ItemTree
+from pyehr.core.rm.data_structures.representation import Cluster, Element
+from pyehr.core.rm.data_types.basic import DVIdentifier
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
-from pyehr.core.rm.data_types.text import DVText, DVUri
+from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText, DVUri
+from pyehr.core.rm.demographic import PartyIdentity, Person
 from pyehr.core.rm.ehr import EHR, EHRStatus
 
 _type_map = {
@@ -24,7 +28,16 @@ _type_map = {
     "ARCHETYPED": Archetyped,
     "ARCHETYPE_ID": ArchetypeID,
     "PARTY_REF": PartyRef,
-    "GENERIC_ID": GenericID
+    "GENERIC_ID": GenericID,
+    "PERSON": Person,
+    "PARTY_IDENTITY": PartyIdentity,
+    "ITEM_TREE": ItemTree,
+    "ELEMENT": Element,
+    "DV_IDENTIFIER": DVIdentifier,
+    "CLUSTER": Cluster,
+    "DV_CODED_TEXT": DVCodedText,
+    "CODE_PHRASE": CodePhrase,
+    "TERMINOLOGY_ID": TerminologyID
 }
 """Map of OpenEHR JSON '_type' attributes to pyehr.core types"""
 
@@ -103,6 +116,8 @@ def decode_json(json_obj: dict,
             elif flag_infer_missing_type_details and target_type == "ARCHETYPED" and param_name == "archetype_id":
                 type_hint = "ARCHETYPE_ID"
             arg_dict[param_name] = decode_json(param, target=type_hint)
+        elif type(param) == list:
+            arg_dict[param_name] = [decode_json(list_item) for list_item in param]
         else:
             raise RuntimeError(f"Could not decode object: unknown type of parameter \'{type(param)}\' encountered during parsing")
         
@@ -117,6 +132,18 @@ def decode_json(json_obj: dict,
     elif target_type == "EHR":
         if flag_ignore_missing_ehr_access_on_ehr and not "ehr_access" in json_obj:
             arg_dict["ehr_access"] = ObjectRef("null", "VERSIONED_EHR_ACCESS", HierObjectID("00000000-0000-0000-0000-000000000000"))
+    elif target_type == "DV_IDENTIFIER":
+        # pyehr uses 'id_type' to avoid collision with Python 'type'
+        arg_dict["id_type"] = arg_dict["type"]
+        del arg_dict["type"]
+    elif target_type == "PARTY_IDENTITY":
+        # pyehr library uses 'purpose' to clarify meaning of the inherited 'name' field
+        arg_dict["purpose"] = arg_dict["name"]
+        del arg_dict["name"]
+    elif target_type == "PERSON":
+        # pyehr library uses 'actor_type' to clarify meaning of inherited 'name' field
+        arg_dict["actor_type"] = arg_dict["name"]
+        del arg_dict["name"]
 
     instance_list = []
     if flag_allow_resolved_references:
