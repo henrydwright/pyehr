@@ -5,6 +5,7 @@ from pyehr.core.rm.common.archetyped import PyehrInternalPathPredicateType, Pyeh
 from pyehr.core.rm.common.change_control import OriginalVersion, VersionedObject
 from pyehr.core.rm.common.generic import RevisionHistory, RevisionHistoryItem
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
+from pyehr.core.rm.ehr import EHR
 from pyehr.utils import PYTHON_TYPE_TO_STRING_TYPE_MAP
 
 from pyehr.core.base.base_types.builtins import Env
@@ -30,6 +31,7 @@ class InMemoryDB(IDatabaseEngine):
         self._meta = dict()
         self._obj = dict()
         self._obj["REVISION_HISTORY"] = dict()
+        self._log.info("Started new InMemoryDB, note data is NOT persisted.")
         super().__init__()
 
     def generate_hier_object_id(self, generator=None):
@@ -46,6 +48,7 @@ class InMemoryDB(IDatabaseEngine):
                 DBActionItem(DBActionType.GENERATE_HID, party=generator)
             ]
         )
+        self._log.info(f"{gen}:Generated")
         return ret_id
         
     def add_revision_history_item(self, uid, item, creator = None):
@@ -62,6 +65,7 @@ class InMemoryDB(IDatabaseEngine):
 
         vo_meta = self._meta[uid.value]
         vo_meta.action_history.append(DBActionItem(DBActionType.UPDATE, party=creator))
+        self._log.info(f"{uid.value}:Added REVISION_HISTORY_ITEM")
 
     def add_attestation(self, version_id, attestation, attester = None):
         # check versioned_object existance
@@ -101,9 +105,12 @@ class InMemoryDB(IDatabaseEngine):
 
         rh_item_to_update.audits.append(attestation)
         vo_meta.action_history.append(DBActionItem(DBActionType.UPDATE, party=attester))
+        self._log.info(f"{version_id.value}:Added ATTESTATION")
 
     
     def _get_uid_from_uid_object_type(self, obj):
+        if isinstance(obj, EHR):
+            return obj.ehr_id
         uid = obj.uid
         if callable(uid):
             uid = obj.uid()
@@ -140,6 +147,7 @@ class InMemoryDB(IDatabaseEngine):
         self._obj[type_str][uid.value] = obj
 
         met.action_history.append(DBActionItem(DBActionType.CREATE, party=creator))
+        self._log.info(f"{uid.value}:Created new {type_str}")
     
     def update_uid_object(self, obj, updater = None):
         uid = self._get_uid_from_uid_object_type(obj)
@@ -158,11 +166,14 @@ class InMemoryDB(IDatabaseEngine):
 
         self._obj[type_str][uid.value] = obj
         met.action_history.append(DBActionItem(DBActionType.UPDATE, party=updater))
+        self._log.info(f"Updated {type_str} with UID {uid.value}")
     
     def retrieve_db_metadata(self, uid, reader = None):
-        self._log.info(f"Retrieving metadata for UID: {uid.value}")
+        if uid.value not in self._meta:
+            return None
         met = self._meta[uid.value]
         met.action_history.append(DBActionItem(DBActionType.READ_METADATA, party=reader))
+        self._log.info(f"{uid.value}:Retrieved metadata")
         return met
     
     def _nav_dict_path(self, js_dict, path):
@@ -192,7 +203,7 @@ class InMemoryDB(IDatabaseEngine):
     
     def retrieve_query_match_object(self, obj_type, archetype_id, query_dict, reader = None):
         # this method would be horrificly slow, but given lack of persistence it doesn't matter!
-        self._log.info(f"Running query for {obj_type} archetyped with {archetype_id.value} matching parameters: {json.dumps(query_dict, indent=1)}")
+        self._log.info(f"QUERY:Running query for {obj_type} archetyped with {archetype_id.value} matching parameters: {json.dumps(query_dict, indent=1)}")
         # step 1: check any objects of this type exist
         if obj_type not in self._obj:
             return []
@@ -231,15 +242,19 @@ class InMemoryDB(IDatabaseEngine):
             ret_meta = self._meta[ret_item.uid.value]
             ret_meta.action_history.append(DBActionItem(DBActionType.READ, party=reader, query=query_dict))
 
+        self._log.info(f"QUERY:Query returned {len(returns)} results")
         return returns
     
     def retrieve_uid_object(self, obj_type, uid, reader = None):
         if uid.value not in self._meta:
-            raise ValueError("Object with given ID does not exist in database")
+            # object with given uid does not exist in database
+            self._log.info(f"{uid.value}:Read attempted, but did not exist")
+            return None
         
         met = self._meta[uid.value]
         met.action_history.append(DBActionItem(DBActionType.READ, party=reader))
 
+        self._log.info(f"{uid.value}:Read {obj_type}")
         return self._obj[obj_type][uid.value]
         
     def create_versioned_object(self, vo, create_underlying_versions=False, creator = None):
@@ -267,6 +282,7 @@ class InMemoryDB(IDatabaseEngine):
         rev_history = self._obj["REVISION_HISTORY"][uid.value]
 
         if metadata_only_versioned_object:
+            self._log.info(f"{uid.value}: Retrieved VERSIONED_OBJECT (metadata and revision history only)")
             return (meta_only_vo, rev_history)
         else:
             versions = []
@@ -286,6 +302,7 @@ class InMemoryDB(IDatabaseEngine):
                 time_created=meta_only_vo.time_created,
                 revision_history_and_versions=(rev_history, versions)
             )
+            self._log.info(f"{uid.value}:Retrieved VERSIONED_OBJECT (and all underlying VERSIONs)")
             return (full_vo, rev_history)
 
     
@@ -327,3 +344,4 @@ class InMemoryDB(IDatabaseEngine):
 
         # then write the contribution itself
         self.create_uid_object(contrib, creator=committer)
+        self._log.info(f"Committed CONTRIBUTION (uid={contrib.uid.value}) set of {len(versions)} VERSIONs")

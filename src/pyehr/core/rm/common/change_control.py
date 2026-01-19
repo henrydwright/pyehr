@@ -285,12 +285,14 @@ class VersionedObject[T: AnyClass](AnyClass):
     _revision_history: RevisionHistory
     """Revision history for this versioned object"""
 
-    def __init__(self, uid: HierObjectID, owner_id: ObjectRef, time_created: DVDateTime, revision_history_and_versions: Optional[tuple[RevisionHistory, list[Version]]] = None, **kwargs):
+    def __init__(self, uid: HierObjectID, owner_id: ObjectRef, time_created: Union[DVDateTime, str], revision_history_and_versions: Optional[tuple[RevisionHistory, list[Version]]] = None, **kwargs):
         if uid.has_extension():
             raise ValueError("UID of a versioned object cannot have an extension (invariant: uid_validity)")
         
         self.uid = uid
         self.owner_id = owner_id
+        if isinstance(time_created, str):
+            time_created = DVDateTime(time_created)
         self.time_created = time_created
         self._version_ids = list()
         self._versions_id_lookup = dict()

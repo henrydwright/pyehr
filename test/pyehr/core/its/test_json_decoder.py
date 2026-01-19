@@ -64,7 +64,7 @@ def test_decode_json_rm_ehr_ehr_refs_resolved():
     assert d_lst[1].is_equal(EHR(
         system_id=HierObjectID("local.ehrbase.org"),
         ehr_id=HierObjectID("b6e8c15d-c376-4ebe-b140-5aafe9b13e06"),
-        ehr_status=ObjectRef("pyehr_decode_json", "VERSIONED_EHR_STATUS", GenericID("0", "list_index")),
+        ehr_status=ObjectRef("local", "VERSIONED_EHR_STATUS", HierObjectID("3fc55311-f4bc-44da-a123-1417ad35b09c")),
         ehr_access=ObjectRef("null", "VERSIONED_EHR_ACCESS", HierObjectID("00000000-0000-0000-0000-000000000000")),
         time_created=DVDateTime("2025-12-06T16:53:48.006423Z")
     ))

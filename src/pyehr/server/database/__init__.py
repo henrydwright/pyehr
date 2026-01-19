@@ -10,6 +10,9 @@ from pyehr.core.rm.common.generic import Attestation, PartyProxy, RevisionHistor
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText
 from pyehr.core.rm.demographic import Party
 
+class ObjectAlreadyExists(ValueError):
+    """Subclass of `ValueError` raised when attempting to create an object that already exists"""
+    pass
 
 class DBActionType(StrEnum):
     """Type of database action performed"""
@@ -104,20 +107,23 @@ class IDatabaseEngine(ABC):
         pass
 
     @abstractmethod
-    def retrieve_uid_object(self, obj_type: str, uid: UIDBasedID, reader: Optional[PartyRef] = None) -> UID_OBJECT_TYPE:
+    def retrieve_uid_object(self, obj_type: str, uid: UIDBasedID, reader: Optional[PartyRef] = None) -> Optional[UID_OBJECT_TYPE]:
         """Retrieve any pyehr object with a UID field
         
         :param obj_type: OpenEHR type of object being retrieved (e.g. CONTRIBUTION, VERSIONED_OBJECT, etc.)
         :param uid: UID based identifier for the object to be retrieved.
-        :param reader: If provided, this is stored in an audit trail of database actions associated with users."""
+        :param reader: If provided, this is stored in an audit trail of database actions associated with the object.
+        :returns `None`: If object of type obj_type and with given uid does not exist in database."""
         pass
 
     @abstractmethod
-    def retrieve_db_metadata(self, uid: UIDBasedID, reader: Optional[PartyRef] = None) -> Optional[list[DBActionItem]]:
+    def retrieve_db_metadata(self, uid: UIDBasedID, reader: Optional[PartyRef] = None) -> Optional[DBMetadata]:
         """Retrieve the database metadata for an object with a given UID.
         
         :param uid: UID based identifier for the items whose associated db metadata is to be retrieved.
-        :param reader: If provided, this is stored in an audit trail of database actions associated with users."""
+        :param reader: If provided, this is stored in an audit trail of database actions associated with users.
+        :returns DBMetadata: If object with given uid exists in database.
+        :returns `None`: If object with given uid does not exist in database."""
         pass
 
     @abstractmethod

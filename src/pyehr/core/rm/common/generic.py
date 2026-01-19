@@ -106,7 +106,7 @@ class PartyIdentified(PartyProxy):
         if self.name is not None:
             draft["name"] = self.name
         if self.identifiers is not None:
-            draft["identifiers"] = self.identifiers
+            draft["identifiers"] = [identifier.as_json() for identifier in self.identifiers]
         return draft
 
 class PartyRelated(PartyIdentified):

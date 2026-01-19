@@ -1,5 +1,7 @@
 from pyehr.core.rm.common.change_control import Contribution, OriginalVersion, VersionedObject
+from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.demographic import Party, Person
+from pyehr.core.rm.ehr import EHR, EHRStatus
 
 
 PYTHON_TYPE_TO_STRING_TYPE_MAP : dict[type, str] = {
@@ -7,7 +9,10 @@ PYTHON_TYPE_TO_STRING_TYPE_MAP : dict[type, str] = {
     Person: "PERSON",
     VersionedObject: "VERSIONED_OBJECT",
     OriginalVersion: "VERSION",
-    Contribution: "CONTRIBUTION"
+    Contribution: "CONTRIBUTION",
+    DVText: "DV_TEXT",
+    EHRStatus: "EHR_STATUS",
+    EHR: "EHR"
 }
 """Mapping of pyehr type (Python type) to the openEHR type string (e.g. pyehr type
 of Party maps to 'PARTY')"""
