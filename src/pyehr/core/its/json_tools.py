@@ -6,6 +6,7 @@ from typing import Union, Optional
 from common import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
 from pyehr.core.base.base_types.identification import HierObjectID, ObjectID, ObjectRef, ObjectVersionID, GenericID, PartyRef, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
+from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion
 from pyehr.core.rm.common.generic import AuditDetails, PartyIdentified, PartySelf, RevisionHistory, RevisionHistoryItem
 from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID
 from pyehr.core.rm.data_structures.item_structure import ItemTree
@@ -44,7 +45,10 @@ _type_map = {
     "REVISION_HISTORY": RevisionHistory,
     "REVISION_HISTORY_ITEM": RevisionHistoryItem,
     "AUDIT_DETAILS": AuditDetails,
-    "PARTY_IDENTIFIED": PartyIdentified
+    "PARTY_IDENTIFIED": PartyIdentified,
+    "ORIGINAL_VERSION": OriginalVersion,
+    "IMPORTED_VERSION": ImportedVersion,
+    "CONTRIBUTION": Contribution
 }
 """Map of OpenEHR JSON '_type' attributes to pyehr.core types"""
 
@@ -112,11 +116,12 @@ def decode_json(json_obj: dict,
     if terminology_service is None:
         terminology_service = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES], [TERMINOLOGY_OPENEHR])
 
+    #print(dumps(json_obj, indent=1))
+
     if target is not None:
         target_type = target
     else:
         if '_type' not in json_obj:
-            print(dumps(json_obj))
             raise ValueError("Could not decode object: '_type' attribute not present")
         target_type = json_obj['_type']
     
