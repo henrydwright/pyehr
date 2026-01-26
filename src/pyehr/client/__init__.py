@@ -1,11 +1,12 @@
 """Provides base functions and definitions needed to implement any REST API client
 interacting with OpenEHR REST API compliant servers"""
 
-from typing import Optional
+from types import NoneType
+from typing import Optional, Union
 
 import requests
 
-from pyehr.core.base.base_types.identification import ObjectVersionID
+from pyehr.core.base.base_types.identification import HierObjectID, ObjectVersionID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.primitive_types import Uri
 from pyehr.core.base.foundation_types.time import ISODateTime
@@ -177,6 +178,22 @@ class OpenEHRBaseRestClient():
         obj = decode_json(result.json(), target=target_type, flag_allow_resolved_references=self.flag_allow_resolved_references)
         return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
 
+    def _delete_XXX(self, target_url: str) -> OpenEHRRestClientResponse[NoneType]:
+        result = requests.delete(
+            url=target_url,
+            headers=self._build_headers()
+        )
+        if result.status_code == 400:
+            raise ValueError("400 Bad Request: request could not be parsed or is invalid")
+        elif result.status_code == 404:
+            raise RuntimeError("404 Not Found: server could not find an object with given ID to delete")
+        elif result.status_code == 409:
+            raise RuntimeError("409 Conflict: the given ID was not for the latest version of the object, so could not be deleted.")
+        elif result.status_code != 204:
+            raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+        
+        return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
+
     def _get_versioned_XXX(self, target_url: str, target_type: str) -> OpenEHRRestClientResponse:
         result = requests.get(
             url=target_url,
@@ -207,7 +224,7 @@ class OpenEHRBaseRestClient():
         else:
             obj = decode_json(result.json(), target="REVISION_HISTORY", flag_allow_resolved_references=self.flag_allow_resolved_references)
         return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
-    
+
     def _get_versioned_XXX_version_at_time(self, target_url: str, target_type: str, version_at_time: Optional[ISODateTime] = None) -> OpenEHRRestClientResponse:
         params = None
         if version_at_time is not None:
@@ -252,6 +269,16 @@ class OpenEHRBaseRestClient():
         obj = decode_json(result.json(), target="ORIGINAL_VERSION", flag_allow_resolved_references=self.flag_allow_resolved_references)
         return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
     
+    def _get_versioned_XXX_version_at_time_or_by_id(self, target_url: str, target_type: str, uid_based_id: Union[HierObjectID, ObjectVersionID], version_at_time: Optional[ISODateTime] = None):
+        if isinstance(uid_based_id, ObjectVersionID):
+            if version_at_time is not None:
+                raise ValueError("If an OBJECT_VERSION_ID is provided, version_at_time should be None")
+            return self._get_versioned_XXX_version_by_id(target_url, target_type)
+        elif isinstance(uid_based_id, HierObjectID):
+            return self._get_versioned_XXX_version_at_time(target_url, target_type, version_at_time)
+        else:
+            raise TypeError(f"Expected ObjectVersionID or HierObjectID, but {str(type(uid_based_id))} was given")
+
     def options(self) -> object:
         """Get system options and conformance information.
         

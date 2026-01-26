@@ -282,7 +282,7 @@ class InMemoryDB(IDatabaseEngine):
         rev_history = self._obj["REVISION_HISTORY"][uid.value]
 
         if metadata_only_versioned_object:
-            self._log.info(f"{uid.value}: Retrieved VERSIONED_OBJECT (metadata and revision history only)")
+            self._log.info(f"{uid.value}:Retrieved VERSIONED_OBJECT (metadata and revision history only)")
             return (meta_only_vo, rev_history)
         else:
             versions = []
@@ -321,7 +321,7 @@ class InMemoryDB(IDatabaseEngine):
         # write each version to the DB
         for version in versions:
             # check if a VERSIONED_OBJECT already exists for this version, and if not create one
-            vo_uid = version.owner_id()
+            vo_uid = HierObjectID(version.owner_id().value)
             if vo_uid.value not in self._meta:
                 if owner_id is None:
                     raise ValueError(f"Could not commit CONTRIBUTION: VERSIONED_OBJECT with UID \'{vo_uid}\' did not exist and no owner_id was provided so could not be created")
@@ -331,6 +331,17 @@ class InMemoryDB(IDatabaseEngine):
                     time_created=DVDateTime(Env.current_date_time())
                 )
                 self.create_versioned_object(vo, creator=committer)
+            else:
+                if self._meta[vo_uid.value].obj_type is None:
+                    if owner_id is None:
+                        raise ValueError(f"Could not commit CONTRIBUTION: VERSIONED_OBJECT with UID \'{vo_uid}\' did not exist and no owner_id was provided so could not be created")
+                    vo = VersionedObject(
+                        uid=vo_uid,
+                        owner_id=owner_id,
+                        time_created=DVDateTime(Env.current_date_time())
+                    )
+                    self.create_versioned_object(vo, creator=committer)
+                    
 
             # now add a revision history item for this version
             rhi = RevisionHistoryItem(
