@@ -10,8 +10,16 @@ from pyehr.core.rm.common.generic import Attestation, PartyProxy, RevisionHistor
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText
 from pyehr.core.rm.demographic import Party
 
-class ObjectAlreadyExists(ValueError):
-    """Subclass of `ValueError` raised when attempting to create an object that already exists"""
+class ObjectAlreadyExistsError(ValueError):
+    """Raised when attempting to create an object that already exists"""
+    pass
+
+class ObjectDoesNotExistError(ValueError):
+    """Raised when attempting to access an object that does not exist"""
+    pass
+
+class IncorrectVersionTypeError(ValueError):
+    """Raised when ORIGINAL_VERSION was expected but an IMPORTED_VERSION was found (or vice versa)"""
     pass
 
 class DBActionType(StrEnum):
@@ -100,10 +108,12 @@ class IDatabaseEngine(ABC):
         pass
 
     @abstractmethod
-    def create_uid_object(self, obj: UID_OBJECT_TYPE, creator: Optional[PartyRef] = None):
+    def create_uid_object(self, obj: UID_OBJECT_TYPE, creator: Optional[PartyRef] = None, type_override : Optional[str] = None):
         """Create a single new pyehr object with a UID field in the database.
         
-        :param creator: If provided, this is stored in an audit trail of database actions associated with users."""
+        :param creator: If provided, this is stored in an audit trail of database actions associated with users.
+        :param type_override: Override the default behaviour of inferring the type from `obj`.
+        :raises ObjectAlreadyExistsError: If an object with the UID contained within `obj` already exists within the database"""
         pass
 
     @abstractmethod
@@ -142,7 +152,8 @@ class IDatabaseEngine(ABC):
     def update_uid_object(self, obj: UID_OBJECT_TYPE, updater: Optional[PartyRef] = None):
         """Update the provided pyehr object in the database.
         
-        :param updater: If provided, this is stored in an audit trail of database actions associated with users."""
+        :param updater: If provided, this is stored in an audit trail of database actions associated with users.
+        :raises ObjectDoesNotExistError: If an object with the UID in `obj` does not exist to be updated"""
         pass
 
     @abstractmethod
@@ -173,9 +184,10 @@ class IDatabaseEngine(ABC):
     def retrieve_versioned_object(self, 
                                   uid: HierObjectID, 
                                   reader: Optional[PartyRef] = None,
-                                  metadata_only_versioned_object: bool = True) -> tuple[VersionedObject, RevisionHistory]:
+                                  metadata_only_versioned_object: bool = True) -> Optional[tuple[VersionedObject, RevisionHistory]]:
         """Retrieve a VERSIONED_OBJECT and its underlying REVISION_HISTORY.
         
+        :returns `None`: If the VERSIONED_OBJECT with given uid does not exist in the database.
         :returns tuple[0]: `VersionedObject` created with only metadata (i.e. methods will not work as no revision history / versions restored) unless `metadata_only_versioned_object` set to False.
         :returns tuple[1]: `RevisionHistory` associated with the `VersionedObject`."""
         pass

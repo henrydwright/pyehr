@@ -5,6 +5,7 @@ from types import NoneType
 from typing import Optional, Union
 
 import requests
+import json
 
 from pyehr.core.base.base_types.identification import HierObjectID, ObjectVersionID
 from pyehr.core.base.foundation_types.any import AnyClass
@@ -47,10 +48,10 @@ class OpenEHRRestOperationMetadata():
 
     def as_dict(self):
         return {
-            "location": self.location,
-            "openEHR_uri": self.openEHR_uri,
-            "etag": self.etag,
-            "last_modified": self.last_modified
+            "Location": self.location,
+            "openEHR-uri": self.openEHR_uri,
+            "ETag": self.etag,
+            "Last-Modified": self.last_modified
         }
 
 class OpenEHRRestClientResponse[T]():
@@ -127,10 +128,16 @@ class OpenEHRBaseRestClient():
             last_modified = result.headers["Last-Modified"]
         return OpenEHRRestOperationMetadata(location=location, openEHR_uri=openEHR_uri, etag=etag, last_modified=last_modified)
 
-    def _get_XXX_by_version_id(self, target_url: str, target_type: str):
+    def _get_XXX_by_version_id(self, target_url: str, target_type: str, version_at_time: Optional[ISODateTime] = None):
+        params = None
+        if version_at_time is not None:
+            params = {
+                "version_at_time": version_at_time.as_string()
+            }
         result = requests.get(
             url=target_url,
-            headers=self._build_headers()
+            headers=self._build_headers(),
+            params=params
         )
         if result.status_code == 404:
             raise RuntimeError("404 Not Found: Either EHR with ehr_id does not exist, or given version_uid does not exist.")
@@ -153,9 +160,9 @@ class OpenEHRBaseRestClient():
         elif result.status_code == 422:
             raise ValueError(f"422 Unprocessable Entity: content could be converted to desired type but there are semantic validation errors (e.g. template not known or not validating supplied composition)")
         elif result.status_code != 201:
-            raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+            raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation. Inner error {bytes.decode(result.content)}")
         
-        obj = decode_json(result.json(), target_type=target_type, flag_allow_resolved_references=self.flag_allow_resolved_references)
+        obj = decode_json(result.json(), target=target_type, flag_allow_resolved_references=self.flag_allow_resolved_references)
         return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
 
     def _update_XXX(self, target_url: str, target_type: str, preceding_version_uid: ObjectVersionID, new_obj: AnyClass) -> OpenEHRRestClientResponse:
@@ -167,7 +174,7 @@ class OpenEHRBaseRestClient():
             json=new_obj.as_json()
         )
         if result.status_code == 400:
-            raise ValueError(f"400 Bad Request: request had invalid content.")
+            raise ValueError(f"400 Bad Request: request had invalid content. Inner error {json.dumps(result.json(),indent=1)}")
         elif result.status_code == 404:
             raise RuntimeError(f"404 Not Found: Either EHR with given ehr_id does not exist or the object with UID trying to be updated does not exist")
         elif result.status_code == 412:

@@ -3,13 +3,13 @@
 from json import JSONEncoder, dumps
 from typing import Union, Optional
 
-from common import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
+from term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
 from pyehr.core.base.base_types.identification import HierObjectID, ObjectID, ObjectRef, ObjectVersionID, GenericID, PartyRef, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion
 from pyehr.core.rm.common.generic import AuditDetails, PartyIdentified, PartySelf, RevisionHistory, RevisionHistoryItem
 from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID
-from pyehr.core.rm.data_structures.item_structure import ItemTree
+from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemTree
 from pyehr.core.rm.data_structures.representation import Cluster, Element
 from pyehr.core.rm.data_types.basic import DVIdentifier
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
@@ -48,7 +48,8 @@ _type_map = {
     "PARTY_IDENTIFIED": PartyIdentified,
     "ORIGINAL_VERSION": OriginalVersion,
     "IMPORTED_VERSION": ImportedVersion,
-    "CONTRIBUTION": Contribution
+    "CONTRIBUTION": Contribution,
+    "ITEM_SINGLE": ItemSingle
 }
 """Map of OpenEHR JSON '_type' attributes to pyehr.core types"""
 

@@ -49,7 +49,7 @@ class OpenEHRDemographicRestClient(OpenEHRBaseRestClient):
             :param version_at_time: A given time in the extended ISO 8601 format. Can only be provided when
                                     uid_based_id is a HIER_OBJECT_ID"""
             target_url = self.outer._url_from_base(f"/demographic/person/{uid_based_id.value}")
-            return self.outer._get_versioned_XXX_version_at_time_or_by_id(target_url, "PERSON", uid_based_id, version_at_time)
+            return self.outer._get_XXX_by_version_id(target_url, "PERSON", version_at_time)
 
         def update_person(self, uid_based_id: HierObjectID, preceding_version_uid: ObjectVersionID, new_person: Person) -> OpenEHRRestClientResponse[Person]:
             """Updates PERSON identified by uid_based_id.
@@ -64,7 +64,7 @@ class OpenEHRDemographicRestClient(OpenEHRBaseRestClient):
             target_url = self.outer._url_from_base(f"/demographic/person/{uid_based_id.value}")
             return self.outer._update_XXX(target_url, "PERSON", preceding_version_uid, new_person)
         
-        def delete_person(self, uid_based_id: HierObjectID) -> OpenEHRRestClientResponse[NoneType]:
+        def delete_person(self, uid_based_id: ObjectVersionID) -> OpenEHRRestClientResponse[NoneType]:
             """Deletes the PERSON identified by uid_based_id.
 
             The uid_based_id MUST be in a form of an OBJECT_VERSION_ID identifier taken from the last (most recent) VERSION.uid.value, representing the preceding_version_uid to be deleted."""

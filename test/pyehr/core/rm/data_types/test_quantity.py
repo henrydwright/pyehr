@@ -4,7 +4,7 @@ from pyehr.core.base.foundation_types.interval import ProperInterval
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
 from pyehr.core.rm.data_types.quantity import DVOrdered, DVInterval, ReferenceRange, DVOrdinal, DVScale, DVQuantified, DVAmount, DVQuantity, DVCount, ProportionKind, DVProportion, DVAbsoluteQuantity
 from pyehr.core.base.base_types.identification import TerminologyID
-from common import PythonTerminologyService, CODESET_OPENEHR_NORMAL_STATUSES
+from term import PythonTerminologyService, CODESET_OPENEHR_NORMAL_STATUSES
 
 test_ts = PythonTerminologyService([CODESET_OPENEHR_NORMAL_STATUSES], [])
 test_ts_empty = PythonTerminologyService([], [])

@@ -1,6 +1,6 @@
 import pytest
 
-from common import TERMINOLOGY_OPENEHR, PythonTerminologyService
+from term import TERMINOLOGY_OPENEHR, PythonTerminologyService
 from pyehr.core.base.base_types.identification import TerminologyID
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.data_structures.history import PointEvent, IntervalEvent, History

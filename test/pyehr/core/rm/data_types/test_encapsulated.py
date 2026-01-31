@@ -3,7 +3,7 @@ import zlib
 
 import pytest
 
-from common import PythonTerminologyService, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, TERMINOLOGY_OPENEHR
+from term import PythonTerminologyService, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, TERMINOLOGY_OPENEHR
 from pyehr.core.base.base_types.identification import TerminologyID
 from pyehr.core.rm.data_types.text import CodePhrase
 from pyehr.core.rm.data_types.encapsulated import DVEncapsulated, DVMultimedia, DVParsable

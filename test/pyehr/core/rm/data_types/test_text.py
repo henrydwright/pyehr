@@ -3,7 +3,7 @@ import pytest
 from pyehr.core.rm.data_types.text import CodePhrase, DVText, DVCodedText, TermMapping, DVParagraph
 from pyehr.core.base.base_types.identification import TerminologyID
 
-from common import CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, TERMINOLOGY_OPENEHR, PythonTerminologyService
+from term import CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, TERMINOLOGY_OPENEHR, PythonTerminologyService
 
 test_ts = PythonTerminologyService([CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_LANGUAGES], [TERMINOLOGY_OPENEHR])
 test_ts_empty = PythonTerminologyService([], [])

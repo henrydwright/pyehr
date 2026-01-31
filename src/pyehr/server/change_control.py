@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Optional
 from logging import Logger, getLogger
 
-from common import TERMINOLOGY_OPENEHR, PythonTerminologyService
+from term import TERMINOLOGY_OPENEHR, PythonTerminologyService
 from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import UUID, ArchetypeID, HierObjectID, ObjectID, ObjectRef, ObjectVersionID, PartyRef, UIDBasedID
 from pyehr.core.base.foundation_types.any import AnyClass
@@ -64,7 +64,9 @@ class VersionedStore():
         else:
             self._ts = terminology_service
         
-    def _get_uid_from_object_if_exists(self, obj: AnyClass) -> Optional[ObjectID]:
+    def _get_uid_from_object_if_exists(self, obj: Optional[AnyClass]) -> Optional[ObjectID]:
+        if obj is None:
+            return None
         uid = None
         if hasattr(obj, "uid"):
             uid = obj.uid
@@ -170,7 +172,7 @@ class VersionedStore():
                 raise ValueError(f"UID within `preceding_version_uid` ({preceding_version_uid.value}) does not match the UID within the object version ID ({uid.value})")
         else:
             if preceding_version_uid is None:
-                raise ValueError(f"Cannot update object as object did not have a UID and `preceding_version_uid` was not provided.")
+                raise ValueError(f"Cannot update/delete object as object did not have a UID and `preceding_version_uid` was not provided.")
             else:
                 uid = preceding_version_uid.object_id()
             
@@ -183,7 +185,7 @@ class VersionedStore():
             self._log.info(f"Assuming this version based off {preceding_version_uid}")
             preceding_version_uid = ObjectVersionID(prev_ver)
 
-        obj_type = PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj)]
+        obj_type = PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj)] if obj is not None else None
 
         # make the new version ID and contribution ID
         new_version_id = uid
@@ -193,7 +195,7 @@ class VersionedStore():
             new_version_id = ObjectVersionID(uid.value + "::" + self.system_id + "::" + str(new_trunk))
 
         # set object UID field to the version ID
-        if hasattr(obj, "uid"):
+        if obj is not None and hasattr(obj, "uid"):
             obj.uid = new_version_id
 
         return (obj_type, OriginalVersion(
@@ -215,7 +217,8 @@ class VersionedStore():
                preceding_version_uid: Optional[ObjectVersionID] = None,
                description: Optional[DVText] = None,
                user: Optional[PartyRef] = None,
-               local_versioned_object: Optional[VersionedObject] = None) -> tuple[ObjectVersionID, Contribution, Optional[VersionedObject]]:
+               local_versioned_object: Optional[VersionedObject] = None,
+               explicit_obj_type: Optional[str] = None) -> tuple[ObjectVersionID, Contribution, Optional[VersionedObject]]:
         """Update a given version and create a new trunk version. Unless specified, finds latest version
         and assumes this is the preceding version.
         
@@ -225,7 +228,8 @@ class VersionedStore():
         
         :param preceding_version_uid: Mandatory if `obj` does not contain a UID. Otherwise, if not provided, the latest version of `obj` in the database
                                       will be taken as the preceding version for this update.
-        :param user: The user which will be recorded in the database logs"""
+        :param user: The user which will be recorded in the database logs
+        :param obj_type: Needed if obj is `None` (i.e. blank version is being created) so type cannot be inferred."""
 
         contrib_id = self.db.generate_hier_object_id()
 
@@ -249,9 +253,13 @@ class VersionedStore():
             preceding_version_uid=preceding_version_uid,
             user=user
         )
+        if obj_type is None:
+            if explicit_obj_type is None:
+                raise ValueError("Cannot have obj of `None` without explicit_obj_type set")
+            obj_type = explicit_obj_type
         new_version_id = ov.uid()
         uid = ov.uid().object_id()
-        self._log.info(f"Created VERSION<{obj_type}> (uid=\'{new_version_id.value}\')")
+        self._log.info(f"Created {'(deletion)' if obj is None else ''} VERSION<{obj_type}> (uid=\'{new_version_id.value}\')")
 
         # create the contribution
         self._log.info(f"Creating CONTRIBUTION (uid=\'{contrib_id.value}\', commit_time=\'{commit_time.as_string()}\')")
@@ -270,7 +278,10 @@ class VersionedStore():
         
         # save to database
         self._log.info("Saving to database")
-        self.db.create_uid_object(ov, creator=user)
+        if obj is None:
+            self.db.create_uid_object(ov, creator=user, type_override=f"VERSION<{obj_type}>")
+        else:
+            self.db.create_uid_object(ov, creator=user)
         self.db.add_revision_history_item(uid, rhi, creator=user)
         self.db.create_uid_object(contrib, creator=user)
 
@@ -287,6 +298,21 @@ class VersionedStore():
             )
 
         return (new_version_id, contrib, local_versioned_object)
+
+    def delete(self, 
+               obj_type: str,
+               deleter: PartyProxy,
+               preceding_version_uid: ObjectVersionID,
+               description: Optional[DVText] = None,
+               user: Optional[PartyRef] = None,
+               local_versioned_object: Optional[VersionedObject] = None):
+        """(Soft) delete an object by creating a new `VERSION` with no content, and marking relevant fields as inactive/delete.
+        
+        Shorthand for VersionedStore.update with relevant audit change type, version lifecycle state, etc. set.
+        
+        :param preceding_version_uid: Object version ID of the last version prior to deletion.
+        :param user: The user which will be recorded in the database logs"""
+        return self.update(None, deleter, VersionLifecycleState.DELETE, AuditChangeType.DELETED, preceding_version_uid, description, user, local_versioned_object, explicit_obj_type=obj_type)
 
     def commit(self,
                owner_id: ObjectRef,
@@ -509,24 +535,24 @@ class VersionedStore():
     def read_version(self,
                      obj_type: str,
                      obj_version_id: ObjectVersionID,
-                     reader: PartyProxy) -> Version:
+                     user: Optional[PartyRef] = None) -> Version:
         """Retrieves a given version of the object of the given type."""
-        return self.db.retrieve_uid_object(f"VERSION<{obj_type}>", obj_version_id, reader)
+        return self.db.retrieve_uid_object(f"VERSION<{obj_type}>", obj_version_id, user)
 
     def query_equal(self,
               obj_type: str,
               archetype_id: ArchetypeID,
               query_dict: dict[str, list[str]], 
-              reader: PartyProxy) -> Version:
+              user: Optional[PartyRef] = None) -> Version:
         """Retrieves a version of the object of the given type with parameters equal to those in query dict.
         
         :param query_dict: OpenEHR path for target attribute and list of possible values (e.g. {'details/items[at0002]/value/id': ['9449305552']})"""
-        pass
+        return self.db.retrieve_query_match_object(obj_type, archetype_id, query_dict, user)
 
     def retrieve_versioned_object(self, 
                                   uid: HierObjectID, 
-                                  reader: PartyProxy,
+                                  user: Optional[PartyRef] = None,
                                   metadata_only_versioned_object: bool = True) -> tuple[VersionedObject, RevisionHistory]:
         """Retrieve a VERSIONED_OBJECT and its underlying REVISION_HISTORY."""
-        pass
+        return self.db.retrieve_versioned_object(uid, user, metadata_only_versioned_object)
 

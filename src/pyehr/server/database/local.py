@@ -10,7 +10,7 @@ from pyehr.utils import PYTHON_TYPE_TO_STRING_TYPE_MAP
 
 from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef
-from pyehr.server.database import DBActionItem, DBActionType, IDatabaseEngine, DBMetadata
+from pyehr.server.database import DBActionItem, DBActionType, IDatabaseEngine, DBMetadata, IncorrectVersionTypeError, ObjectAlreadyExistsError, ObjectDoesNotExistError
 
 from uuid import uuid4
 
@@ -53,7 +53,7 @@ class InMemoryDB(IDatabaseEngine):
         
     def add_revision_history_item(self, uid, item, creator = None):
         if uid.value not in self._meta:
-            raise ValueError(f"Could not add new REVISION_HISTORY_ITEM as VERSIONED_OBJECT with uid \'{uid.value}\' not in database")
+            raise ObjectDoesNotExistError(f"Could not add new REVISION_HISTORY_ITEM as VERSIONED_OBJECT with uid \'{uid.value}\' not in database")
         
         if uid.value not in self._obj["REVISION_HISTORY"]:
             self._obj["REVISION_HISTORY"] = RevisionHistory(
@@ -71,10 +71,10 @@ class InMemoryDB(IDatabaseEngine):
         # check versioned_object existance
         vo_uid = version_id.object_id()
         if vo_uid.value not in self._meta:
-            raise ValueError(f"Could not add ATTESTATION as VERSIONED_OBJECT with uid \'{vo_uid.value}\' not in database")
+            raise ObjectDoesNotExistError(f"Could not add ATTESTATION as VERSIONED_OBJECT with uid \'{vo_uid.value}\' not in database")
         
         if vo_uid.value not in self._obj["REVISION_HISTORY"]:
-            raise ValueError(f"Could not add ATTESTATION as no REVISION_HISTORY existed for VERSIONED_OBJECT with uid \'{vo_uid.value}\'")
+            raise ObjectDoesNotExistError(f"Could not add ATTESTATION as no REVISION_HISTORY existed for VERSIONED_OBJECT with uid \'{vo_uid.value}\'")
         
         vo_meta = self._meta[vo_uid.value]
         rev_his = self._obj["REVISION_HISTORY"][vo_uid.value]
@@ -86,17 +86,17 @@ class InMemoryDB(IDatabaseEngine):
                 rh_item_to_update = rh_item
 
         if rh_item is None:
-            raise ValueError(f"Could not add ATTESTATION as REVISION_HISTORY did not contain version with ID \'{version_id.value}\'")
+            raise ObjectDoesNotExistError(f"Could not add ATTESTATION as REVISION_HISTORY did not contain version with ID \'{version_id.value}\'")
         
         # check version is in the database
         if version_id.value not in self._meta:
-            raise ValueError(f"Could not add ATTESTATION as VERSION with ID \'{version_id.value}\' not in database")
+            raise ObjectDoesNotExistError(f"Could not add ATTESTATION as VERSION with ID \'{version_id.value}\' not in database")
         
         # add the attestation
         ver_meta = self._meta[version_id.value]
         ver = self._obj[ver_meta.obj_type][version_id.value]
         if not isinstance(ver, OriginalVersion):
-            raise ValueError(f"Could not add ATTESTATION as VERSION with ID \'{version_id.value}\' was not an ORIGINAL_VERSION")
+            raise IncorrectVersionTypeError(f"Could not add ATTESTATION as VERSION with ID \'{version_id.value}\' was not an ORIGINAL_VERSION")
         
         if ver.attestations is None:
             ver.attestations = []
@@ -116,18 +116,22 @@ class InMemoryDB(IDatabaseEngine):
             uid = obj.uid()
         return uid
 
-    def create_uid_object(self, obj, creator = None):
+    def create_uid_object(self, obj, creator = None, type_override = None):
         met = None
         uid = self._get_uid_from_uid_object_type(obj)
         if uid.value in self._meta:
             met = self._meta[uid.value]
             if met.obj_type is not None:
-                raise ValueError(f"Item with UID of {uid.value} already exists in database so could not be created.")
+                raise ObjectAlreadyExistsError(f"Item with UID of {uid.value} already exists in database so could not be created.")
 
-        type_str = PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj)]
+        type_str = None
+        if type_override is not None:
+            type_str = type_override
+        else:
+            type_str = PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj)]
 
-        if type_str == "VERSION":
-            type_str += f"<{PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj.data())]}>"
+            if type_str == "VERSION":
+                type_str += f"<{PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj.data())]}>"
 
         if uid.value not in self._meta:
             met = DBMetadata(
@@ -147,7 +151,7 @@ class InMemoryDB(IDatabaseEngine):
         self._obj[type_str][uid.value] = obj
 
         met.action_history.append(DBActionItem(DBActionType.CREATE, party=creator))
-        self._log.info(f"{uid.value}:Created new {type_str}")
+        self._log.info(f"{uid.value}:Created new {type_str} {'[type set explicitly]' if type_override is not None else ''}")
     
     def update_uid_object(self, obj, updater = None):
         uid = self._get_uid_from_uid_object_type(obj)
@@ -155,9 +159,9 @@ class InMemoryDB(IDatabaseEngine):
         if uid.value in self._meta:
             met = self._meta[uid.value]
             if met.obj_type is None:
-                raise ValueError(f"Item with UID of {uid.value} did not exist in database so could not be updated")
+                raise ObjectDoesNotExistError(f"Item with UID of {uid.value} did not exist in database so could not be updated")
         else:
-            raise ValueError(f"Item with UID of {uid.value} did not exist in database so could not be updated")
+            raise ObjectDoesNotExistError(f"Item with UID of {uid.value} did not exist in database so could not be updated")
         
         type_str = PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj)]
 
@@ -273,7 +277,8 @@ class InMemoryDB(IDatabaseEngine):
     
     def retrieve_versioned_object(self, uid, reader = None, metadata_only_versioned_object = True):
         if uid.value not in self._meta:
-            raise ValueError("VERSIONED_OBJECT with given UID does not exist in database")
+            self._log.info(f"{uid.value}:Read of VERSIONED_OBJECT attempted, but did not exist")
+            return None
         
         met = self._meta[uid.value]
         met.action_history.append(DBActionItem(DBActionType.READ, party=reader))
@@ -289,13 +294,13 @@ class InMemoryDB(IDatabaseEngine):
             for revision in rev_history.items:
                 version_id = revision.version_id
                 if version_id.value not in self._meta:
-                    raise ValueError(f"Could not rebuild VERSIONED_OBJECT: version with ID \'{version_id.value}\' present in REVISION_HISTORY but not found in database.")
+                    raise ObjectDoesNotExistError(f"Could not rebuild VERSIONED_OBJECT: version with ID \'{version_id.value}\' present in REVISION_HISTORY but not found in database.")
                 version_meta = self._meta[version_id.value]
                 version_type = version_meta.obj_type
                 try:
                     versions.append(self.retrieve_uid_object(version_type, version_id, reader))
                 except ValueError:
-                    raise ValueError(f"Could not rebuild VERSIONED_OBJECT: version with ID \'{version_id.value}\' had valid metadata but could not be retrieved")
+                    raise ObjectDoesNotExistError(f"Could not rebuild VERSIONED_OBJECT: version with ID \'{version_id.value}\' had valid metadata but could not be retrieved")
             full_vo = VersionedObject(
                 uid=meta_only_vo.uid,
                 owner_id=meta_only_vo.owner_id,
