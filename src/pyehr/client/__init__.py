@@ -141,11 +141,15 @@ class OpenEHRBaseRestClient():
         )
         if result.status_code == 404:
             raise RuntimeError("404 Not Found: Either EHR with ehr_id does not exist, or given version_uid does not exist.")
-        elif result.status_code != 200:
+        elif not (result.status_code == 200 or result.status_code == 204):
             raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
         
-        obj = decode_json(result.json(), target=target_type, flag_allow_resolved_references=self.flag_allow_resolved_references)
-        return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
+        if result.status_code == 204:
+            # deleted and hence empty
+            return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
+        else:
+            obj = decode_json(result.json(), target=target_type, flag_allow_resolved_references=self.flag_allow_resolved_references)
+            return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
 
     def _create_XXX(self, target_url: str, target_type: str, new_obj: AnyClass):
         result = requests.post(
@@ -286,7 +290,7 @@ class OpenEHRBaseRestClient():
         else:
             raise TypeError(f"Expected ObjectVersionID or HierObjectID, but {str(type(uid_based_id))} was given")
 
-    def options(self) -> object:
+    def options(self) -> OpenEHRRestClientResponse[object]:
         """Get system options and conformance information.
         
         Services SHOULD respond to this method with at least appropriate HTTP 
@@ -302,4 +306,4 @@ class OpenEHRBaseRestClient():
         if result.status_code != 200:
             raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
         
-        return result.json()
+        return OpenEHRRestClientResponse(result.json(), result, self._get_metadata_from_result(result))

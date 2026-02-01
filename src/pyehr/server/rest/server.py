@@ -16,7 +16,7 @@ from pyehr.core.rm.common.change_control import Version
 from pyehr.core.rm.common.generic import PartyIdentified, PartySelf
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import DVText
-from pyehr.core.rm.demographic import Person
+from pyehr.core.rm.demographic import Person, VersionedParty
 from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState, VersionedStore
 from pyehr.server.database.local import InMemoryDB
@@ -130,6 +130,11 @@ def _create_object_response(obj: AnyClass, status_code: int):
     else:
         return _create_error_response(f"412 Precondition Failed: Server does not support any OpenEHR format that the client accepts ({str(accepted_formats)})", 412)
     
+def _create_empty_response():
+    empty_resp = make_response("")
+    empty_resp.status_code = 204
+    return empty_resp
+
 def _create_not_found_response(obj_type: str, uid_based_id: str):
     return _create_error_response(f"404 Not Found: Could not find {obj_type} with uid of \'{uid_based_id}\'", 404)
 
@@ -151,6 +156,23 @@ def process_headers():
         except ValueError as ve:
             log.error("Invalid headers provided: " + str(ve))
             return jsonify({"error":f"Invalid headers provided: {str(ve)}"}), 400
+
+@app.route("/", methods=['OPTIONS'])
+def options():
+    resp = make_response(
+        jsonify({
+            "solution": "pyehr",
+            "solution_version": "BUILD",
+            "vendor": "Eldon Health",
+            "restapi_specs_version": "1.0.3",
+            "endpoints": [
+                "/demographic"
+            ]
+        }))
+    resp.headers.add("Allow", "GET, POST, PUT, DELETE, OPTIONS")
+    resp.headers.add("Content-Type", "application/json")
+    resp.status_code = 200
+    return resp
 
 @app.route("/", methods=['GET'])
 def web_home():
@@ -197,13 +219,13 @@ def get_ehr_by_id(ehr_id):
     return ehr.as_json()
 
 def _is_demographic_type(typ : str):
-    return typ in {"AGENT", "GROUP", "ORGANISATION", "PERSON", "ROLE"}
+    return (typ in {"AGENT", "GROUP", "ORGANISATION", "PERSON", "ROLE"})
 
 @app.route("/demographic/<demographic_type>", methods=['GET', 'POST'])
 def create_demographic_object(demographic_type: str):
     typ = demographic_type.upper()
     if not _is_demographic_type(typ):
-        _create_error_response("", 404)
+        return _create_error_response("", 404)
     
     body_obj = _parse_request_body(typ)
     if isinstance(body_obj, Response):
@@ -219,11 +241,63 @@ def create_demographic_object(demographic_type: str):
     _add_headers_to_response(resp, d_ovid, d_contrib.audit.time_committed, f"{LOCATION_BASE_URL}/demographic/{typ.lower()}/{d_ovid.value}", f"demographic://{d_ovid.object_id().value}")
     return resp
 
+@app.route("/demographic/versioned_party/<hier_object_id>/version/<object_version_id>", methods=['GET'])
+def get_versioned_party_version_by_id(hier_object_id: str, object_version_id: str):
+    ovid = ObjectVersionID(object_version_id)
+    hid = HierObjectID(hier_object_id)
+    if ovid.object_id().value != hid.value:
+        return _create_error_response("400 Bad Request: Hier Object ID and Object Version ID -> Object ID did not match.")
+    meta = db.retrieve_db_metadata(ovid, logged_in_user.external_ref)
+
+    if meta is None:
+        return _create_not_found_response("VERSION<PARTY>", object_version_id)
+
+    obj_type = meta.obj_type
+    obj_type = obj_type.replace(">", "")
+    obj_type = obj_type.split("<")[1]
+
+    obj = vs.read_version(obj_type, ovid, logged_in_user.external_ref)
+    if obj is None:
+        return _create_not_found_response(obj_type, object_version_id)
+    
+    resp = _create_object_response(obj, 200)
+    _add_headers_to_response(resp, obj.uid(), obj.commit_audit.time_committed, f"{LOCATION_BASE_URL}/demographic/versioned_party/{hier_object_id}/version/{obj.uid().value}")
+    return resp
+
+@app.route("/demographic/versioned_party/<hier_object_id>/version", methods=['GET'])
+def get_versioned_party_version_at_time(hier_object_id: str):
+    vo, revision_history = vs.retrieve_versioned_object(HierObjectID(hier_object_id), logged_in_user.external_ref)
+    if vo is None:
+        return _create_not_found_response("VERSION<PARTY>", hier_object_id)
+    most_recent_version_id = revision_history.items[0].version_id
+    meta = db.retrieve_db_metadata(most_recent_version_id, reader=logged_in_user.external_ref)
+    obj_type = meta.obj_type
+    obj_type = obj_type.replace(">", "")
+    obj_type = obj_type.split("<")[1]
+
+    version_at_time = request.args.get("version_at_time")
+    obj = vs.read(obj_type, HierObjectID(hier_object_id), version_at_time, user=logged_in_user.external_ref)
+
+    resp = _create_object_response(obj, 200)
+    _add_headers_to_response(resp, obj.uid(), obj.commit_audit.time_committed, f"{LOCATION_BASE_URL}/demographic/versioned_party/{hier_object_id}/version/{obj.uid().value}")
+    return resp
+    
+@app.route("/demographic/versioned_party/<hier_object_id>", methods=['GET'])
+def get_versioned_party(hier_object_id: str):
+    versioned_party, _ = vs.retrieve_versioned_object(HierObjectID(hier_object_id), logged_in_user.external_ref)
+
+    if versioned_party is None:
+        return _create_not_found_response("VERSIONED_PARTY", hier_object_id)
+    else:
+        resp = _create_object_response(versioned_party, 200)
+        _add_headers_to_response(resp, HierObjectID(hier_object_id), versioned_party.time_created, f"{LOCATION_BASE_URL}/demographic/versioned_party/{hier_object_id}")
+        return resp
+
 @app.route("/demographic/<demographic_type>/<uid_based_id>", methods=['GET'])
 def get_demographic_object(demographic_type: str, uid_based_id: str):
     typ = demographic_type.upper()
     if not _is_demographic_type(typ):
-        _create_error_response("", 404)
+        return _create_error_response("", 404)
 
     object_version : Version = None
     if "::" in uid_based_id:
@@ -235,6 +309,11 @@ def get_demographic_object(demographic_type: str, uid_based_id: str):
     if object_version is None:
         return _create_not_found_response(typ, uid_based_id)
     else:
+        if object_version.data() is None:
+            # has been deleted
+            empty = _create_empty_response()
+            _add_headers_to_response(empty, object_version.uid(), object_version.commit_audit.time_committed, f"{LOCATION_BASE_URL}/demographic/{typ.lower()}/{object_version.uid().value}", f"demographic://{object_version.uid().value}")
+            return empty
         resp = _create_object_response(object_version.data(), 200)
         _add_headers_to_response(resp, object_version.uid(), object_version.commit_audit.time_committed, f"{LOCATION_BASE_URL}/demographic/{typ.lower()}/{object_version.uid().value}", f"demographic://{object_version.uid().value}")
         return resp
@@ -243,7 +322,7 @@ def get_demographic_object(demographic_type: str, uid_based_id: str):
 def update_demographic_object(demographic_type: str, hier_object_id: str):
     typ = demographic_type.upper()
     if not _is_demographic_type(typ):
-        _create_error_response("", 404)
+        return _create_error_response("", 404)
     
     body_object = _parse_request_body(typ)
     if isinstance(body_object, Response):
@@ -272,7 +351,7 @@ def update_demographic_object(demographic_type: str, hier_object_id: str):
 def delete_demographic_object(demographic_type: str, object_version_id: str):
     typ = demographic_type.upper()
     if not _is_demographic_type(typ):
-        _create_error_response("", 404)
+        return _create_error_response("", 404)
     
     try:
         preceding_uid = ObjectVersionID(object_version_id)
@@ -289,5 +368,3 @@ def delete_demographic_object(demographic_type: str, object_version_id: str):
     resp = make_response("", 204)
     _add_headers_to_response(resp, d_ovid, d_contrib.audit.time_committed)
     return resp
-
-# TODO: Add VERSIONED_PARTY methods

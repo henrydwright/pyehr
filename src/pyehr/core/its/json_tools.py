@@ -14,7 +14,7 @@ from pyehr.core.rm.data_structures.representation import Cluster, Element
 from pyehr.core.rm.data_types.basic import DVIdentifier
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText, DVUri
-from pyehr.core.rm.demographic import PartyIdentity, Person
+from pyehr.core.rm.demographic import PartyIdentity, Person, VersionedParty
 from pyehr.core.rm.ehr import EHR, EHRStatus, VersionedEHRStatus
 from pyehr.core.rm.support.terminology import TerminologyService
 
@@ -49,7 +49,8 @@ _type_map = {
     "ORIGINAL_VERSION": OriginalVersion,
     "IMPORTED_VERSION": ImportedVersion,
     "CONTRIBUTION": Contribution,
-    "ITEM_SINGLE": ItemSingle
+    "ITEM_SINGLE": ItemSingle,
+    "VERSIONED_PARTY": VersionedParty
 }
 """Map of OpenEHR JSON '_type' attributes to pyehr.core types"""
 
@@ -179,6 +180,8 @@ def decode_json(json_obj: dict,
         if flag_replace_empty_dv_text_with_null and not "value" in json_obj:
             return None
     elif target_type == "AUDIT_DETAILS":
+        arg_dict["terminology_service"] = terminology_service
+    elif target_type == "ORIGINAL_VERSION":
         arg_dict["terminology_service"] = terminology_service
 
     instance_list = []

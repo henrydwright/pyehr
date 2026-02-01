@@ -552,7 +552,7 @@ class VersionedStore():
     def retrieve_versioned_object(self, 
                                   uid: HierObjectID, 
                                   user: Optional[PartyRef] = None,
-                                  metadata_only_versioned_object: bool = True) -> tuple[VersionedObject, RevisionHistory]:
+                                  metadata_only_versioned_object: bool = True) -> Optional[tuple[VersionedObject, RevisionHistory]]:
         """Retrieve a VERSIONED_OBJECT and its underlying REVISION_HISTORY."""
         return self.db.retrieve_versioned_object(uid, user, metadata_only_versioned_object)
 
