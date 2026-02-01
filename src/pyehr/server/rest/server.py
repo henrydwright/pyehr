@@ -8,18 +8,21 @@ import logging
 from uuid import uuid4
 
 from pyehr.core.base.base_types.builtins import Env
-from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectRef, ObjectVersionID, PartyRef
+from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectID, ObjectRef, ObjectVersionID, PartyRef
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.its.json_tools import decode_json
 from pyehr.core.rm.common.archetyped import Archetyped
 from pyehr.core.rm.common.change_control import Version
-from pyehr.core.rm.common.generic import PartyIdentified, PartySelf
+from pyehr.core.rm.common.generic import PartyIdentified, PartyProxy, PartySelf
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.demographic import Person, VersionedParty
 from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState, VersionedStore
 from pyehr.server.database.local import InMemoryDB
+
+IGNORE_CLIENT_VERSION_DETAILS_HEADERS = False
+LOG_HEADERS = False
 
 class OpenEHRPreferredResponseDetailLevel(StrEnum):
     """Different types of API response that OpenEHR clients can request"""
@@ -50,10 +53,26 @@ class OpenEHRRequestHeaders():
     preceding_version_uid: Optional[ObjectVersionID] = None
     """Contents of the `If-Match` header for operations that must only be performed when the latest version matches this version ID"""
 
+    version_lifecycle_state: Optional[VersionLifecycleState] = None
+    """Contents of the `openehr-version` header for operations that can take audit information from the client"""
+
+    version_audit_change_type: Optional[AuditChangeType] = None
+    """Contents of the `openehr-audit-details` header (change_type.) operations that can take audit information from the client"""
+
+    version_audit_description: Optional[DVText] = None
+    """Contents of the `openehr-audit-details` header (description.) for operations that can take audit information from the client"""
+
+    version_committer: Optional[PartyIdentified] = None
+    """Contents of the `openehr-audit-details` header (committer.) for operations that can take audit information from the client"""
+
     def __init__(self, request_content: Request):
+        if LOG_HEADERS:
+            for header in request_content.headers:
+                log.debug(str(header))
         prefer = request_content.headers.get("Prefer")
         if prefer is not None:
             self.preferred_response_detail_level = OpenEHRPreferredResponseDetailLevel(prefer)
+        
         accept = request_content.headers.get("Accept")
         if accept is not None:
             accepted_formats = set()
@@ -68,14 +87,44 @@ class OpenEHRRequestHeaders():
             if len(accepted_formats) == 0:
                 raise ValueError(f"\'{accept}\' did not contain a valid OpenEHR format type")
             self.preferred_response_formats = accepted_formats
+        
         content_type = request_content.headers.get("Content-Type")
         if content_type is not None:
             self.provided_content_format = OpenEHRFormat(content_type)
+        
         if_match = request_content.headers.get("If-Match")
         if if_match is not None:
             self.preceding_version_uid = ObjectVersionID(if_match)
+        
+        openehr_lifecycle_state = request_content.headers.get("openehr-version")
+        if openehr_lifecycle_state is not None:
+            code_string = openehr_lifecycle_state.split("\"")[1]
+            self.version_lifecycle_state = VersionLifecycleState.from_code_string(code_string)
 
-logging.basicConfig(level=logging.DEBUG)
+        audit_details = request_content.headers.get("openehr-audit-details")
+        if audit_details is not None:
+            audit_details = audit_details[:-1]
+            audit_details_list = audit_details.split("\",")
+            audit_details_map = dict()
+            for item in audit_details_list:
+                eq_split = item.split("=\"")
+                audit_details_map[eq_split[0]] = eq_split[1]
+            
+            if "change_type.code_string" in audit_details_map:
+                code_string = audit_details_map["change_type.code_string"]
+                self.version_audit_change_type = AuditChangeType.from_code_string(code_string)
+
+            if "description.value" in audit_details_map:
+                self.version_audit_description = DVText(audit_details_map["description.value"])
+
+            xref = None
+            if "committer.external_ref.id" in audit_details_map:
+                xref = PartyRef(audit_details_map["committer.external_ref.namespace"], audit_details_map["committer.external_ref.type"], ObjectID(audit_details_map["committer.external_ref.id"]))
+            name = None
+            if "committer.name" in audit_details_map:
+                name = audit_details_map["committer.name"]
+            if name is not None or xref is not None:
+                self.version_committer = PartyIdentified(external_ref=xref, name=name)
 
 SYSTEM_ID_HID = str(uuid4())
 SYSTEM_ID_STR = "com.eldonhealth.ehr1"
@@ -101,6 +150,8 @@ logged_in_user = PartyIdentified(
 )
 
 app = Flask(__name__)
+
+logging.basicConfig(level=logging.DEBUG)
 
 def _add_headers_to_response(response_to_add_to: Response, obj_id: Union[HierObjectID, ObjectVersionID], last_modified: Optional[DVDateTime] = None, location: Optional[str] = None, ehr_uri: Optional[str] = None):
     response_to_add_to.headers.add("ETag", f"W/\"{obj_id.value}\"")
@@ -147,6 +198,37 @@ def _parse_request_body(target_type: str):
         return _create_error_response(f"415 Unsupported Media Type: Server cannot parse the OpenEHR \'{str(parse_format)}\' format", 415)
     else:
         return decode_json(request.get_json(), target_type)
+
+def _get_lifecycle_state(fallback_value: VersionLifecycleState):
+    header_state : VersionLifecycleState = g.processed_headers.version_lifecycle_state
+    if header_state is not None:
+        log.debug(f"Using lifecycle state from header: {header_state.value.value}")
+        return header_state
+    else:
+        return fallback_value
+
+def _get_committer():
+    header_state : PartyIdentified = g.processed_headers.version_committer
+    if header_state is not None:
+        log.debug(f"Using committer from header: {json.dumps(header_state.as_json())}")
+        return header_state
+    else:
+        return logged_in_user
+
+def _get_audit_change_type(fallback_value: AuditChangeType):
+    header_state : AuditChangeType = g.processed_headers.version_audit_change_type
+    if header_state is not None:
+        log.debug(f"Using audit change type from header: {header_state.value.value}")
+        return header_state
+    else:
+        return fallback_value
+
+def _get_audit_description(fallback_value: Optional[DVText] = None):
+    header_state : DVText = g.processed_headers.version_audit_description
+    if header_state is not None:
+        log.debug(f"Using audit description from header: {header_state.value}")
+    else:
+        return fallback_value
 
 @app.before_request
 def process_headers():
@@ -233,9 +315,10 @@ def create_demographic_object(demographic_type: str):
     d_ovid, d_contrib, d_vo = vs.create(
         obj=body_obj,
         owner_id=ObjectRef("null", "NULL", HierObjectID("00000000-0000-0000-0000-000000000000")),
-        committer=logged_in_user,
-        lifecycle_state=VersionLifecycleState.COMPLETE,
-        user=logged_in_user.external_ref)
+        committer=_get_committer(),
+        lifecycle_state=_get_lifecycle_state(VersionLifecycleState.COMPLETE),
+        description=_get_audit_description(),
+        user=_get_committer().external_ref)
     new_obj = d_vo.all_versions()[0].data()
     resp = _create_object_response(new_obj, 201)
     _add_headers_to_response(resp, d_ovid, d_contrib.audit.time_committed, f"{LOCATION_BASE_URL}/demographic/{typ.lower()}/{d_ovid.value}", f"demographic://{d_ovid.object_id().value}")
@@ -301,10 +384,10 @@ def get_demographic_object(demographic_type: str, uid_based_id: str):
 
     object_version : Version = None
     if "::" in uid_based_id:
-        object_version = vs.read_version(typ, ObjectVersionID(uid_based_id), logged_in_user.external_ref)
+        object_version = vs.read_version(typ, ObjectVersionID(uid_based_id), _get_committer().external_ref)
     else:
         version_at_time = request.args.get("version_at_time")
-        object_version = vs.read(typ, HierObjectID(uid_based_id), version_at_time, logged_in_user.external_ref)
+        object_version = vs.read(typ, HierObjectID(uid_based_id), version_at_time, _get_committer().external_ref)
     
     if object_version is None:
         return _create_not_found_response(typ, uid_based_id)
@@ -336,11 +419,12 @@ def update_demographic_object(demographic_type: str, hier_object_id: str):
     
     d_ovid, d_contrib, _ = vs.update(
         obj=body_object,
-        committer=logged_in_user,
-        lifecycle_state=VersionLifecycleState.COMPLETE,
-        change_type=AuditChangeType.MODIFICATION,
+        committer=_get_committer(),
+        lifecycle_state=_get_lifecycle_state(VersionLifecycleState.COMPLETE),
+        change_type=_get_audit_change_type(AuditChangeType.MODIFICATION),
         preceding_version_uid=preceding_uid,
-        user=logged_in_user.external_ref
+        description=_get_audit_description(),
+        user=_get_committer().external_ref
     )
 
     resp = _create_object_response(body_object, 200)
@@ -360,9 +444,10 @@ def delete_demographic_object(demographic_type: str, object_version_id: str):
     
     d_ovid, d_contrib, _ = vs.delete(
         obj_type=typ,
-        deleter=logged_in_user,
+        deleter=_get_committer(),
         preceding_version_uid=preceding_uid,
-        user=logged_in_user.external_ref
+        description=_get_audit_description(),
+        user=_get_committer().external_ref
     )
 
     resp = make_response("", 204)

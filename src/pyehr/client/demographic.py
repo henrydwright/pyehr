@@ -6,8 +6,10 @@ from pyehr.client import OpenEHRBaseRestClient, OpenEHRRestClientResponse
 from pyehr.core.base.base_types.identification import HierObjectID, ObjectVersionID
 from pyehr.core.base.foundation_types.time import ISODateTime
 from pyehr.core.rm.common.change_control import Version
-from pyehr.core.rm.common.generic import RevisionHistory
+from pyehr.core.rm.common.generic import AuditDetails, PartyProxy, RevisionHistory
+from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.demographic import Party, Person, VersionedParty
+from pyehr.server.change_control import AuditChangeType, VersionLifecycleState
 
 class OpenEHRPartyType(StrEnum):
     """Enum for different subclasses of PARTY that may be interacted with on a demographic server"""
@@ -32,13 +34,18 @@ class OpenEHRDemographicRestClient(OpenEHRBaseRestClient):
         def __init__(self, outer: 'OpenEHRDemographicRestClient'):
             self.outer = outer
 
-        def create_party(self, party_type: OpenEHRPartyType, new_party: Person) -> OpenEHRRestClientResponse[Party]:
+        def create_party(self, 
+                         party_type: OpenEHRPartyType, 
+                         new_party: Party,
+                         version_lifecycle_state: Optional[VersionLifecycleState] = None,
+                         version_audit_description: Optional[str] = None,
+                         version_committer: Optional[PartyProxy] = None) -> OpenEHRRestClientResponse[Party]:
             """Creates the first version of a new PARTY.
             
             :param party_type: Which type of PARTY is being created
             :param new_party: New AGENT, GROUP, ORGANISATION, PERSON or ROLE to be created"""
             target_url = self.outer._url_from_base(f"/demographic/{party_type.value.lower()}")
-            return self.outer._create_XXX(target_url, party_type.value, new_party)
+            return self.outer._create_XXX(target_url, party_type.value, new_party, version_lifecycle_state, version_audit_description, version_committer)
         
         def get_party(self, party_type: OpenEHRPartyType, uid_based_id: Union[HierObjectID, ObjectVersionID], version_at_time : Optional[ISODateTime] = None):
             """Retrieves a version of the PARTY identified by uid_based_id.
@@ -65,7 +72,15 @@ class OpenEHRDemographicRestClient(OpenEHRBaseRestClient):
             target_url = self.outer._url_from_base(f"/demographic/{party_type.value.lower()}/{uid_based_id.value}")
             return self.outer._get_XXX_by_version_id(target_url, party_type.value, version_at_time)
 
-        def update_party(self, party_type: OpenEHRPartyType, uid_based_id: HierObjectID, preceding_version_uid: ObjectVersionID, new_party: Person) -> OpenEHRRestClientResponse[Person]:
+        def update_party(self, 
+                         party_type: OpenEHRPartyType, 
+                         uid_based_id: HierObjectID, 
+                         preceding_version_uid: ObjectVersionID, 
+                         new_party: Party,
+                         version_lifecycle_state: Optional[VersionLifecycleState] = None,
+                         version_audit_change_type: Optional[AuditChangeType] = None,
+                         version_audit_description: Optional[str] = None,
+                         version_committer: Optional[PartyProxy] = None) -> OpenEHRRestClientResponse[Party]:
             """Updates PARTY identified by uid_based_id.
 
             The uid_based_id can take only a form of an HIER_OBJECT_ID identifier taken from VERSIONED_OBJECT.uid.value (i.e. a versioned_object_uid).
@@ -76,14 +91,18 @@ class OpenEHRDemographicRestClient(OpenEHRBaseRestClient):
             :param preceding_version_uid: Version UID for the previous version that this update is based on
             :param new_party: The contents of the new PARTY to create the version for"""
             target_url = self.outer._url_from_base(f"/demographic/{party_type.value.lower()}/{uid_based_id.value}")
-            return self.outer._update_XXX(target_url, party_type.value, preceding_version_uid, new_party)
+            return self.outer._update_XXX(target_url, party_type.value, preceding_version_uid, new_party, version_lifecycle_state, version_audit_change_type, version_audit_description, version_committer)
         
-        def delete_party(self, party_type: OpenEHRPartyType, uid_based_id: ObjectVersionID) -> OpenEHRRestClientResponse[NoneType]:
+        def delete_party(self, 
+                         party_type: OpenEHRPartyType, 
+                         uid_based_id: ObjectVersionID,
+                         version_audit_description: Optional[str] = None,
+                         version_committer: Optional[PartyProxy] = None) -> OpenEHRRestClientResponse[NoneType]:
             """Deletes the PARTY identified by uid_based_id.
 
             The uid_based_id MUST be in a form of an OBJECT_VERSION_ID identifier taken from the last (most recent) VERSION.uid.value, representing the preceding_version_uid to be deleted."""
             target_url = self.outer._url_from_base(f"/demographic/{party_type.value.lower()}/{uid_based_id.value}")
-            return self.outer._delete_XXX(target_url)
+            return self.outer._delete_XXX(target_url, version_audit_description=version_audit_description, version_committer=version_committer)
 
     class _VersionedPartyClient():
 

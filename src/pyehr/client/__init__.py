@@ -12,7 +12,8 @@ from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.primitive_types import Uri
 from pyehr.core.base.foundation_types.time import ISODateTime
 from pyehr.core.its.json_tools import decode_json
-from pyehr.core.rm.common.generic import RevisionHistory
+from pyehr.core.rm.common.generic import PartyIdentified, PartyProxy, RevisionHistory
+from pyehr.server.change_control import AuditChangeType, VersionLifecycleState
 
 class OpenEHRRestOperationMetadata():
     """Class representing metadata that may be returned on executing an 
@@ -101,11 +102,34 @@ class OpenEHRBaseRestClient():
         """Turns a relative API URL (e.g. '/') into a full URL using the base"""
         return self._base_url + relative_path
     
-    def _build_headers(self, extra_headers: Optional[dict] = None) -> object:
+    def _build_headers(self, 
+                       extra_headers: Optional[dict] = None,
+                       version_lifecycle_state: Optional[VersionLifecycleState] = None,
+                       version_audit_change_type: Optional[AuditChangeType] = None,
+                       version_audit_description: Optional[str] = None,
+                       version_committer: Optional[PartyProxy] = None) -> object:
         headers = {
             "Content-Type": "application/json",
             "Prefer": "return=representation"
         }
+        if version_lifecycle_state is not None:
+            headers["openehr-version"] = f"lifecycle_state.code_string=\"{version_lifecycle_state.value.defining_code.code_string}\""
+        
+        audit_details_list = []
+        if version_audit_change_type is not None:
+            audit_details_list.append(f"change_type.code_string=\"{version_audit_change_type.value.defining_code.code_string}\"")
+        if version_audit_description is not None:
+            audit_details_list.append(f"description.value=\"{version_audit_description}\"")
+        if version_committer is not None:
+            if version_committer.external_ref is not None:
+                audit_details_list.append(f"committer.external_ref.id=\"{version_committer.external_ref.id}\"")
+                audit_details_list.append(f"committer.external_ref.namespace=\"{version_committer.external_ref.namespace}\"")
+                audit_details_list.append(f"committer.external_ref.type=\"{version_committer.external_ref.ref_type}\"")
+            if isinstance(version_committer, PartyIdentified):
+                if version_committer.name is not None:
+                    audit_details_list.append(f"committer.name=\"{version_committer.name}\"")
+        if len(audit_details_list) > 0:
+            headers["openehr-audit-details"] = ",".join(audit_details_list)
         if extra_headers is not None:
             for (k,v) in extra_headers.items():
                 if k in headers:
@@ -151,10 +175,16 @@ class OpenEHRBaseRestClient():
             obj = decode_json(result.json(), target=target_type, flag_allow_resolved_references=self.flag_allow_resolved_references)
             return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
 
-    def _create_XXX(self, target_url: str, target_type: str, new_obj: AnyClass):
+    def _create_XXX(self, 
+                    target_url: str, 
+                    target_type: str, 
+                    new_obj: AnyClass,
+                    version_lifecycle_state: Optional[VersionLifecycleState] = None,
+                    version_audit_description: Optional[str] = None,
+                    version_committer: Optional[PartyProxy] = None):
         result = requests.post(
             url=target_url,
-            headers=self._build_headers(),
+            headers=self._build_headers(version_lifecycle_state=version_lifecycle_state,version_audit_description=version_audit_description,version_committer=version_committer),
             json=new_obj.as_json()
         )
         if result.status_code == 400:
@@ -169,12 +199,24 @@ class OpenEHRBaseRestClient():
         obj = decode_json(result.json(), target=target_type, flag_allow_resolved_references=self.flag_allow_resolved_references)
         return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
 
-    def _update_XXX(self, target_url: str, target_type: str, preceding_version_uid: ObjectVersionID, new_obj: AnyClass) -> OpenEHRRestClientResponse:
+    def _update_XXX(self, 
+                    target_url: str, 
+                    target_type: str, 
+                    preceding_version_uid: ObjectVersionID, 
+                    new_obj: AnyClass,
+                    version_lifecycle_state: Optional[VersionLifecycleState] = None,
+                    version_audit_change_type: Optional[AuditChangeType] = None,
+                    version_audit_description: Optional[str] = None,
+                    version_committer: Optional[PartyProxy] = None) -> OpenEHRRestClientResponse:
         result = requests.put(
             url=target_url,
             headers=self._build_headers({
                 "If-Match": preceding_version_uid.value
-            }),
+            },
+            version_lifecycle_state,
+            version_audit_change_type,
+            version_audit_description,
+            version_committer),
             json=new_obj.as_json()
         )
         if result.status_code == 400:
@@ -189,10 +231,13 @@ class OpenEHRBaseRestClient():
         obj = decode_json(result.json(), target=target_type, flag_allow_resolved_references=self.flag_allow_resolved_references)
         return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
 
-    def _delete_XXX(self, target_url: str) -> OpenEHRRestClientResponse[NoneType]:
+    def _delete_XXX(self, 
+                    target_url: str,
+                    version_audit_description: Optional[str] = None,
+                    version_committer: Optional[PartyProxy] = None) -> OpenEHRRestClientResponse[NoneType]:
         result = requests.delete(
             url=target_url,
-            headers=self._build_headers()
+            headers=self._build_headers(version_audit_description=version_audit_description, version_committer=version_committer)
         )
         if result.status_code == 400:
             raise ValueError("400 Bad Request: request could not be parsed or is invalid")

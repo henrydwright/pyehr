@@ -30,6 +30,24 @@ class AuditChangeType(Enum):
     FORMAT_CONVERSION = DVCodedText("format conversion", CodePhrase("openehr", "817"))
     UNKNOWN = DVCodedText("unknown", CodePhrase("openehr", "253"))
 
+    def from_code_string(code_string: str):
+        """Return an AuditChangeType from the code string alone (e.g. \"249\" becomes AuditChangeType.CREATION)"""
+        code_map = {
+            "249": AuditChangeType.CREATION,
+            "250": AuditChangeType.AMENDMENT,
+            "251": AuditChangeType.MODIFICATION,
+            "252": AuditChangeType.SYNTHESIS,
+            "523": AuditChangeType.DELETED,
+            "666": AuditChangeType.ATTESTATION,
+            "816": AuditChangeType.RESTORATION,
+            "817": AuditChangeType.FORMAT_CONVERSION,
+            "253": AuditChangeType.UNKNOWN
+        }
+        if code_string in code_map:
+            return code_map[code_string]
+        else:
+            return None
+
 class VersionLifecycleState(Enum):
     """Enum of coded version lifecycle state to used with VersionedStore methods for ease."""
     COMPLETE = DVCodedText("complete", CodePhrase("openehr", "532"))
@@ -37,6 +55,20 @@ class VersionLifecycleState(Enum):
     DELETE = DVCodedText("deleted", CodePhrase("openehr", "523"))
     INACTIVE = DVCodedText("inactive", CodePhrase("openehr", "800"))
     ABANDONED = DVCodedText("abandoned", CodePhrase("openehr", "801"))
+
+    def from_code_string(code_string: str):
+        """Return a VersionLifecycleState from the code string alone (e.g. \"532\" becomes VersionLifecycleState.COMPLETE)"""
+        code_map = {
+            "532": VersionLifecycleState.COMPLETE,
+            "553": VersionLifecycleState.INCOMPLETE,
+            "523": VersionLifecycleState.DELETE,
+            "800": VersionLifecycleState.INACTIVE,
+            "801": VersionLifecycleState.ABANDONED
+        }
+        if code_string in code_map:
+            return code_map[code_string]
+        else:
+            return None
 
 class VersionedStore():
     """Class which provides a persistent, version-controlled, store for all pyehr objects via
