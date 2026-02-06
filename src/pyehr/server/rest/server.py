@@ -24,6 +24,8 @@ from pyehr.server.database.local import InMemoryDB
 IGNORE_CLIENT_VERSION_DETAILS_HEADERS = False
 LOG_HEADERS = False
 
+logging.basicConfig(level=logging.DEBUG)
+
 class OpenEHRPreferredResponseDetailLevel(StrEnum):
     """Different types of API response that OpenEHR clients can request"""
     REPRESENTATION = "return=representation"
@@ -130,7 +132,7 @@ SYSTEM_ID_HID = str(uuid4())
 SYSTEM_ID_STR = "com.eldonhealth.ehr1"
 LOCATION_BASE_URL = "http://localhost:5000"
 
-log = logging.getLogger("RestAPIServer")
+log = logging.getLogger("server.api")
 log.info("pyehr REST API server starting...")
 
 log.info("Initialising: database")
@@ -150,8 +152,6 @@ logged_in_user = PartyIdentified(
 )
 
 app = Flask(__name__)
-
-logging.basicConfig(level=logging.DEBUG)
 
 def _add_headers_to_response(response_to_add_to: Response, obj_id: Union[HierObjectID, ObjectVersionID], last_modified: Optional[DVDateTime] = None, location: Optional[str] = None, ehr_uri: Optional[str] = None):
     response_to_add_to.headers.add("ETag", f"W/\"{obj_id.value}\"")

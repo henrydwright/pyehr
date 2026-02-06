@@ -4,10 +4,10 @@ from json import JSONEncoder, dumps
 from typing import Union, Optional
 
 from term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
-from pyehr.core.base.base_types.identification import HierObjectID, ObjectID, ObjectRef, ObjectVersionID, GenericID, PartyRef, TerminologyID
+from pyehr.core.base.base_types.identification import HierObjectID, InternetID, ObjectID, ObjectRef, ObjectVersionID, GenericID, PartyRef, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
-from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion
-from pyehr.core.rm.common.generic import AuditDetails, PartyIdentified, PartySelf, RevisionHistory, RevisionHistoryItem
+from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion, Version, VersionedObject
+from pyehr.core.rm.common.generic import Attestation, AuditDetails, PartyIdentified, PartySelf, RevisionHistory, RevisionHistoryItem
 from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID
 from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemTree
 from pyehr.core.rm.data_structures.representation import Cluster, Element
@@ -50,7 +50,10 @@ _type_map = {
     "IMPORTED_VERSION": ImportedVersion,
     "CONTRIBUTION": Contribution,
     "ITEM_SINGLE": ItemSingle,
-    "VERSIONED_PARTY": VersionedParty
+    "VERSIONED_PARTY": VersionedParty,
+    "VERSIONED_OBJECT": VersionedObject,
+    "INTERNET_ID": InternetID,
+    "ATTESTATION": Attestation
 }
 """Map of OpenEHR JSON '_type' attributes to pyehr.core types"""
 
@@ -182,6 +185,8 @@ def decode_json(json_obj: dict,
     elif target_type == "AUDIT_DETAILS":
         arg_dict["terminology_service"] = terminology_service
     elif target_type == "ORIGINAL_VERSION":
+        arg_dict["terminology_service"] = terminology_service
+    elif target_type == "ATTESTATION":
         arg_dict["terminology_service"] = terminology_service
 
     instance_list = []

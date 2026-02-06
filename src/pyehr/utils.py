@@ -1,3 +1,4 @@
+from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.rm.common.change_control import Contribution, OriginalVersion, VersionedObject
 from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.demographic import Party, Person
@@ -17,3 +18,10 @@ PYTHON_TYPE_TO_STRING_TYPE_MAP : dict[type, str] = {
 """Mapping of pyehr type (Python type) to the openEHR type string (e.g. pyehr type
 of Party maps to 'PARTY')"""
 
+def get_openehr_type_str(obj: AnyClass) -> str:
+    type_str = PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj)]
+
+    if type_str == "VERSION":
+        type_str += f"<{PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj.data())]}>"
+
+    return type_str

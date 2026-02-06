@@ -4,11 +4,13 @@ from enum import Enum, StrEnum
 from typing import Optional, Union
 
 from pyehr.core.base.base_types.builtins import Env
-from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectRef, ObjectVersionID, PartyRef, UIDBasedID
+from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectID, ObjectRef, ObjectVersionID, PartyRef, UIDBasedID
+from pyehr.core.rm.common.archetyped import PyehrInternalPathPredicateType, PyehrInternalProcessedPath
 from pyehr.core.rm.common.change_control import Contribution, Version, VersionedObject
 from pyehr.core.rm.common.generic import Attestation, PartyProxy, RevisionHistory, RevisionHistoryItem
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText
 from pyehr.core.rm.demographic import Party
+from pyehr.core.rm.ehr import EHR
 
 class ObjectAlreadyExistsError(ValueError):
     """Raised when attempting to create an object that already exists"""
@@ -53,8 +55,7 @@ class DBActionItem():
             self.action_time = Env.current_date_time().as_string()
         else:
             self.action_time = action_time
-            
-
+    
     def as_json(self):
         draft = {
             "action": str(self.action),
@@ -65,6 +66,15 @@ class DBActionItem():
         if self.query is not None:
             draft["query"] = self.query
         return draft
+    
+    def from_json(js_dict: dict):
+        draft = DBActionItem(DBActionType(js_dict["action"]), action_time=js_dict["action_time"])
+        if "party" in js_dict:
+            draft.party = PartyRef(js_dict["party"]["namespace"], js_dict["party"]["type"], ObjectID(js_dict["party"]["id"]))
+        if "query" in js_dict:
+            draft.query = js_dict["query"]
+        return draft
+    
 
 class DBMetadata():
     uid: UIDBasedID
@@ -92,6 +102,19 @@ class DBMetadata():
             "is_deleted": self.is_deleted,
             "action_history": [a.as_json() for a in self.action_history]
         }
+    
+    def from_json(js_dict: dict):
+        uid = js_dict["_id"]
+        if "::" in uid:
+            uid = ObjectVersionID(uid)
+        else:
+            uid = HierObjectID(uid)
+        draft = DBMetadata(uid, js_dict.get("type"), js_dict.get("is_deleted"), [])
+        draft_ah = []
+        for ah_dict in js_dict["action_history"]:
+            draft_ah.append(DBActionItem.from_json(ah_dict))
+        draft.action_history = draft_ah
+        return draft
 
 class IDatabaseEngine(ABC):
     """Define an interface for pyehr compliant database engines to return. Allows 
@@ -99,6 +122,50 @@ class IDatabaseEngine(ABC):
 
     UID_OBJECT_TYPE = Union[Party]
     """Type of all top-level pyehr objects it is possible to store in the database"""
+
+    def _get_uid_from_uid_object_type(self, obj):
+        """Extract the UID from a UID object type"""
+        if isinstance(obj, EHR):
+            return obj.ehr_id
+        uid = obj.uid
+        if callable(uid):
+            uid = obj.uid()
+        return uid
+    
+    def _nav_dict_path(self, js_dict, path):
+        """Navigate to a pyehr path within an as_json() dict output"""
+        if path is None:
+            return js_dict
+        proc = PyehrInternalProcessedPath(path)
+        if proc.is_self_path():
+            return js_dict
+        
+        next_el = js_dict[proc.current_node_attribute]
+
+        if isinstance(next_el, list):
+            if proc.current_node_predicate_type == PyehrInternalPathPredicateType.POSITIONAL_PARAMETER:
+                next_el = next_el[int(proc.current_node_predicate)]
+            elif proc.current_node_predicate_type == PyehrInternalPathPredicateType.ARCHETYPE_PATH:
+                found_match = False
+                for el in next_el:
+                    if el["archetype_node_id"] == proc.current_node_predicate:
+                        found_match = True
+                        next_el = el
+                if not found_match:
+                    raise ValueError(f"Could not find node matching `{proc.current_node_predicate}` in list")
+            
+        return self._nav_dict_path(next_el, proc.remaining_path)
+
+    def _perform_pre_commit_checks(self, contrib: Contribution, versions: list[Version]):
+        contrib_id = contrib.uid.value
+        version_ids = set()
+        for version in versions:
+            version_ids.add(version.uid().value)
+            if version.contribution.id.value != contrib_id:
+                raise ValueError(f"Could not commit CONTRIBUTION: version with ID \'{version.uid().value}\' did not reference the provided contribution")
+        for version_ref in contrib.versions:
+            if version_ref.id.value not in version_ids:
+                raise ValueError(f"Could not commit CONTRIBUTION: contribution contained reference to version with ID \'{version_ref.id.value}\' but this was not found in the provided list of versions")
 
     @abstractmethod
     def generate_hier_object_id(self, generator: Optional[PartyRef] = None) -> HierObjectID:

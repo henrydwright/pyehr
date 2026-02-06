@@ -6,7 +6,7 @@ from pyehr.core.rm.common.change_control import OriginalVersion, VersionedObject
 from pyehr.core.rm.common.generic import RevisionHistory, RevisionHistoryItem
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.ehr import EHR
-from pyehr.utils import PYTHON_TYPE_TO_STRING_TYPE_MAP
+from pyehr.utils import PYTHON_TYPE_TO_STRING_TYPE_MAP, get_openehr_type_str
 
 from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef
@@ -27,7 +27,7 @@ class InMemoryDB(IDatabaseEngine):
     # dict between object_type -> uid (as string) -> object
 
     def __init__(self):
-        self._log = getLogger("InMemoryDB")
+        self._log = getLogger("database.inmemory")
         self._meta = dict()
         self._obj = dict()
         self._obj["REVISION_HISTORY"] = dict()
@@ -107,15 +107,6 @@ class InMemoryDB(IDatabaseEngine):
         vo_meta.action_history.append(DBActionItem(DBActionType.UPDATE, party=attester))
         self._log.info(f"{version_id.value}:Added ATTESTATION")
 
-    
-    def _get_uid_from_uid_object_type(self, obj):
-        if isinstance(obj, EHR):
-            return obj.ehr_id
-        uid = obj.uid
-        if callable(uid):
-            uid = obj.uid()
-        return uid
-
     def create_uid_object(self, obj, creator = None, type_override = None):
         met = None
         uid = self._get_uid_from_uid_object_type(obj)
@@ -124,14 +115,7 @@ class InMemoryDB(IDatabaseEngine):
             if met.obj_type is not None:
                 raise ObjectAlreadyExistsError(f"Item with UID of {uid.value} already exists in database so could not be created.")
 
-        type_str = None
-        if type_override is not None:
-            type_str = type_override
-        else:
-            type_str = PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj)]
-
-            if type_str == "VERSION":
-                type_str += f"<{PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj.data())]}>"
+        type_str = get_openehr_type_str(obj) if type_override is None else type_override
 
         if uid.value not in self._meta:
             met = DBMetadata(
@@ -163,10 +147,7 @@ class InMemoryDB(IDatabaseEngine):
         else:
             raise ObjectDoesNotExistError(f"Item with UID of {uid.value} did not exist in database so could not be updated")
         
-        type_str = PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj)]
-
-        if type_str == "VERSION":
-            type_str += f"<{PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj.data())]}>"
+        type_str = get_openehr_type_str(obj)
 
         self._obj[type_str][uid.value] = obj
         met.action_history.append(DBActionItem(DBActionType.UPDATE, party=updater))
@@ -179,30 +160,6 @@ class InMemoryDB(IDatabaseEngine):
         met.action_history.append(DBActionItem(DBActionType.READ_METADATA, party=reader))
         self._log.info(f"{uid.value}:Retrieved metadata")
         return met
-    
-    def _nav_dict_path(self, js_dict, path):
-        """Navigate to a pyehr path within an as_json() dict output"""
-        if path is None:
-            return js_dict
-        proc = PyehrInternalProcessedPath(path)
-        if proc.is_self_path():
-            return js_dict
-        
-        next_el = js_dict[proc.current_node_attribute]
-
-        if isinstance(next_el, list):
-            if proc.current_node_predicate_type == PyehrInternalPathPredicateType.POSITIONAL_PARAMETER:
-                next_el = next_el[int(proc.current_node_predicate)]
-            elif proc.current_node_predicate_type == PyehrInternalPathPredicateType.ARCHETYPE_PATH:
-                found_match = False
-                for el in next_el:
-                    if el["archetype_node_id"] == proc.current_node_predicate:
-                        found_match = True
-                        next_el = el
-                if not found_match:
-                    raise ValueError(f"Could not find node matching `{proc.current_node_predicate}` in list")
-            
-        return self._nav_dict_path(next_el, proc.remaining_path)
 
     
     def retrieve_query_match_object(self, obj_type, archetype_id, query_dict, reader = None):
@@ -313,21 +270,13 @@ class InMemoryDB(IDatabaseEngine):
     
     def commit_contribution_set(self, contrib, versions, owner_id = None, committer = None):
         # check the various IDs refer to each other correctly
-        contrib_id = contrib.uid.value
-        version_ids = set()
-        for version in versions:
-            version_ids.add(version.uid().value)
-            if version.contribution.id.value != contrib_id:
-                raise ValueError(f"Could not commit CONTRIBUTION: version with ID \'{version.uid().value}\' did not reference the provided contribution")
-        for version_ref in contrib.versions:
-            if version_ref.id.value not in version_ids:
-                raise ValueError(f"Could not commit CONTRIBUTION: contribution contained reference to version with ID \'{version_ref.id.value}\' but this was not found in the provided list of versions")
+        self._perform_pre_commit_checks(contrib, versions)
         
         # write each version to the DB
         for version in versions:
             # check if a VERSIONED_OBJECT already exists for this version, and if not create one
             vo_uid = HierObjectID(version.owner_id().value)
-            if vo_uid.value not in self._meta:
+            if vo_uid.value not in self._meta or self._meta[vo_uid.value].obj_type is None:
                 if owner_id is None:
                     raise ValueError(f"Could not commit CONTRIBUTION: VERSIONED_OBJECT with UID \'{vo_uid}\' did not exist and no owner_id was provided so could not be created")
                 vo = VersionedObject(
@@ -336,17 +285,6 @@ class InMemoryDB(IDatabaseEngine):
                     time_created=DVDateTime(Env.current_date_time())
                 )
                 self.create_versioned_object(vo, creator=committer)
-            else:
-                if self._meta[vo_uid.value].obj_type is None:
-                    if owner_id is None:
-                        raise ValueError(f"Could not commit CONTRIBUTION: VERSIONED_OBJECT with UID \'{vo_uid}\' did not exist and no owner_id was provided so could not be created")
-                    vo = VersionedObject(
-                        uid=vo_uid,
-                        owner_id=owner_id,
-                        time_created=DVDateTime(Env.current_date_time())
-                    )
-                    self.create_versioned_object(vo, creator=committer)
-                    
 
             # now add a revision history item for this version
             rhi = RevisionHistoryItem(
