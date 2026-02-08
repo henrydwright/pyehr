@@ -1,157 +1,83 @@
-"""Provides a client for interacting with any server implementing the openEHR 
-REST APIs"""
+"""Provides base functions and definitions needed to implement any REST API client
+interacting with OpenEHR REST API compliant servers"""
 
-import requests
+from types import NoneType
 from typing import Optional, Union
 
-from pyehr.core.base.base_types.identification import HierObjectID
+import requests
+import json
+
+from pyehr.core.base.base_types.identification import HierObjectID, ObjectVersionID
+from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.primitive_types import Uri
-from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus
-
+from pyehr.core.base.foundation_types.time import ISODateTime
 from pyehr.core.its.json_tools import decode_json
+from pyehr.core.rm.common.generic import Attestation, AuditDetails, PartyIdentified, PartyProxy, RevisionHistory
+from pyehr.server.change_control import AuditChangeType, VersionLifecycleState
 
-class OpenEHRRestClient():
-    """Procedural-style REST API client for openEHR servers. Supports API 
-    version 1.0.3 only."""
+class OpenEHRRestOperationMetadata():
+    """Class representing metadata that may be returned on executing an 
+    OpenEHRRestClient operation (e.g. `Location` and `ETag`)."""
+
+    location: Optional[str]
+    """Services MUST return this header whenever a create or update operation was 
+    performed, but it MAY return this header on other operation or action."""
+
+    openEHR_uri: Optional[str]
+    """If services have support to generate resource URL as specified by the 
+    DV_URI/DV_EHR_URI format, then they MAY send also openEHR-uri response header."""
+
+    etag: Optional[str]
+    """The ETag response HTTP header contains a string token that the server 
+    associates with a resource in order to uniquely identify the state of that 
+    resource over its lifetime. The value of the token changes as soon as the 
+    resource changes.
+    
+    Servers MAY choose their own format for this header, but the recommended 
+    value is the unique identifier of the requested resource 
+    (e.g. VERSIONED_OBJECT.uid.value, VERSION.uid.value, EHR.ehr_id.value, etc)."""
+
+    last_modified: Optional[str]
+    """Contains the datetime of the last modification of targeted resource 
+    which should be taken from VERSION.commit_audit.time_committed.value."""
+
+    def __init__(self, location: Optional[str] = None, openEHR_uri: Optional[str] = None, etag: Optional[str] = None, last_modified: Optional[str] = None):
+        self.location = location
+        self.openEHR_uri = openEHR_uri
+        self.etag = etag
+        self.last_modified = last_modified
+
+    def as_dict(self):
+        return {
+            "Location": self.location,
+            "openEHR-uri": self.openEHR_uri,
+            "ETag": self.etag,
+            "Last-Modified": self.last_modified
+        }
+
+class OpenEHRRestClientResponse[T]():
+    """Response returned by OpenEHR client operations containing pyehr object,
+    response metadata and inner response (from requests.Response)"""
+
+    pyehr_obj: Optional[T]
+    """pyehr object representation of the response to the request"""
+
+    inner_response: requests.Response
+    """requests.Response that generated this client response"""
+
+    metadata: OpenEHRRestOperationMetadata
+    """Metadata returned by the server on executing the request (e.g. ETag, Location, etc.)"""
+
+    def __init__(self, pyehr_obj: Optional[T], inner_response: requests.Response, metadata: OpenEHRRestOperationMetadata):
+        self.pyehr_obj = pyehr_obj
+        self.inner_response = inner_response
+        self.metadata = metadata
+
+class OpenEHRBaseRestClient():
 
     _base_url : str
 
     flag_allow_resolved_references: bool
-
-    ehr: '_EHRClient'
-    """Management of EHRs. Actions upon resources of this group are also formally 
-    described in the I_EHR_SERVICE Abstract Service Model interface."""
-
-    def _url_from_base(self, relative_path: str) -> str:
-        """Turns a relative API URL (e.g. '/') into a full URL using the base"""
-        return self._base_url + relative_path
-    
-    def _build_headers(self, extra_headers: Optional[object] = None) -> object:
-        headers = {
-            "Content-Type": "application/json",
-            "Prefer": "return=representation"
-        }
-        if extra_headers is not None:
-            for (k,v) in extra_headers:
-                if k in headers:
-                    raise ValueError(f"Cannot overwrite base header \'{k}\'")
-                headers[k] = v
-        return headers
-    
-    class _EHRClient:
-
-        def __init__(self, outer: 'OpenEHRRestClient'):
-            self.outer = outer
-
-        def get_ehr_by_id(self, ehr_id: HierObjectID) -> Union[EHR, list[Union[EHR, EHRAccess, EHRStatus]]]:
-            """
-            Retrieve the EHR with the specified `ehr_id`.
-
-            Executes: `GET` on `/ehr/{ehr_id}`
-            
-            :param ehr_id: EHR identifier taken from EHR.ehr_id.value. Example: `7d44b88c-4199-4bad-97dc-d78268e01398`.
-            """
-            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}")
-            result = requests.get(
-                url=target_url,
-                headers=self.outer._build_headers()
-            )
-            if result.status_code == 404:
-                raise RuntimeError("404 Not Found: EHR with supplied subject parameters does not exist.")
-            elif result.status_code != 200:
-                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
-            
-            return decode_json(result.json(), target="EHR", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
-        
-        def get_ehr_by_subject_id(self, subject_id: str, subject_namespace: str) -> Union[EHR, list[Union[EHR, EHRAccess, EHRStatus]]]:
-            """Retrieve the EHR with the specified subject_id and subject_namespace.
-
-            These subject parameters will be matched against EHR's EHR_STATUS.subject.external_ref.id.value and EHR_STATUS.subject.external_ref.namespace values.
-            
-            Executes: `GET` on /ehr
-            
-            :param subject_id: The EHR subject id. Example: `ins01`
-            :param subject_namespace: The EHR subject id namespace. Example: `examples`"""
-            target_url = self.outer._url_from_base("/ehr")
-            result = requests.get(
-                url=target_url,
-                headers=self.outer._build_headers(),
-                params={
-                    "subject_id": subject_id,
-                    "subject_namespace": subject_namespace
-                }
-            )
-            if result.status_code == 404:
-                raise RuntimeError("404 Not Found: EHR with supplied subject parameters does not exist.")
-            elif result.status_code != 200:
-                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
-
-            return decode_json(result.json(), target="EHR", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
-
-        def create_ehr(self, ehr_status: Optional[EHRStatus] = None) -> Union[EHR, list[Union[EHR, EHRAccess, EHRStatus]]]:
-            """Create a new EHR with an auto-generated identifier.
-
-            An EHR_STATUS resource needs to be always created and committed in the new EHR. This resource MAY be also supplied by the client as the request body. If not supplied, a default EHR_STATUS will be used by the service with following attributes:
-
-            * is_queryable: true
-            * is_modifiable: true
-            * subject: a PARTY_SELF object
-
-            All other required EHR attributes and resources will be automatically created as needed by the EHR creation semantics.
-            
-            Executes: `POST` on `/ehr`"""
-            target_url = self.outer._url_from_base("/ehr")
-            request_body = None
-            if ehr_status is not None:
-                request_body = ehr_status.as_json()
-            result = requests.post(
-                url=target_url,
-                headers=self.outer._build_headers(),
-                json=request_body
-            )
-            if result.status_code == 400:
-                raise ValueError(f"400 Bad Request: Server did not accept provided ehr_status. Body: {str(result.content)}")
-            elif result.status_code == 409:
-                raise RuntimeError("409 Conflict: Unable to create a new EHR due to a conflict with an already existing EHR with the same subject id, namespace pair, whenever EHR_STATUS is supplied.")
-            elif result.status_code != 201:
-                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
-
-            return decode_json(result.json(), target="EHR", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
-        
-        def create_ehr_with_id(self, ehr_id: HierObjectID, ehr_status: Optional[EHRStatus] = None):
-            """Create a new EHR with the specified ehr_id identifier.
-
-            The value of the ehr_id unique identifier MUST be valid HIER_OBJECT_ID value. It is strongly RECOMMENDED that an UUID always be used for this.
-
-            An EHR_STATUS resource needs to be always created and committed in the new EHR. This resource MAY be also supplied by the client as the request body. If not supplied, a default EHR_STATUS will be used by the service with following attributes:
-
-            * is_queryable: true
-            * is_modifiable: true
-            * subject: a PARTY_SELF object
-            
-            All other required EHR attributes and resources will be automatically created as needed by the EHR creation semantics.
-            
-            Executes: `PUT` on `/ehr/{ehr_id}`
-
-            :param ehr_id: EHR identifier taken from EHR.ehr_id.value. Example: `7d44b88c-4199-4bad-97dc-d78268e01398`
-            """
-            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}")
-            request_body = None
-            if ehr_status is not None:
-                request_body = ehr_status.as_json()
-            result = requests.put(
-                url=target_url,
-                headers=self.outer._build_headers(),
-                json=request_body
-            )
-            if result.status_code == 400:
-                raise ValueError(f"400 Bad Request: Server did not accept provided ehr_status. Body: {str(result.content)}")
-            elif result.status_code == 409:
-                raise RuntimeError("409 Conflict: Unable to create a new EHR due to a conflict with an already existing EHR with the same ehr_id or subject id, namespace pair, whenever EHR_STATUS is supplied.")
-            elif result.status_code != 201:
-                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
-            return decode_json(result.json(), target="EHR", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
-
 
     def __init__(self, base_url: Uri, flag_allow_resolved_references : bool = True):
         """
@@ -171,9 +97,245 @@ class OpenEHRRestClient():
         """
         self._base_url = base_url
         self.flag_allow_resolved_references = flag_allow_resolved_references
-        self.ehr = self._EHRClient(self)
 
-    def options(self) -> object:
+    def _url_from_base(self, relative_path: str) -> str:
+        """Turns a relative API URL (e.g. '/') into a full URL using the base"""
+        return self._base_url + relative_path
+    
+    def _build_headers(self, 
+                       extra_headers: Optional[dict] = None,
+                       version_lifecycle_state: Optional[VersionLifecycleState] = None,
+                       version_audit_change_type: Optional[AuditChangeType] = None,
+                       version_audit_description: Optional[str] = None,
+                       version_committer: Optional[PartyProxy] = None) -> object:
+        headers = {
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
+        }
+        if version_lifecycle_state is not None:
+            headers["openehr-version"] = f"lifecycle_state.code_string=\"{version_lifecycle_state.value.defining_code.code_string}\""
+        
+        audit_details_list = []
+        if version_audit_change_type is not None:
+            audit_details_list.append(f"change_type.code_string=\"{version_audit_change_type.value.defining_code.code_string}\"")
+        if version_audit_description is not None:
+            audit_details_list.append(f"description.value=\"{version_audit_description}\"")
+        if version_committer is not None:
+            if version_committer.external_ref is not None:
+                audit_details_list.append(f"committer.external_ref.id=\"{version_committer.external_ref.id}\"")
+                audit_details_list.append(f"committer.external_ref.namespace=\"{version_committer.external_ref.namespace}\"")
+                audit_details_list.append(f"committer.external_ref.type=\"{version_committer.external_ref.ref_type}\"")
+            if isinstance(version_committer, PartyIdentified):
+                if version_committer.name is not None:
+                    audit_details_list.append(f"committer.name=\"{version_committer.name}\"")
+        if len(audit_details_list) > 0:
+            headers["openehr-audit-details"] = ",".join(audit_details_list)
+        if extra_headers is not None:
+            for (k,v) in extra_headers.items():
+                if k in headers:
+                    raise ValueError(f"Cannot overwrite base header \'{k}\'")
+                headers[k] = v
+        return headers
+    
+    def _get_metadata_from_result(self, result: requests.Response):
+        location = None
+        openEHR_uri = None
+        etag = None
+        last_modified = None
+        if "Location" in result.headers:
+            location = result.headers["Location"]
+        if "openEHR-uri" in result.headers:
+            openEHR_uri = result.headers["openEHR-uri"]
+        if "ETag" in result.headers:
+            etag = result.headers["ETag"]
+        if "Last-Modified" in result.headers:
+            last_modified = result.headers["Last-Modified"]
+        return OpenEHRRestOperationMetadata(location=location, openEHR_uri=openEHR_uri, etag=etag, last_modified=last_modified)
+
+    def _get_XXX_by_version_id(self, target_url: str, target_type: str, version_at_time: Optional[ISODateTime] = None):
+        params = None
+        if version_at_time is not None:
+            params = {
+                "version_at_time": version_at_time.as_string()
+            }
+        result = requests.get(
+            url=target_url,
+            headers=self._build_headers(),
+            params=params
+        )
+        if result.status_code == 404:
+            raise RuntimeError("404 Not Found: Either EHR with ehr_id does not exist, or given version_uid does not exist.")
+        elif not (result.status_code == 200 or result.status_code == 204):
+            raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+        
+        if result.status_code == 204:
+            # deleted and hence empty
+            return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
+        else:
+            obj = decode_json(result.json(), target=target_type, flag_allow_resolved_references=self.flag_allow_resolved_references)
+            return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
+
+    def _create_XXX(self, 
+                    target_url: str, 
+                    target_type: str, 
+                    new_obj: AnyClass,
+                    version_lifecycle_state: Optional[VersionLifecycleState] = None,
+                    version_audit_description: Optional[str] = None,
+                    version_committer: Optional[PartyProxy] = None):
+        result = requests.post(
+            url=target_url,
+            headers=self._build_headers(version_lifecycle_state=version_lifecycle_state,version_audit_description=version_audit_description,version_committer=version_committer),
+            json=new_obj.as_json()
+        )
+        if result.status_code == 400:
+            raise ValueError(f"400 Bad Request: request had invalid content. Inner error {json.dumps(result.json(),indent=1)}")
+        elif result.status_code == 404:
+            raise RuntimeError(f"404 Not Found: EHR with given ehr_id does not exist")
+        elif result.status_code == 422:
+            raise ValueError(f"422 Unprocessable Entity: content could be converted to desired type but there are semantic validation errors (e.g. template not known or not validating supplied composition)")
+        elif result.status_code != 201:
+            raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation. Inner error {bytes.decode(result.content)}")
+        
+        obj = decode_json(result.json(), target=target_type, flag_allow_resolved_references=self.flag_allow_resolved_references)
+        return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
+
+    def _update_XXX(self, 
+                    target_url: str, 
+                    target_type: str, 
+                    preceding_version_uid: ObjectVersionID, 
+                    new_obj: AnyClass,
+                    version_lifecycle_state: Optional[VersionLifecycleState] = None,
+                    version_audit_change_type: Optional[AuditChangeType] = None,
+                    version_audit_description: Optional[str] = None,
+                    version_committer: Optional[PartyProxy] = None) -> OpenEHRRestClientResponse:
+        result = requests.put(
+            url=target_url,
+            headers=self._build_headers({
+                "If-Match": preceding_version_uid.value
+            },
+            version_lifecycle_state,
+            version_audit_change_type,
+            version_audit_description,
+            version_committer),
+            json=new_obj.as_json()
+        )
+        if result.status_code == 400:
+            raise ValueError(f"400 Bad Request: request had invalid content. Inner error {json.dumps(result.json(),indent=1)}")
+        elif result.status_code == 404:
+            raise RuntimeError(f"404 Not Found: Either EHR with given ehr_id does not exist or the object with UID trying to be updated does not exist")
+        elif result.status_code == 412:
+            raise RuntimeError(f"412 Precondition Failed: preceding_version_uid of {preceding_version_uid.value} did not match latest version on service side.")
+        elif not (result.status_code == 200 or result.status_code == 204):
+            raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+        
+        obj = decode_json(result.json(), target=target_type, flag_allow_resolved_references=self.flag_allow_resolved_references)
+        return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
+
+    def _delete_XXX(self, 
+                    target_url: str,
+                    version_audit_description: Optional[str] = None,
+                    version_committer: Optional[PartyProxy] = None) -> OpenEHRRestClientResponse[NoneType]:
+        result = requests.delete(
+            url=target_url,
+            headers=self._build_headers(version_audit_description=version_audit_description, version_committer=version_committer)
+        )
+        if result.status_code == 400:
+            raise ValueError("400 Bad Request: request could not be parsed or is invalid")
+        elif result.status_code == 404:
+            raise RuntimeError("404 Not Found: server could not find an object with given ID to delete")
+        elif result.status_code == 409:
+            raise RuntimeError("409 Conflict: the given ID was not for the latest version of the object, so could not be deleted.")
+        elif result.status_code != 204:
+            raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+        
+        return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
+
+    def _get_versioned_XXX(self, target_url: str, target_type: str) -> OpenEHRRestClientResponse:
+        result = requests.get(
+            url=target_url,
+            headers=self._build_headers()
+        )
+        if result.status_code == 404:
+            raise RuntimeError(f"404 Not Found: Either EHR with given ehr_id does not exist or object with versioned_object_uid does not exist")
+        elif result.status_code != 200:
+            raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+
+        obj = decode_json(result.json(), target=target_type, flag_allow_resolved_references=self.flag_allow_resolved_references)
+        return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
+
+    def _get_versioned_XXX_revision_history(self, target_url: str) -> OpenEHRRestClientResponse:
+        result = requests.get(
+            url=target_url,
+            headers=self._build_headers()
+        )
+        if result.status_code == 404:
+            raise RuntimeError(f"404 Not Found: Either EHR with given ehr_id or object with given versioned_object_uid as not found")
+        elif result.status_code != 200:
+            raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+
+        obj = None
+        if isinstance(result.json(), list):
+            # this is probably an EHRBase like return of just a list, still try to parse
+            obj = RevisionHistory(items=[decode_json(item, target="REVISION_HISTORY_ITEM", flag_allow_resolved_references=self.flag_allow_resolved_references) for item in result.json()])
+        else:
+            obj = decode_json(result.json(), target="REVISION_HISTORY", flag_allow_resolved_references=self.flag_allow_resolved_references)
+        return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
+
+    def _get_versioned_XXX_version_at_time(self, target_url: str, target_type: str, version_at_time: Optional[ISODateTime] = None) -> OpenEHRRestClientResponse:
+        params = None
+        if version_at_time is not None:
+            params = {
+                "version_at_time": version_at_time.as_string()
+            }
+        result = requests.get(
+            url=target_url,
+            headers=self._build_headers(),
+            params=params
+        )
+        if result.status_code == 400:
+            raise ValueError(f"400 Bad Request: request had invalid content.")
+        elif result.status_code == 404:
+            raise RuntimeError(f"404 Not Found: Either EHR with given ehr_id does not exist or no version of {target_type} existed at {version_at_time.as_string()}")
+        elif result.status_code != 200:
+            raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+        
+        if "_type" not in result.json():
+            raise RuntimeError("Could not decode response as JSON had no '_type' attribute to disambiguate between ORIGINAL_VERSION and IMPORTED_VERSION")
+        
+        obj = None
+        if result.json()["_type"] == "ORIGINAL_VERSION":
+            obj = decode_json(result.json(), target="ORIGINAL_VERSION", flag_allow_resolved_references=self.flag_allow_resolved_references)
+        elif result.json()["_type"] == "IMPORTED_VERSION":
+            obj = decode_json(result.json(), target="IMPORTED_VERSION", flag_allow_resolved_references=self.flag_allow_resolved_references)
+        else:
+            raise RuntimeError(f"Could not decode response of type \'{result.json()["_type"]}\' - expected ORIGINAL_VERSION or IMPORTED_VERSION")
+        
+        return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
+    
+    def _get_versioned_XXX_version_by_id(self, target_url: str, target_type: str) -> OpenEHRRestClientResponse:
+        result = requests.get(
+            url=target_url,
+            headers=self._build_headers()
+        )
+        if result.status_code == 404:
+            raise RuntimeError(f"404 Not Found: Either EHR with ehr_id does not exist, or {target_type} with version_uid does not exist.")
+        elif result.status_code != 200:
+            raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+        
+        obj = decode_json(result.json(), target="ORIGINAL_VERSION", flag_allow_resolved_references=self.flag_allow_resolved_references)
+        return OpenEHRRestClientResponse(obj, result, self._get_metadata_from_result(result))
+    
+    def _get_versioned_XXX_version_at_time_or_by_id(self, target_url: str, target_type: str, uid_based_id: Union[HierObjectID, ObjectVersionID], version_at_time: Optional[ISODateTime] = None):
+        if isinstance(uid_based_id, ObjectVersionID):
+            if version_at_time is not None:
+                raise ValueError("If an OBJECT_VERSION_ID is provided, version_at_time should be None")
+            return self._get_versioned_XXX_version_by_id(target_url, target_type)
+        elif isinstance(uid_based_id, HierObjectID):
+            return self._get_versioned_XXX_version_at_time(target_url, target_type, version_at_time)
+        else:
+            raise TypeError(f"Expected ObjectVersionID or HierObjectID, but {str(type(uid_based_id))} was given")
+
+    def options(self) -> OpenEHRRestClientResponse[object]:
         """Get system options and conformance information.
         
         Services SHOULD respond to this method with at least appropriate HTTP 
@@ -189,5 +351,4 @@ class OpenEHRRestClient():
         if result.status_code != 200:
             raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
         
-        return result.json()
-
+        return OpenEHRRestClientResponse(result.json(), result, self._get_metadata_from_result(result))

@@ -1,6 +1,6 @@
 import pytest
 
-from common import CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_LANGUAGES, TERMINOLOGY_OPENEHR, PythonTerminologyService
+from term import CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_LANGUAGES, TERMINOLOGY_OPENEHR, PythonTerminologyService
 from pyehr.core.base.base_types.identification import ArchetypeID, TerminologyID
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.common.archetyped import Archetyped

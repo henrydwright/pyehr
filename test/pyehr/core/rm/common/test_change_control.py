@@ -1,7 +1,7 @@
 import pytest
 import json
 
-from common import PythonTerminologyService, TERMINOLOGY_OPENEHR
+from term import PythonTerminologyService, TERMINOLOGY_OPENEHR
 from pyehr.core.base.base_types.identification import ObjectRef, TerminologyID, ObjectVersionID, HierObjectID
 from pyehr.core.rm.common.change_control import OriginalVersion, ImportedVersion, VersionedObject
 from pyehr.core.rm.common.generic import AuditDetails, PartyIdentified, Attestation, RevisionHistory, RevisionHistoryItem

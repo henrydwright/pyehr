@@ -1,6 +1,6 @@
 import pytest
 
-from common import PythonTerminologyService, TERMINOLOGY_OPENEHR
+from term import PythonTerminologyService, TERMINOLOGY_OPENEHR
 from pyehr.core.base.base_types.identification import PartyRef, ObjectID, TerminologyID, ObjectVersionID
 from pyehr.core.rm.common.generic import PartyIdentified, PartyRelated, Participation, AuditDetails, Attestation, RevisionHistory, RevisionHistoryItem
 from pyehr.core.rm.data_types.basic import DVIdentifier

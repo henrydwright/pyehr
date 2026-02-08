@@ -6,7 +6,7 @@ from pyehr.core.rm.data_structures.representation import Element, Cluster
 from pyehr.core.rm.data_types.text import DVText, DVCodedText, CodePhrase
 from pyehr.core.rm.common.archetyped import Archetyped
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
-from common import PythonTerminologyService, TERMINOLOGY_OPENEHR
+from term import PythonTerminologyService, TERMINOLOGY_OPENEHR
 
 OPENEHR_TID = TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR)
 

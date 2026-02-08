@@ -1,0 +1,273 @@
+"""Provides a client for interacting with EHR REST API provided by OpenEHR
+compliant servers"""
+
+import requests
+from typing import Optional, Union
+
+from pyehr.client import OpenEHRBaseRestClient, OpenEHRRestClientResponse
+from pyehr.core.base.base_types.identification import HierObjectID, ObjectVersionID
+from pyehr.core.base.foundation_types.primitive_types import Uri
+from pyehr.core.base.foundation_types.time import ISODateTime
+from pyehr.core.rm.common.change_control import ImportedVersion, OriginalVersion
+from pyehr.core.rm.common.generic import RevisionHistory
+from pyehr.core.rm.composition import Composition
+from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus, VersionedEHRStatus
+
+from pyehr.core.its.json_tools import decode_json
+
+class OpenEHREHRRestClient(OpenEHRBaseRestClient):
+    """Procedural-style REST API client for EHR API operations on openEHR servers. Supports API 
+    version 1.0.3 only."""
+
+    ehr: '_EHRClient'
+    """Management of EHRs."""
+
+    ehr_status: '_EHRStatusClient'
+    """Management of EHR_STATUS and VERSIONED_EHR_STATUS resources."""
+
+    composition: '_CompositionClient'
+    """Management of COMPOSITION and VERSIONED_COMPOSITION resources."""
+
+    class _EHRClient:
+
+        def __init__(self, outer: 'OpenEHREHRRestClient'):
+            self.outer = outer
+
+        def get_ehr_by_id(self, ehr_id: HierObjectID) -> OpenEHRRestClientResponse[Union[EHR, list[Union[EHR, EHRAccess, EHRStatus]]]]:
+            """
+            Retrieve the EHR with the specified `ehr_id`.
+
+            Executes: `GET` on `/ehr/{ehr_id}`
+            
+            :param ehr_id: EHR identifier taken from EHR.ehr_id.value. Example: `7d44b88c-4199-4bad-97dc-d78268e01398`.
+            """
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}")
+            return self.outer._get_XXX_by_version_id(target_url, "EHR")
+        
+        def get_ehr_by_subject_id(self, subject_id: str, subject_namespace: str) -> Union[EHR, list[Union[EHR, EHRAccess, EHRStatus]]]:
+            """Retrieve the EHR with the specified subject_id and subject_namespace.
+
+            These subject parameters will be matched against EHR's EHR_STATUS.subject.external_ref.id.value and EHR_STATUS.subject.external_ref.namespace values.
+            
+            Executes: `GET` on /ehr
+            
+            :param subject_id: The EHR subject id. Example: `ins01`
+            :param subject_namespace: The EHR subject id namespace. Example: `examples`"""
+            target_url = self.outer._url_from_base("/ehr")
+            result = requests.get(
+                url=target_url,
+                headers=self.outer._build_headers(),
+                params={
+                    "subject_id": subject_id,
+                    "subject_namespace": subject_namespace
+                }
+            )
+            if result.status_code == 404:
+                raise RuntimeError("404 Not Found: EHR with supplied subject parameters does not exist.")
+            elif result.status_code != 200:
+                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+
+            obj = decode_json(result.json(), target="EHR", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
+            return OpenEHRRestClientResponse(obj, result, self.outer._get_metadata_from_result(result))
+
+        def create_ehr(self, ehr_status: Optional[EHRStatus] = None) -> Union[EHR, list[Union[EHR, EHRAccess, EHRStatus]]]:
+            """Create a new EHR with an auto-generated identifier.
+
+            An EHR_STATUS resource needs to be always created and committed in the new EHR. This resource MAY be also supplied by the client as the request body. If not supplied, a default EHR_STATUS will be used by the service with following attributes:
+
+            * is_queryable: true
+            * is_modifiable: true
+            * subject: a PARTY_SELF object
+
+            All other required EHR attributes and resources will be automatically created as needed by the EHR creation semantics.
+            
+            Executes: `POST` on `/ehr`"""
+            target_url = self.outer._url_from_base("/ehr")
+            request_body = None
+            if ehr_status is not None:
+                request_body = ehr_status.as_json()
+            result = requests.post(
+                url=target_url,
+                headers=self.outer._build_headers(),
+                json=request_body
+            )
+            if result.status_code == 400:
+                raise ValueError(f"400 Bad Request: Server did not accept provided ehr_status. Body: {str(result.content)}")
+            elif result.status_code == 409:
+                raise RuntimeError("409 Conflict: Unable to create a new EHR due to a conflict with an already existing EHR with the same subject id, namespace pair, whenever EHR_STATUS is supplied.")
+            elif result.status_code != 201:
+                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+
+            obj = decode_json(result.json(), target="EHR", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
+            return OpenEHRRestClientResponse(obj, result, self.outer._get_metadata_from_result(result))
+        
+        def create_ehr_with_id(self, ehr_id: HierObjectID, ehr_status: Optional[EHRStatus] = None):
+            """Create a new EHR with the specified ehr_id identifier.
+
+            The value of the ehr_id unique identifier MUST be valid HIER_OBJECT_ID value. It is strongly RECOMMENDED that an UUID always be used for this.
+
+            An EHR_STATUS resource needs to be always created and committed in the new EHR. This resource MAY be also supplied by the client as the request body. If not supplied, a default EHR_STATUS will be used by the service with following attributes:
+
+            * is_queryable: true
+            * is_modifiable: true
+            * subject: a PARTY_SELF object
+            
+            All other required EHR attributes and resources will be automatically created as needed by the EHR creation semantics.
+            
+            Executes: `PUT` on `/ehr/{ehr_id}`
+
+            :param ehr_id: EHR identifier taken from EHR.ehr_id.value. Example: `7d44b88c-4199-4bad-97dc-d78268e01398`
+            """
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}")
+            request_body = None
+            if ehr_status is not None:
+                request_body = ehr_status.as_json()
+            result = requests.put(
+                url=target_url,
+                headers=self.outer._build_headers(),
+                json=request_body
+            )
+            if result.status_code == 400:
+                raise ValueError(f"400 Bad Request: Server did not accept provided ehr_status. Body: {str(result.content)}")
+            elif result.status_code == 409:
+                raise RuntimeError("409 Conflict: Unable to create a new EHR due to a conflict with an already existing EHR with the same ehr_id or subject id, namespace pair, whenever EHR_STATUS is supplied.")
+            elif result.status_code != 201:
+                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+            
+            obj = decode_json(result.json(), target="EHR", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
+            return OpenEHRRestClientResponse(obj, result, self.outer._get_metadata_from_result(result))
+
+    class _EHRStatusClient:
+
+        def __init__(self, outer: 'OpenEHREHRRestClient'):
+            self.outer = outer
+
+        def get_ehr_status_by_version_id(self, ehr_id : HierObjectID, version_uid : ObjectVersionID) -> Optional[EHRStatus]:
+            """Retrieves a particular version of the EHR_STATUS identified by `version_uid` and associated with 
+            the EHR identified by `ehr_id`.
+
+            Executes: `GET` on /ehr/{ehr_id}/ehr_status/{version_uid}
+            
+            :param ehr_id: EHR identifier taken from EHR.ehr_id.value.
+            :param version_uid: VERSION identifier taken from VERSION.uid.value."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/ehr_status/{version_uid.value}")
+            return self.outer._get_XXX_by_version_id(target_url, "EHR_STATUS")
+        
+        def get_ehr_status_at_time(self, ehr_id: HierObjectID, version_at_time: Optional[ISODateTime] = None):
+            """Retrieves a version of the EHR_STATUS associated with the EHR identified by ehr_id.
+
+            If version_at_time is supplied, retrieves the version extant at specified time, otherwise retrieves 
+            the latest EHR_STATUS version.
+            
+            Executes: `GET` on /ehr/{ehr_id}/ehr_status
+
+            :param ehr_id: EHR identifier taken from EHR.ehr_id.value.
+            :param version_at_time: A given time in the extended ISO 8601 format."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/ehr_status")
+            params = None
+            if version_at_time is not None:
+                params = {
+                    "version_at_time": version_at_time.as_string()
+                }
+            result = requests.get(
+                url=target_url,
+                headers=self.outer._build_headers(),
+                params=params
+            )
+            if result.status_code == 400:
+                raise ValueError(f"400 Bad Request: request had invalid content.")
+            elif result.status_code == 404:
+                raise RuntimeError(f"404 Not Found: Either EHR with ehr_id {ehr_id.value} does not exist or no version of EHR_STATUS existed at {version_at_time.as_string()}")
+            elif result.status_code != 200:
+                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+            
+            obj = decode_json(result.json(), target="EHR_STATUS", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
+            return OpenEHRRestClientResponse(obj, result, self.outer._get_metadata_from_result(result))
+        
+        def update_ehr_status(self, ehr_id: HierObjectID, preceding_version_uid: ObjectVersionID, new_ehr_status: EHRStatus):
+            """Updates EHR_STATUS associated with the EHR identified by ehr_id. Performs client-side check for ID consistency
+            before executing (i.e. checks new_ehr_status.uid and preceding_version_uid are consistent)
+            
+            Executes: `PUT` on /ehr/{ehr_id}/ehr_status
+
+            :param ehr_id: EHR identifier taken from EHR.ehr_id.value
+            :param preceding_version_uid: Used to prevent simultaneous operations. Update only performed if latest version ID matches this ID.
+            :param new_ehr_status: New EHR_STATUS to replace existing EHR_STATUS with"""
+            if new_ehr_status.uid is not None and preceding_version_uid.object_id().value != new_ehr_status.uid.value:
+                raise ValueError("Mismatch between preceding_version_uid object ID and new_ehr_status UID field.")
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/ehr_status")
+            return self.outer._update_XXX(target_url, "EHR_STATUS", preceding_version_uid, new_ehr_status)
+
+        def get_versioned_ehr_status(self, ehr_id: HierObjectID) -> OpenEHRRestClientResponse[VersionedEHRStatus]:
+            """Retrieves a VERSIONED_EHR_STATUS (metadata only) associated with an EHR identified by ehr_id.
+            
+            Executes: `GET` on /ehr/{ehr_id}/versioned_ehr_status
+
+            :param ehr_id: EHR identifier taken from EHR.ehr_id.value."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/versioned_ehr_status")
+            return self.outer._get_versioned_XXX(target_url, "VERSIONED_EHR_STATUS")
+
+        
+        def get_versioned_ehr_status_revision_history(self, ehr_id: HierObjectID) -> OpenEHRRestClientResponse[RevisionHistory]:
+            """Retrieves revision history of the VERSIONED_EHR_STATUS associated with the EHR identified by ehr_id.
+            
+            Executes: `GET` on /ehr/{ehr_id}/versioned_ehr_status/revision_history
+
+            :param ehr_id: EHR identifier taken from EHR.ehr_id.value."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/versioned_ehr_status/revision_history")
+            return self.outer._get_versioned_XXX_revision_history(target_url)
+
+
+        def get_versioned_ehr_status_version_at_time(self, ehr_id: HierObjectID, version_at_time: Optional[ISODateTime] = None) -> OpenEHRRestClientResponse[Union[OriginalVersion, ImportedVersion]]:
+            """Retrieves a VERSION\<EHR_STATUS\> from the VERSIONED_EHR_STATUS associated with the EHR identified by ehr_id.
+
+            If version_at_time is supplied, retrieves the VERSION extant at specified time, otherwise retrieves the latest VERSION.
+            
+            Executes: `GET` on /ehr/{ehr_id}/versioned_ehr_status/version
+
+            :param ehr_id: EHR identifier taken from EHR.ehr_id.value.
+            :param version_at_time: A given time in the extended ISO 8601 format."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/versioned_ehr_status/version")
+            return self.outer._get_versioned_XXX_version_at_time(target_url, "EHR_STATUS", version_at_time)
+
+
+        def get_versioned_ehr_status_version_by_id(self, ehr_id: HierObjectID, version_uid: ObjectVersionID) -> OpenEHRRestClientResponse[Union[OriginalVersion, ImportedVersion]]:
+            """
+            Retrieves a VERSION identified by version_uid of an EHR_STATUS associated with the EHR identified by ehr_id.
+            
+            Executes: `GET` on /ehr/{ehr_id}/versioned_ehr_status/version/{version_uid}
+            
+            :param ehr_id: EHR identifier taken from EHR.ehr_id.value.
+            :param version_uid: VERSION identifier taken from VERSION.uid.value."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/versioned_ehr_status/version/{version_uid.value}")
+            return self.outer._get_versioned_XXX_version_by_id(target_url, "EHR_STATUS")
+
+    class _CompositionClient:
+        def __init__(self, outer: 'OpenEHREHRRestClient'):
+            self.outer = outer
+
+        def create_composition(self, ehr_id: HierObjectID, new_composition: Composition) -> OpenEHRRestClientResponse[Composition]:
+            """Creates the first version of a new COMPOSITION in the EHR identified by ehr_id."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/composition")
+            return self.outer._create_XXX(target_url, "COMPOSITION", new_composition)
+
+    def __init__(self, base_url: Uri, flag_allow_resolved_references : bool = True):
+        """
+        Initialise a new client for communicating with a particular server.
+        
+        :param base_url: Base URL for the target server, without the trailing slash,
+                          but possibly with version included (e.g. `https://ehr.example.net/v1`)
+        :param flag_allow_resolved_references: (default=True) Some servers (e.g. ehrBase) either allow
+                                               or default to returning objects with OBJECT_REFs resolved
+                                               to the referenced objects. When this is set to True
+                                               this is permitted by the client despite not matching
+                                               the default REST API specification. This will often
+                                               cause the client to return a list of several pyehr.core
+                                               objects with resolved references replaced with OBJECT_REFs 
+                                               of scheme 'pyehr_decode_json' + GENERIC_IDs with scheme 'list_index'
+                                               to match the RM.
+        """
+        self.ehr = self._EHRClient(self)
+        self.ehr_status = self._EHRStatusClient(self)
+        self.composition = self._CompositionClient(self)
+        super().__init__(base_url, flag_allow_resolved_references)

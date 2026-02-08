@@ -9,7 +9,7 @@ class Env():
     basic information like current time, date, etc."""
 
     def current_date() -> ISODate:
-        """Return today’s date in the current locale."""
+        """Return today's date in the current locale."""
         return ISODate(datetime.now().date().isoformat())
     
     def current_time() -> ISOTime:
