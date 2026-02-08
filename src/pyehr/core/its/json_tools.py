@@ -3,6 +3,7 @@
 from json import JSONEncoder, dumps
 from typing import Union, Optional
 
+from pyehr.core.its.rest.additions import UpdateAttestation, UpdateAudit, UpdateContribution, UpdateVersion
 from term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
 from pyehr.core.base.base_types.identification import HierObjectID, InternetID, ObjectID, ObjectRef, ObjectVersionID, GenericID, PartyRef, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
@@ -12,9 +13,9 @@ from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID
 from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemTree
 from pyehr.core.rm.data_structures.representation import Cluster, Element
 from pyehr.core.rm.data_types.basic import DVIdentifier
-from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
+from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVDateTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText, DVUri
-from pyehr.core.rm.demographic import PartyIdentity, Person, VersionedParty
+from pyehr.core.rm.demographic import Address, Contact, Organisation, PartyIdentity, Person, VersionedParty
 from pyehr.core.rm.ehr import EHR, EHRStatus, VersionedEHRStatus
 from pyehr.core.rm.support.terminology import TerminologyService
 
@@ -53,7 +54,15 @@ _type_map = {
     "VERSIONED_PARTY": VersionedParty,
     "VERSIONED_OBJECT": VersionedObject,
     "INTERNET_ID": InternetID,
-    "ATTESTATION": Attestation
+    "ATTESTATION": Attestation,
+    "UPDATE_CONTRIBUTION": UpdateContribution,
+    "UPDATE_VERSION": UpdateVersion,
+    "UPDATE_AUDIT": UpdateAudit,
+    "UPDATE_ATTESTATION": UpdateAttestation,
+    "ORGANISATION": Organisation,
+    "CONTACT": Contact,
+    "ADDRESS": Address,
+    "DV_DATE": DVDate
 }
 """Map of OpenEHR JSON '_type' attributes to pyehr.core types"""
 
@@ -175,9 +184,17 @@ def decode_json(json_obj: dict,
         # pyehr library uses 'purpose' to clarify meaning of the inherited 'name' field
         arg_dict["purpose"] = arg_dict["name"]
         del arg_dict["name"]
-    elif target_type == "PERSON":
+    elif target_type == "PERSON" or target_type == "ORGANISATION":
         # pyehr library uses 'actor_type' to clarify meaning of inherited 'name' field
         arg_dict["actor_type"] = arg_dict["name"]
+        del arg_dict["name"]
+    elif target_type == "ADDRESS":
+        # pyehr library used 'addr_type' to clarify meaning of inherited 'name' field
+        arg_dict["addr_type"] = arg_dict["name"]
+        del arg_dict["name"]
+    elif target_type == "CONTACT":
+        # pyehr library used 'purpose' to clarify meaning of inherited 'name' field
+        arg_dict["purpose"] = arg_dict["name"]
         del arg_dict["name"]
     elif target_type == "DV_TEXT":
         if flag_replace_empty_dv_text_with_null and not "value" in json_obj:
@@ -187,6 +204,10 @@ def decode_json(json_obj: dict,
     elif target_type == "ORIGINAL_VERSION":
         arg_dict["terminology_service"] = terminology_service
     elif target_type == "ATTESTATION":
+        arg_dict["terminology_service"] = terminology_service
+    elif target_type == "UPDATE_AUDIT":
+        arg_dict["terminology_service"] = terminology_service
+    elif target_type == "UPDATE_VERSION":
         arg_dict["terminology_service"] = terminology_service
 
     instance_list = []

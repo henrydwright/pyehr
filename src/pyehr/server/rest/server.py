@@ -11,9 +11,10 @@ from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectID, ObjectRef, ObjectVersionID, PartyRef
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.its.json_tools import decode_json
+from pyehr.core.its.rest.additions import UpdateContribution
 from pyehr.core.rm.common.archetyped import Archetyped
-from pyehr.core.rm.common.change_control import Version
-from pyehr.core.rm.common.generic import PartyIdentified, PartyProxy, PartySelf
+from pyehr.core.rm.common.change_control import Contribution, Version
+from pyehr.core.rm.common.generic import AuditDetails, PartyIdentified, PartyProxy, PartySelf
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.demographic import Person, VersionedParty
@@ -260,48 +261,67 @@ def options():
 def web_home():
     return "<h1>pyehr REST API Server</h1><p>You have reached an OpenEHR server running on pyehr.</p>"
 
-@app.route("/ehr", methods=['POST', 'GET'])
-def create_ehr():
-    new_ehr_uid = db.generate_hier_object_id()
-    new_ehr_status = EHRStatus(
-        name=DVText("EHR Status"),
-        archetype_node_id="openEHR-EHR-EHR_STATUS.generic.v1",
-        archetype_details=Archetyped(ArchetypeID("openEHR-EHR-EHR_STATUS.generic.v1"), rm_version="1.1.0"),
-        subject=PartySelf(),
-        is_queryable=True,
-        is_modifiable=True
-    )
-    new_ehr_status_vid, nes_contrib, nes_vo = vs.create(
-        obj=new_ehr_status,
-        owner_id=ObjectRef("local", "EHR", new_ehr_uid),
-        committer=logged_in_user,
-        lifecycle_state=VersionLifecycleState.COMPLETE,
-        user=logged_in_user.external_ref
-    )
-    new_ehr = EHR(
-        system_id=HierObjectID(SYSTEM_ID_HID),
-        ehr_id=new_ehr_uid,
-        ehr_status=ObjectRef("local", "VERSIONED_EHR_STATUS", nes_vo.uid),
-        ehr_access=ObjectRef("local", "VERSIONED_EHR_ACCESS", db.generate_hier_object_id()),
-        time_created=DVDateTime(Env.current_date_time())
-    )
-    db.create_uid_object(
-        obj=new_ehr,
-        creator=logged_in_user.external_ref
-    )
-    return _create_object_response(new_ehr, 201)
-
-@app.route("/ehr/<uuid:ehr_id>", methods=['GET'])
-def get_ehr_by_id(ehr_id):
-    ehr = db.retrieve_uid_object(
-        obj_type="EHR",
-        uid=HierObjectID(str(ehr_id)),
-        reader=logged_in_user.external_ref
-    )
-    return ehr.as_json()
-
 def _is_demographic_type(typ : str):
     return (typ in {"AGENT", "GROUP", "ORGANISATION", "PERSON", "ROLE"})
+
+@app.route("/demographic/contribution", methods=['POST'])
+def commit_contribution_set():
+    body_obj : UpdateContribution = _parse_request_body("UPDATE_CONTRIBUTION")
+    if isinstance(body_obj, Response):
+        return body_obj
+    
+    owner_id = ObjectRef("null", "NULL", HierObjectID("00000000-0000-0000-0000-000000000000"))
+    
+    commit_time = DVDateTime(Env.current_date_time())
+
+    contrib_audit = body_obj.audit._inner_audit_details
+    contrib_audit.system_id = SYSTEM_ID_STR
+    contrib_audit.time_committed = commit_time
+
+    contrib_id = body_obj.uid if body_obj.uid is not None else db.generate_hier_object_id()
+
+    orig_versions = []
+    orefs = []
+    for update_version in body_obj.versions:
+        orig_ver_uid = None
+        preceding_version_uid = update_version._inner_original_version.preceding_version_uid()
+        if preceding_version_uid is not None:
+            new_ver = str(int(preceding_version_uid.version_tree_id().trunk_version()) + 1)
+            orig_ver_uid = ObjectVersionID(preceding_version_uid.object_id().value + "::" + SYSTEM_ID_STR + "::" + new_ver)
+        else:
+            orig_ver_uid = ObjectVersionID(db.generate_hier_object_id().value + "::" + SYSTEM_ID_STR + "::1")
+        
+        orefs.append(ObjectRef("local", "VERSION", orig_ver_uid))
+
+        # add in the server generated details
+        orig_ver = update_version._inner_original_version
+        orig_ver.uid_var = orig_ver_uid
+
+        orig_ver_audit = update_version.commit_audit._inner_audit_details
+        orig_ver_audit.system_id = SYSTEM_ID_STR
+        orig_ver_audit.time_committed = commit_time
+        orig_ver.commit_audit = orig_ver_audit
+
+        orig_ver.contribution = ObjectRef("local", "CONTRIBUTION", contrib_id)
+
+        orig_versions.append(orig_ver)
+
+    contrib = Contribution(
+        uid=contrib_id,
+        versions=orefs,
+        audit=contrib_audit
+    )
+
+    db.commit_contribution_set(
+        contrib=contrib,
+        versions=orig_versions,
+        owner_id=owner_id,
+        committer=_get_committer().external_ref
+    )
+
+    resp = _create_object_response(contrib, 201)
+    _add_headers_to_response(resp, contrib.uid, commit_time, f"{LOCATION_BASE_URL}/demographic/contribution/{contrib.uid.value}")
+    return resp
 
 @app.route("/demographic/<demographic_type>", methods=['GET', 'POST'])
 def create_demographic_object(demographic_type: str):
@@ -310,6 +330,7 @@ def create_demographic_object(demographic_type: str):
         return _create_error_response("", 404)
     
     body_obj = _parse_request_body(typ)
+    # if you get a Response back rather than an instance of AnyClass, there was an error
     if isinstance(body_obj, Response):
         return body_obj
     d_ovid, d_contrib, d_vo = vs.create(
@@ -374,6 +395,17 @@ def get_versioned_party(hier_object_id: str):
     else:
         resp = _create_object_response(versioned_party, 200)
         _add_headers_to_response(resp, HierObjectID(hier_object_id), versioned_party.time_created, f"{LOCATION_BASE_URL}/demographic/versioned_party/{hier_object_id}")
+        return resp
+    
+@app.route("/demographic/contribution/<hier_object_id>", methods=['GET'])
+def get_contribution_by_id(hier_object_id: str):
+    contrib : Contribution = db.retrieve_uid_object("CONTRIBUTION", HierObjectID(hier_object_id), logged_in_user.external_ref)
+
+    if contrib is None:
+        return _create_not_found_response("CONTRIBUTION", hier_object_id)
+    else:
+        resp = _create_object_response(contrib, 200)
+        _add_headers_to_response(resp, HierObjectID(hier_object_id), contrib.audit.time_committed, f"{LOCATION_BASE_URL}/demographic/contribution/{hier_object_id}")
         return resp
 
 @app.route("/demographic/<demographic_type>/<uid_based_id>", methods=['GET'])

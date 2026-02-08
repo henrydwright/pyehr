@@ -12,7 +12,7 @@ from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.primitive_types import Uri
 from pyehr.core.base.foundation_types.time import ISODateTime
 from pyehr.core.its.json_tools import decode_json
-from pyehr.core.rm.common.generic import PartyIdentified, PartyProxy, RevisionHistory
+from pyehr.core.rm.common.generic import Attestation, AuditDetails, PartyIdentified, PartyProxy, RevisionHistory
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState
 
 class OpenEHRRestOperationMetadata():
