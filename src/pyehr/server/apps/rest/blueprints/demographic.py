@@ -4,7 +4,7 @@ from typing import Optional, Union
 import logging
 from uuid import uuid4
 
-from flask import Blueprint, g, request, jsonify, make_response, Response
+from flask import Blueprint, g, request, jsonify, make_response, Response, current_app
 
 from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef, ObjectVersionID
@@ -19,10 +19,7 @@ from pyehr.server.apps.rest.meta import OpenEHRFormat, OpenEHRRequestHeaders
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState, VersionedStore
 from pyehr.server.database import IDatabaseEngine
 
-def create_demographic_blueprint(system_id: str, base_url: str, logged_in_user: PartyProxy, db: IDatabaseEngine, vs: VersionedStore):
-    LOCATION_BASE_URL = base_url
-    SYSTEM_ID_STR = system_id
-
+def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine, vs: VersionedStore):
     demo_bp = Blueprint("demographic", __name__, url_prefix="/demographic")
 
     log = logging.getLogger("apps.rest.demographic")
@@ -127,7 +124,7 @@ def create_demographic_blueprint(system_id: str, base_url: str, logged_in_user: 
         commit_time = DVDateTime(Env.current_date_time())
 
         contrib_audit = body_obj.audit._inner_audit_details
-        contrib_audit.system_id = SYSTEM_ID_STR
+        contrib_audit.system_id = current_app.config["SYSTEM_ID_STR"]
         contrib_audit.time_committed = commit_time
 
         contrib_id = body_obj.uid if body_obj.uid is not None else db.generate_hier_object_id()
@@ -139,9 +136,9 @@ def create_demographic_blueprint(system_id: str, base_url: str, logged_in_user: 
             preceding_version_uid = update_version._inner_original_version.preceding_version_uid()
             if preceding_version_uid is not None:
                 new_ver = str(int(preceding_version_uid.version_tree_id().trunk_version()) + 1)
-                orig_ver_uid = ObjectVersionID(preceding_version_uid.object_id().value + "::" + SYSTEM_ID_STR + "::" + new_ver)
+                orig_ver_uid = ObjectVersionID(preceding_version_uid.object_id().value + "::" + current_app.config["SYSTEM_ID_STR"] + "::" + new_ver)
             else:
-                orig_ver_uid = ObjectVersionID(db.generate_hier_object_id().value + "::" + SYSTEM_ID_STR + "::1")
+                orig_ver_uid = ObjectVersionID(db.generate_hier_object_id().value + "::" + current_app.config["SYSTEM_ID_STR"] + "::1")
             
             orefs.append(ObjectRef("local", "VERSION", orig_ver_uid))
 
@@ -150,7 +147,7 @@ def create_demographic_blueprint(system_id: str, base_url: str, logged_in_user: 
             orig_ver.uid_var = orig_ver_uid
 
             orig_ver_audit = update_version.commit_audit._inner_audit_details
-            orig_ver_audit.system_id = SYSTEM_ID_STR
+            orig_ver_audit.system_id = current_app.config["SYSTEM_ID_STR"]
             orig_ver_audit.time_committed = commit_time
             orig_ver.commit_audit = orig_ver_audit
 
@@ -172,7 +169,7 @@ def create_demographic_blueprint(system_id: str, base_url: str, logged_in_user: 
         )
 
         resp = _create_object_response(contrib, 201)
-        _add_headers_to_response(resp, contrib.uid, commit_time, f"{LOCATION_BASE_URL}/demographic/contribution/{contrib.uid.value}")
+        _add_headers_to_response(resp, contrib.uid, commit_time, f"{current_app.config["BASE_URL"]}/demographic/contribution/{contrib.uid.value}")
         return resp
 
     @demo_bp.route("/<demographic_type>", methods=['GET', 'POST'])
@@ -194,7 +191,7 @@ def create_demographic_blueprint(system_id: str, base_url: str, logged_in_user: 
             user=_get_committer().external_ref)
         new_obj = d_vo.all_versions()[0].data()
         resp = _create_object_response(new_obj, 201)
-        _add_headers_to_response(resp, d_ovid, d_contrib.audit.time_committed, f"{LOCATION_BASE_URL}/demographic/{typ.lower()}/{d_ovid.value}", f"demographic://{d_ovid.object_id().value}")
+        _add_headers_to_response(resp, d_ovid, d_contrib.audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/{typ.lower()}/{d_ovid.value}", f"demographic://{d_ovid.object_id().value}")
         return resp
 
     @demo_bp.route("/versioned_party/<hier_object_id>/version/<object_version_id>", methods=['GET'])
@@ -217,7 +214,7 @@ def create_demographic_blueprint(system_id: str, base_url: str, logged_in_user: 
             return _create_not_found_response(obj_type, object_version_id)
         
         resp = _create_object_response(obj, 200)
-        _add_headers_to_response(resp, obj.uid(), obj.commit_audit.time_committed, f"{LOCATION_BASE_URL}/demographic/versioned_party/{hier_object_id}/version/{obj.uid().value}")
+        _add_headers_to_response(resp, obj.uid(), obj.commit_audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/versioned_party/{hier_object_id}/version/{obj.uid().value}")
         return resp
 
     @demo_bp.route("/versioned_party/<hier_object_id>/version", methods=['GET'])
@@ -235,7 +232,7 @@ def create_demographic_blueprint(system_id: str, base_url: str, logged_in_user: 
         obj = vs.read(obj_type, HierObjectID(hier_object_id), version_at_time, user=logged_in_user.external_ref)
 
         resp = _create_object_response(obj, 200)
-        _add_headers_to_response(resp, obj.uid(), obj.commit_audit.time_committed, f"{LOCATION_BASE_URL}/demographic/versioned_party/{hier_object_id}/version/{obj.uid().value}")
+        _add_headers_to_response(resp, obj.uid(), obj.commit_audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/versioned_party/{hier_object_id}/version/{obj.uid().value}")
         return resp
         
     @demo_bp.route("/versioned_party/<hier_object_id>", methods=['GET'])
@@ -246,7 +243,7 @@ def create_demographic_blueprint(system_id: str, base_url: str, logged_in_user: 
             return _create_not_found_response("VERSIONED_PARTY", hier_object_id)
         else:
             resp = _create_object_response(versioned_party, 200)
-            _add_headers_to_response(resp, HierObjectID(hier_object_id), versioned_party.time_created, f"{LOCATION_BASE_URL}/demographic/versioned_party/{hier_object_id}")
+            _add_headers_to_response(resp, HierObjectID(hier_object_id), versioned_party.time_created, f"{current_app.config["BASE_URL"]}/demographic/versioned_party/{hier_object_id}")
             return resp
         
     @demo_bp.route("/contribution/<hier_object_id>", methods=['GET'])
@@ -257,7 +254,7 @@ def create_demographic_blueprint(system_id: str, base_url: str, logged_in_user: 
             return _create_not_found_response("CONTRIBUTION", hier_object_id)
         else:
             resp = _create_object_response(contrib, 200)
-            _add_headers_to_response(resp, HierObjectID(hier_object_id), contrib.audit.time_committed, f"{LOCATION_BASE_URL}/demographic/contribution/{hier_object_id}")
+            _add_headers_to_response(resp, HierObjectID(hier_object_id), contrib.audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/contribution/{hier_object_id}")
             return resp
 
     @demo_bp.route("/<demographic_type>/<uid_based_id>", methods=['GET'])
@@ -279,10 +276,10 @@ def create_demographic_blueprint(system_id: str, base_url: str, logged_in_user: 
             if object_version.data() is None:
                 # has been deleted
                 empty = _create_empty_response()
-                _add_headers_to_response(empty, object_version.uid(), object_version.commit_audit.time_committed, f"{LOCATION_BASE_URL}/demographic/{typ.lower()}/{object_version.uid().value}", f"demographic://{object_version.uid().value}")
+                _add_headers_to_response(empty, object_version.uid(), object_version.commit_audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/{typ.lower()}/{object_version.uid().value}", f"demographic://{object_version.uid().value}")
                 return empty
             resp = _create_object_response(object_version.data(), 200)
-            _add_headers_to_response(resp, object_version.uid(), object_version.commit_audit.time_committed, f"{LOCATION_BASE_URL}/demographic/{typ.lower()}/{object_version.uid().value}", f"demographic://{object_version.uid().value}")
+            _add_headers_to_response(resp, object_version.uid(), object_version.commit_audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/{typ.lower()}/{object_version.uid().value}", f"demographic://{object_version.uid().value}")
             return resp
         
     @demo_bp.route("/<demographic_type>/<hier_object_id>", methods=['PUT'])
@@ -312,7 +309,7 @@ def create_demographic_blueprint(system_id: str, base_url: str, logged_in_user: 
         )
 
         resp = _create_object_response(body_object, 200)
-        _add_headers_to_response(resp, d_ovid, d_contrib.audit.time_committed, f"{LOCATION_BASE_URL}/demographic/{typ.lower()}/{d_ovid.value}", f"demographic://{d_ovid.value}")
+        _add_headers_to_response(resp, d_ovid, d_contrib.audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/{typ.lower()}/{d_ovid.value}", f"demographic://{d_ovid.value}")
         return resp
 
     @demo_bp.route("/<demographic_type>/<object_version_id>", methods=['DELETE'])

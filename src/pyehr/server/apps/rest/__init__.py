@@ -1,7 +1,9 @@
 import logging
 from uuid import uuid4
+import os
 
 from flask import Flask, jsonify, make_response, request
+from dotenv import load_dotenv
 
 from pyehr.core.base.base_types.identification import HierObjectID, PartyRef
 from pyehr.core.rm.common.generic import PartyIdentified
@@ -12,9 +14,11 @@ from pyehr.server.database.local import InMemoryDB
 def create_app():
     logging.basicConfig(level=logging.DEBUG)
 
-    SYSTEM_ID_HID = str(uuid4())
-    SYSTEM_ID_STR = "com.eldonhealth.ehr1"
-    LOCATION_BASE_URL = "http://localhost:5000"
+    app = Flask(__name__)
+
+    app.config["SYSTEM_ID_STR"] = os.getenv("PYEHR_REST_SYSTEM_ID_STR")
+    app.config["SYSTEM_ID_HID"] = os.getenv("PYEHR_REST_SYSTEM_ID_HID")
+    app.config["BASE_URL"] = os.getenv("PYEHR_REST_BASE_URL")
 
     log = logging.getLogger("apps.rest")
     log.info("pyehr REST API server starting...")
@@ -25,7 +29,7 @@ def create_app():
     log.info("Initialising versioned store")
     vs = VersionedStore(
         db_engine=db,
-        system_id=SYSTEM_ID_STR
+        system_id=app.config["SYSTEM_ID_STR"]
     )
 
     logged_in_user_uuid = str(uuid4())
@@ -34,8 +38,6 @@ def create_app():
         external_ref=PartyRef("local", "PERSON", HierObjectID(logged_in_user_uuid)),
         name="DR ABBEY EXAMPLE"
     )
-
-    app = Flask(__name__)
 
     log.info("Registering / paths")
     @app.route("/", methods=['OPTIONS'])
@@ -60,7 +62,7 @@ def create_app():
         return "<h1>pyehr REST API Server</h1><p>You have reached an OpenEHR server running on pyehr.</p>"
 
     log.info("Registering /demographic paths")
-    app.register_blueprint(create_demographic_blueprint(SYSTEM_ID_STR, LOCATION_BASE_URL, logged_in_user, db, vs))
+    app.register_blueprint(create_demographic_blueprint(logged_in_user, db, vs))
     
     return app
 
