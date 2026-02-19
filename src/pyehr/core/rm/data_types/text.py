@@ -2,6 +2,7 @@
 including plain text, coded terms, and narrative text."""
 
 from typing import Optional, Union
+from xml.etree import ElementTree
 
 from numpy import uint8
 
@@ -9,10 +10,11 @@ from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.base.base_types.identification import TerminologyID
 
+from pyehr.core.its.xml import IXMLSupport
 from pyehr.core.rm.data_types import DataValue
 from pyehr.core.rm.data_types.uri import DVUri
 
-class CodePhrase(AnyClass):
+class CodePhrase(AnyClass, IXMLSupport):
     """A fully coordinated (i.e. all coordination has been performed) term from a terminology service (as distinct from a particular terminology)."""
     
     terminology_id: TerminologyID
@@ -55,6 +57,25 @@ class CodePhrase(AnyClass):
         if self.preferred_term is not None:
             j["preferred_term"] = self.preferred_term
         return j
+    
+    def as_xml(self, root_tag=None):
+        # https://specifications.openehr.org/releases/ITS-XML/Release-2.0.0/components/RM/latest/DataTypes.xsd
+        tag = "code_phrase" if root_tag is None else root_tag
+        cp = ElementTree.Element(tag)
+        cp.append(self.terminology_id.as_xml())
+        cs = ElementTree.Element("code_string")
+        cs.text = self.code_string
+        cp.append(cs)
+        # preferred_term is not part of the 1.0.2 XML spec
+        return cp
+    
+    def from_xml(root: ElementTree.Element, **kwargs) -> 'CodePhrase':
+        tid = root.find("./terminology_id")
+        tid = TerminologyID.from_xml(tid)
+        cs = root.findtext("./code_string")
+        # preferred_term not part of 1.0.2 XML spec, but accept it if present
+        pt = root.findtext("./preferred_term")
+        return CodePhrase(tid, cs, pt)
     
 class TermMapping(AnyClass):
     """Represents a coded term mapped to a DV_TEXT, and the relative match of the target term with respect to the mapped item. Plain or coded text items may appear in the EHR for which one or mappings in alternative terminologies are required. Mappings are only used to enable computer processing, so they can only be instances of DV_CODED_TEXT.

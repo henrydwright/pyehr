@@ -13,6 +13,7 @@ compress-pickle==2.1.0
 coverage==7.11.3
 cryptography==46.0.3
 dnspython==2.8.0
+elementpath==5.1.1
 email-validator==2.3.0
 fastapi-cli==0.0.20
 fastapi-cloud-cli==0.10.1
@@ -73,3 +74,4 @@ uvloop==0.22.1
 watchfiles==1.1.1
 websockets==16.0
 Werkzeug==3.1.5
+xmlschema==4.3.1

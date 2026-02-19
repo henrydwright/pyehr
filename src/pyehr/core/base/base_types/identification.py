@@ -2,8 +2,10 @@ from abc import ABC, abstractmethod
 from typing import Optional
 import re
 import warnings
+from xml.etree import ElementTree
 
 from pyehr.core.base.foundation_types import AnyClass
+from pyehr.core.its.xml import IXMLSupport
 
 class UID(AnyClass, ABC):
     """Abstract parent of classes representing unique identifiers 
@@ -385,7 +387,7 @@ class ArchetypeID(ObjectID):
             "value": self.value
         }
 
-class TemplateID(ObjectID):
+class TemplateID(ObjectID, IXMLSupport):
     """Identifier for templates. Lexical form to be determined."""
     
     def __init__(self, value, **kwargs):
@@ -397,8 +399,20 @@ class TemplateID(ObjectID):
             "_type": "TEMPLATE_ID",
             "value": self.value
         }
+    
+    def as_xml(self, root_tag=None):
+        tag = "template_id" if root_tag is None else root_tag
+        tid = ElementTree.Element(tag)
+        val = ElementTree.Element("value")
+        val.text = self.value
+        tid.append(val)
+        return tid
+    
+    def from_xml(root: ElementTree.Element, **kwargs) -> 'TemplateID':
+        val = root.findtext("./value")
+        return TemplateID(val)
 
-class TerminologyID(ObjectID):
+class TerminologyID(ObjectID, IXMLSupport):
     """Identifier for terminologies such as accessed via a terminology 
     query service. In this class, the value attribute identifies the 
     Terminology in the terminology service, e.g. SNOMED-CT. A terminology 
@@ -442,6 +456,18 @@ class TerminologyID(ObjectID):
             "_type": "TERMINOLOGY_ID",
             "value": self.value
         }
+    
+    def as_xml(self, root_tag=None):
+        tag = "terminology_id" if root_tag is None else root_tag
+        tid = ElementTree.Element(tag)
+        val = ElementTree.Element("value")
+        val.text = self.value
+        tid.append(val)
+        return tid
+    
+    def from_xml(root: ElementTree.Element, **kwargs) -> 'TerminologyID':
+        val = root.findtext("./value")
+        return TerminologyID(val)
 
 
 class GenericID(ObjectID):
