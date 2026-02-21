@@ -5,6 +5,7 @@ from typing import Optional, Union
 
 from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectID, ObjectRef, ObjectVersionID, PartyRef, UIDBasedID
+from pyehr.core.its.json_tools import json_get_path
 from pyehr.core.rm.common.archetyped import PyehrInternalPathPredicateType, PyehrInternalProcessedPath
 from pyehr.core.rm.common.change_control import Contribution, Version, VersionedObject
 from pyehr.core.rm.common.generic import Attestation, PartyProxy, RevisionHistory, RevisionHistoryItem
@@ -134,27 +135,7 @@ class IDatabaseEngine(ABC):
     
     def _nav_dict_path(self, js_dict, path):
         """Navigate to a pyehr path within an as_json() dict output"""
-        if path is None:
-            return js_dict
-        proc = PyehrInternalProcessedPath(path)
-        if proc.is_self_path():
-            return js_dict
-        
-        next_el = js_dict[proc.current_node_attribute]
-
-        if isinstance(next_el, list):
-            if proc.current_node_predicate_type == PyehrInternalPathPredicateType.POSITIONAL_PARAMETER:
-                next_el = next_el[int(proc.current_node_predicate)]
-            elif proc.current_node_predicate_type == PyehrInternalPathPredicateType.ARCHETYPE_PATH:
-                found_match = False
-                for el in next_el:
-                    if el["archetype_node_id"] == proc.current_node_predicate:
-                        found_match = True
-                        next_el = el
-                if not found_match:
-                    raise ValueError(f"Could not find node matching `{proc.current_node_predicate}` in list")
-            
-        return self._nav_dict_path(next_el, proc.remaining_path)
+        return json_get_path(js_dict, path)
 
     def _perform_pre_commit_checks(self, contrib: Contribution, versions: list[Version]):
         contrib_id = contrib.uid.value

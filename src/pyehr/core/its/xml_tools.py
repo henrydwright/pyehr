@@ -7,10 +7,16 @@ from pyehr.core.its.xml import IXMLSupport
 from pyehr.utils import OPENEHR_TYPE_MAP
 from term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
 
+
 def decode_xml(xml_str: str, 
                target: Optional[str] = None, 
                terminology_service = None) -> IXMLSupport:
-    """Read an OpenEHR ITS XML"""
+    """Read an OpenEHR ITS XML string
+
+    :param xml_str: OpenEHR ITS XML as a string
+    :param target: (Optional) Target type to decode the root element to (e.g. 'CODE_PHRASE')
+    :param terminology_service: (Optional) Provide a terminology service, if not provided, uses the inbuilt pyehr terminology service.
+    :type terminology_service: TerminologyService"""
 
     if terminology_service is None:
         terminology_service = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES], [TERMINOLOGY_OPENEHR])
