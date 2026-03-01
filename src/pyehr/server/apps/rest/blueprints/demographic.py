@@ -18,6 +18,7 @@ from pyehr.core.rm.data_types.text import DVText
 from pyehr.server.apps.rest.meta import OpenEHRFormat, OpenEHRRequestHeaders
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState, VersionedStore
 from pyehr.server.database import IDatabaseEngine
+from pyehr.utils import get_openehr_type_str
 
 def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine, vs: VersionedStore):
     demo_bp = Blueprint("demographic", __name__, url_prefix="/demographic")
@@ -140,7 +141,8 @@ def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine
             else:
                 orig_ver_uid = ObjectVersionID(db.generate_hier_object_id().value + "::" + current_app.config["SYSTEM_ID_STR"] + "::1")
             
-            orefs.append(ObjectRef("local", "VERSION", orig_ver_uid))
+            #orefs.append(ObjectRef("local", "VERSION", orig_ver_uid))
+            orefs.append(ObjectRef("local", get_openehr_type_str(update_version), orig_ver_uid))
 
             # add in the server generated details
             orig_ver = update_version._inner_original_version
@@ -228,12 +230,16 @@ def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine
         obj_type = obj_type.replace(">", "")
         obj_type = obj_type.split("<")[1]
 
-        version_at_time = request.args.get("version_at_time")
+        version_at_time_arg = request.args.get("version_at_time")
+        version_at_time = None if version_at_time_arg is None else DVDateTime(version_at_time_arg)
         obj = vs.read(obj_type, HierObjectID(hier_object_id), version_at_time, user=logged_in_user.external_ref)
 
-        resp = _create_object_response(obj, 200)
-        _add_headers_to_response(resp, obj.uid(), obj.commit_audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/versioned_party/{hier_object_id}/version/{obj.uid().value}")
-        return resp
+        if obj is not None:
+            resp = _create_object_response(obj, 200)
+            _add_headers_to_response(resp, obj.uid(), obj.commit_audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/versioned_party/{hier_object_id}/version/{obj.uid().value}")
+            return resp
+        else:
+            return _create_not_found_response(obj_type, hier_object_id)
         
     @demo_bp.route("/versioned_party/<hier_object_id>", methods=['GET'])
     def get_versioned_party(hier_object_id: str):
@@ -244,6 +250,17 @@ def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine
         else:
             resp = _create_object_response(versioned_party, 200)
             _add_headers_to_response(resp, HierObjectID(hier_object_id), versioned_party.time_created, f"{current_app.config["BASE_URL"]}/demographic/versioned_party/{hier_object_id}")
+            return resp
+        
+    @demo_bp.route("/versioned_party/<hier_object_id>/revision_history", methods=['GET'])
+    def get_versioned_party_revision_history(hier_object_id: str):
+        versioned_party, revhis = vs.retrieve_versioned_object(HierObjectID(hier_object_id), logged_in_user.external_ref)
+
+        if revhis is None:
+            return _create_not_found_response("REVISION_HISTORY", hier_object_id)
+        else:
+            resp = _create_object_response(revhis, 200)
+            _add_headers_to_response(resp, HierObjectID(hier_object_id), versioned_party.time_created, f"{current_app.config["BASE_URL"]}/demographic/versioned_party/{hier_object_id}/revision_history")
             return resp
         
     @demo_bp.route("/contribution/<hier_object_id>", methods=['GET'])
