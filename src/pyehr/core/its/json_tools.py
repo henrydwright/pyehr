@@ -15,7 +15,7 @@ from pyehr.core.rm.data_structures.representation import Cluster, Element
 from pyehr.core.rm.data_types.basic import DVIdentifier
 from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVDateTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText, DVUri
-from pyehr.core.rm.demographic import Address, Contact, Organisation, PartyIdentity, Person, VersionedParty
+from pyehr.core.rm.demographic import Address, Agent, Contact, Organisation, PartyIdentity, Person, VersionedParty
 from pyehr.core.rm.ehr import EHR, EHRStatus, VersionedEHRStatus
 from pyehr.core.rm.support.terminology import TerminologyService
 
@@ -62,7 +62,8 @@ _type_map = {
     "ORGANISATION": Organisation,
     "CONTACT": Contact,
     "ADDRESS": Address,
-    "DV_DATE": DVDate
+    "DV_DATE": DVDate,
+    "AGENT": Agent
 }
 """Map of OpenEHR JSON '_type' attributes to pyehr.core types"""
 
@@ -178,13 +179,14 @@ def decode_json(json_obj: dict,
             arg_dict["ehr_access"] = ObjectRef("null", "VERSIONED_EHR_ACCESS", HierObjectID("00000000-0000-0000-0000-000000000000"))
     elif target_type == "DV_IDENTIFIER":
         # pyehr uses 'id_type' to avoid collision with Python 'type'
-        arg_dict["id_type"] = arg_dict["type"]
-        del arg_dict["type"]
+        if "type" in arg_dict:
+            arg_dict["id_type"] = arg_dict["type"]
+            del arg_dict["type"]
     elif target_type == "PARTY_IDENTITY":
         # pyehr library uses 'purpose' to clarify meaning of the inherited 'name' field
         arg_dict["purpose"] = arg_dict["name"]
         del arg_dict["name"]
-    elif target_type == "PERSON" or target_type == "ORGANISATION":
+    elif target_type == "PERSON" or target_type == "ORGANISATION" or target_type == "AGENT":
         # pyehr library uses 'actor_type' to clarify meaning of inherited 'name' field
         arg_dict["actor_type"] = arg_dict["name"]
         del arg_dict["name"]

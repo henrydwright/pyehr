@@ -72,7 +72,9 @@ class VersionLifecycleState(Enum):
 
 class VersionedStore():
     """Class which provides a persistent, version-controlled, store for all pyehr objects via
-    methods which work with `VERSIONED_OBJECTs` and `VERSIONs` within a given database."""
+    methods which work with `VERSIONED_OBJECTs` and `VERSIONs` within a given database.
+    
+    Server version of VersionedStoreClient."""
 
     _log: Logger
 
