@@ -20,7 +20,7 @@ class IXMLSupport(ABC):
         """Deserialise a copy of this class from XML (ElementTree.Element).
 
         :param root: Root element of this class to deserialise. Root element name will be ignored.
-        :param term_svc: Must pass a TerminologyService for those classes which require one on init"""
+        :param term_svc: (kwarg) Must pass a TerminologyService for those classes which require one on init"""
         pass
 
 

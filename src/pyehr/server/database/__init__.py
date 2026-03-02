@@ -5,7 +5,7 @@ from typing import Optional, Union
 
 from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectID, ObjectRef, ObjectVersionID, PartyRef, UIDBasedID
-from pyehr.core.its.json_tools import json_get_path
+from pyehr.core.its.json_path_utils import json_get_path
 from pyehr.core.rm.common.archetyped import PyehrInternalPathPredicateType, PyehrInternalProcessedPath
 from pyehr.core.rm.common.change_control import Contribution, Version, VersionedObject
 from pyehr.core.rm.common.generic import Attestation, PartyProxy, RevisionHistory, RevisionHistoryItem

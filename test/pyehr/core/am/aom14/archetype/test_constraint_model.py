@@ -18,6 +18,12 @@ class _ImplArchetypeConstraint(ArchetypeConstraint):
     
     def is_valid(self):
         return False
+    
+    def as_xml(self, root_tag = None):
+        return None
+    
+    def from_xml(root, **kwargs):
+        return None
 
 def test_archetype_constraint_path():
     iac1 = _ImplArchetypeConstraint(
