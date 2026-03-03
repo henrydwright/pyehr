@@ -1,18 +1,20 @@
 from typing import Optional
 
+import warnings
 import xml.etree.ElementTree as ET
 
-from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject
-from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology
-from pyehr.core.base.base_types.identification import HierObjectID, TemplateID
+import numpy as np
+
+from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeConstraint, CArchetypeRoot, CAttribute, CComplexObject
+from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, TermBindingItem, TermBindingSet
+from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, TemplateID
 from pyehr.core.base.foundation_types.any import AnyClass
+from pyehr.core.base.foundation_types.interval import Interval
+from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.base.resource import ResourceDescription
 from pyehr.core.its.xml import IXMLSupport
 from pyehr.core.rm.common.generic import RevisionHistory
 from pyehr.core.rm.data_types.text import CodePhrase
-
-class CArchetypeRoot(CComplexObject):
-    pass
 
 class FlatArchetypeOntology(ArchetypeOntology):
     pass
@@ -95,10 +97,55 @@ class OperationalTemplate(AnyClass, IXMLSupport):
         self.view = view
 
     def as_xml(self, root_tag = None):
-        return super().as_xml(root_tag)
+        tag = "template" if root_tag is None else root_tag
+        root = ET.Element(tag)
+        root.append(self.language.as_xml("language"))
+        is_cont = ET.Element("is_controlled")
+        is_cont.text = str(self.is_controlled).lower()
+        root.append(is_cont)
+        root.append(self.template_id.as_xml("template_id"))
+        conc = ET.Element("concept")
+        conc.text = self.concept
+        root.append(conc)
+        root.append(self.definition.as_xml("definition"))
+        return root
     
     def from_xml(root: ET.Element, **kwargs) -> 'OperationalTemplate':
         lang = CodePhrase.from_xml(root.find("./language"))
+        is_cont = (root.findtext("./is_controlled") == "true")
+        # desc
+        # rev_his
+        # uid
         tid = TemplateID.from_xml(root.find("./template_id"))
         concept = root.findtext("./concept")
-        return OperationalTemplate(lang, tid, concept)
+        definition = CArchetypeRoot.from_xml(root.find("./definition"))
+        
+        return OperationalTemplate(lang, tid, concept, is_controlled=is_cont, definition=definition)
+    
+    def as_json(self):
+        draft = {
+            "language": self.language.as_json(),
+            "is_controlled": self.is_controlled,
+            "template_id": self.template_id.as_json(),
+            "concept": self.concept
+        }
+        if self.definition is not None:
+            draft["definition"] = self.definition.as_json()
+        draft["_type"] = "TEMPLATE"
+        return draft
+
+    def is_equal(self, other: 'OperationalTemplate'):
+        return (type(self) == type(other) and
+                is_equal_value(self.language, other.language) and
+                is_equal_value(self.is_controlled, other.is_controlled) and
+                is_equal_value(self.description, other.description) and
+                is_equal_value(self.revision_history, other.revision_history) and
+                is_equal_value(self.uid, other.uid) and
+                is_equal_value(self.template_id, other.template_id) and
+                is_equal_value(self.concept, other.concept) and
+                is_equal_value(self.definition, other.definition) and
+                is_equal_value(self.ontology, other.ontology) and
+                is_equal_value(self.component_ontologies, other.component_ontologies) and
+                is_equal_value(self.annotations, other.annotations) and
+                is_equal_value(self.constraints, other.constraints) and
+                is_equal_value(self.view, other.view))

@@ -23,4 +23,9 @@ class IXMLSupport(ABC):
         :param term_svc: (kwarg) Must pass a TerminologyService for those classes which require one on init"""
         pass
 
-
+def get_pyehr_type_from_element(elem: ET.Element) -> Optional[str]:
+    non_ns_type = elem.attrib.get("xsi:type")
+    if non_ns_type is not None:
+        return non_ns_type
+    else:
+        return elem.attrib.get("{http://www.w3.org/2001/XMLSchema-instance}type")

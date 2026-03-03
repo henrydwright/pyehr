@@ -1,16 +1,20 @@
 from abc import abstractmethod
 from typing import Optional
+import warnings
 import xml.etree.ElementTree as ET
 
 import numpy as np
 
 from pyehr.core.am.aom14.archetype.assertion import Assertion
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CPrimitive
+from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingSet
+from pyehr.core.base.base_types.identification import ArchetypeID, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.interval import Cardinality, Interval
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.its.json_path_utils import json_has_path
-from pyehr.core.its.xml import IXMLSupport
+from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
+from pyehr.core.rm.data_types.text import CodePhrase
 
 # TODO: implement tests for member methods
 
@@ -134,11 +138,19 @@ class CObject(ArchetypeConstraint):
         return root
     
     def from_xml(root: ET.Element, **kwargs):
-        typ = root.attrib.get("xsi:type")
+        typ = get_pyehr_type_from_element(root)
         if typ is None:
             raise RuntimeError("Cannot parse C_OBJECT based element as type was ambiguous")
         elif typ == "C_COMPLEX_OBJECT":
             return CComplexObject.from_xml(root, **kwargs)
+        elif typ == "C_CODE_PHRASE":
+            return CCodePhrase.from_xml(root, **kwargs)
+        elif typ == "ARCHETYPE_SLOT":
+            return ArchetypeSlot.from_xml(root, **kwargs)
+        elif typ == "C_ARCHETYPE_ROOT":
+            return CArchetypeRoot.from_xml(root, **kwargs)
+        elif typ == "C_PRIMITIVE_OBJECT":
+            return CPrimitiveObject.from_xml(root, **kwargs)
         else:
             raise RuntimeError(f"Cannot parse C_OBJECT based element as given type \'{typ}\' was not a sub-type of C_OBJECT")
     
@@ -297,8 +309,9 @@ class CAttribute(ArchetypeConstraint):
         return root
     
     def from_xml(root, **kwargs):
-        typ = root.attrib.get("xsi:type")
+        typ = get_pyehr_type_from_element(root)
         if typ is None:
+            ET.dump(root)
             raise RuntimeError("Cannot parse C_ATTRIBUTE based element as type was ambiguous")
         elif typ == "C_SINGLE_ATTRIBUTE":
             return CSingleAttribute.from_xml(root)
@@ -514,7 +527,7 @@ class CPrimitiveObject(CDefinedObject):
         rm_type_name: str,
         occurrences: Interval[np.int32],
         node_id: str,
-        item: Optional[CPrimitive],
+        item: Optional[CPrimitive] = None,
         assumed_value: Optional[AnyClass] = None,
         parent: Optional['ArchetypeConstraint'] = None,
         parent_container_attribute_name: Optional[str] = None,
@@ -544,8 +557,19 @@ class CPrimitiveObject(CDefinedObject):
             sup.append(self.item.as_xml("item"))
         return sup
     
-    def from_xml(root: ET.Element, **kwargs):
+    def default_value(self):
         raise NotImplementedError()
+    
+    def prototype_value(self):
+        raise NotImplementedError()
+    
+    def valid_value(self, a_value):
+        raise NotImplementedError()
+    
+    def from_xml(root: ET.Element, **kwargs):
+        warnings.warn("C_PRIMITIVE_OBJECT from_xml not fully implemented so will not be fully parsed")
+        rm_typ, occur, nod = CObject.extract_xml_elements(root)
+        return CPrimitiveObject(rm_typ, occur, nod, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
     
 class CDomainType(CDefinedObject):
     """Abstract parent type of domain-specific constrainer types, to be defined in external packages."""
@@ -554,6 +578,96 @@ class CDomainType(CDefinedObject):
     def standard_equivalent(self) -> CComplexObject:
         """Standard (i.e. C_OBJECT) form of constraint."""
         pass
+
+class CCodePhrase(CDomainType):
+    """C_CODE_PHRASE as defined in OpenehrProfile.xsd"""
+
+    assumed_value: Optional[CodePhrase]
+
+    terminology_id: Optional[TerminologyID]
+
+    code_list: Optional[list[str]]
+
+    def __init__(self,
+            rm_type_name: str,
+            occurrences: Interval[np.int32],
+            node_id: str,
+            assumed_value: Optional[CodePhrase] = None,
+            terminology_id: Optional[TerminologyID] = None,
+            code_list: Optional[list[str]] = None,
+            parent: Optional['ArchetypeConstraint'] = None,
+            parent_container_attribute_name: Optional[str] = None,
+            list_index: Optional[int] = None,
+            **kwargs):
+        self.terminology_id = terminology_id
+        self.code_list = code_list
+        super().__init__(rm_type_name, occurrences, node_id, assumed_value, parent, parent_container_attribute_name, list_index, **kwargs)
+
+    def as_xml(self, root_tag=None):
+        tag = "c_code_phrase" if root_tag is None else root_tag
+        sup = super().as_xml(tag)
+        if self.assumed_value is not None:
+            sup.append(self.assumed_value.as_xml("assumed_value"))
+        if self.terminology_id is not None:
+            sup.append(self.terminology_id.as_xml("terminology_id"))
+        if self.code_list is not None:
+            for code in self.code_list:
+                code_el = ET.Element("code_list")
+                code_el.text = code
+                sup.append(code_el)
+
+        sup.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        sup.attrib["xsi:type"] = "C_CODE_PHRASE"
+        return sup
+        
+    def from_xml(root: ET.Element, **kwargs):
+        rm_typ, occur, nod = CObject.extract_xml_elements(root)
+        assumed_val = root.find("./assumed_value")
+        if assumed_val is not None:
+            assumed_val = CodePhrase.from_xml(assumed_val)
+        term_id = root.find("./terminology_id")
+        if term_id is not None:
+            term_id = TerminologyID.from_xml(term_id)
+        code_list_els = root.findall("./code_list")
+        code_list = None
+        if code_list_els is not None:
+            code_list = []
+            for code_list_el in code_list_els:
+                code_list.append(code_list_el.text)
+        return CCodePhrase(rm_typ, occur, nod, assumed_val, term_id, code_list, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
+    
+    def as_json(self):
+        draft = super().as_json()
+        if self.assumed_value is not None:
+            draft["assumed_value"] = self.assumed_value.as_json()
+        if self.terminology_id is not None:
+            draft["terminology_id"] = self.terminology_id.as_json()
+        if self.code_list is not None:
+            draft["code_list"] = self.code_list
+        
+        draft["_type"] = "C_CODE_PHRASE"
+        return draft
+    
+    def is_equal(self, other: 'CCodePhrase'):
+        return (super().is_equal(other) and
+                is_equal_value(self.assumed_value, other.assumed_value) and
+                is_equal_value(self.terminology_id, other.terminology_id) and 
+                is_equal_value(self.code_list, other.code_list))
+
+    def any_allowed(self):
+        raise NotImplementedError()
+    
+    def default_value(self):
+        raise NotImplementedError()
+    
+    def prototype_value(self):
+        raise NotImplementedError()
+    
+    def valid_value(self, a_value):
+        raise NotImplementedError()
+
+    def standard_equivalent(self):
+        raise NotImplementedError()
 
 class CReferenceObject(CObject):
     """Abstract parent type of C_OBJECT subtypes that are defined by reference."""
@@ -578,10 +692,10 @@ class ArchetypeSlot(CReferenceObject):
                 parent_container_attribute_name: Optional[str] = None,
                 list_index: Optional[int] = None,
                 **kwargs):
-        if self.includes is not None and len(self.includes) == 0:
+        if includes is not None and len(includes) == 0:
             raise ValueError("If provided, includes cannot be an empty list (invariant: includes_valid)")
         self.includes = includes
-        if self.excludes is not None and len(self.excludes) == 0:
+        if excludes is not None and len(excludes) == 0:
             raise ValueError("If provided, excludes cannot be an empty list (invariant: excludes_valid)")
         self.excludes = excludes
         super().__init__(rm_type_name, occurrences, node_id, parent, parent_container_attribute_name, list_index, **kwargs)
@@ -615,13 +729,13 @@ class ArchetypeSlot(CReferenceObject):
         rm_typ, occur, nod = CObject.extract_xml_elements(root)
         incl_els = root.findall("./includes")
         incls = None
-        if incl_els is not None:
+        if len(incl_els) > 0:
             incls = []
             for incl_el in incl_els:
                 incls.append(Assertion.from_xml(incl_el))
         excls = None
         excl_els = root.findall("./excludes")
-        if excl_els is not None:
+        if len(excl_els) > 0:
             excls = []
             for excl_el in excl_els:
                 excls.append(Assertion.from_xml(excl_el))
@@ -722,3 +836,81 @@ class ConstraintRef(CReferenceObject):
         rm_typ, occ, nod = CObject.extract_xml_elements(root)
         ref = root.findtext("./reference")
         return ArchetypeInternalRef(rm_typ, occ, nod, ref, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
+
+
+class CArchetypeRoot(CComplexObject):
+    """C_ARCHETYPE_ROOT as defined in Template.xsd"""
+    
+    archetype_id: ArchetypeID
+
+    template_id: Optional[TemplateID]
+
+    term_definitions: Optional[list[ArchetypeTerm]]
+
+    term_bindings: Optional[list[TermBindingSet]]
+
+    def __init__(self,
+        rm_type_name: str,
+        occurrences: Interval[np.int32],
+        node_id: str,
+        archetype_id: ArchetypeID,
+        template_id: Optional[TemplateID] = None,
+        term_definitions: Optional[list[ArchetypeTerm]] = None,
+        term_bindings: Optional[list[TermBindingSet]] = None,
+        assumed_value: Optional[AnyClass] = None,
+        attributes: Optional[list[CAttribute]] = None,
+        parent: Optional[ArchetypeConstraint] = None,
+        parent_container_attribute_name: Optional[str] = None,
+        list_index: Optional[int] = None,
+        **kwargs):
+        self.archetype_id = archetype_id
+        self.template_id = template_id
+        self.term_definitions = term_definitions
+        self.term_bindings = term_bindings
+        super().__init__(rm_type_name, occurrences, node_id, assumed_value, attributes, parent, parent_container_attribute_name, list_index, **kwargs)
+
+    def from_xml(root: ET.Element, **kwargs):
+        warnings.warn("C_ARCHETYPE_ROOT from_xml not fully implemented, elements will be missed when parsing.", UserWarning)
+        cco : CComplexObject = CComplexObject.from_xml(root, **kwargs)
+        aid = ArchetypeID.from_xml(root.find("./archetype_id"))
+        tid = root.find("./template_id")
+        if tid is not None:
+            tid = TemplateID.from_xml(tid)
+
+        # TODO: TermDefinitions and TermBindings
+        
+        return CArchetypeRoot(cco.rm_type_name, cco.occurrences, cco.node_id, aid, tid, None, None, cco.assumed_value, cco.attributes, cco._parent, cco._parent_container_attribute_name, cco._list_index)
+    
+    def as_xml(self, root_tag=None):
+        warnings.warn("C_ARCHETYPE_ROOT as_xml not fully implemented, elements will be missed when serialising.", UserWarning)
+        tag = "c_archetype_root" if root_tag is None else root_tag
+        sup = super().as_xml(tag)
+        sup.append(self.archetype_id.as_xml("archetype_id"))
+        if self.template_id is not None:
+            sup.append(self.template_id.as_xml("template_id"))
+        
+        # TODO: TermDefinitions and TermBindings
+
+        return sup
+    
+    def as_json(self):
+        draft = super().as_json()
+        draft["archetype_id"] = self.archetype_id.as_json()
+        if self.template_id is not None:
+            draft["template_id"] = self.template_id.as_json()
+        
+        if self.term_bindings is not None:
+            draft["term_bindings"] = [tb.as_json() for tb in self.term_bindings]
+
+        if self.term_definitions is not None:
+            draft["term_definitions"] = [td.as_json() for td in self.term_definitions]
+
+        draft["_type"] = "C_ARCHETYPE_ROOT"
+        return draft
+        
+    def is_equal(self, other):
+        return (super().is_equal(other) and
+                is_equal_value(self.archetype_id, other.archetype_id) and
+                is_equal_value(self.template_id, other.template_id) and
+                is_equal_value(self.term_definitions, other.term_definitions) and
+                is_equal_value(self.term_bindings, other.term_bindings))

@@ -62,7 +62,7 @@ class CodePhrase(AnyClass, IXMLSupport):
         # https://specifications.openehr.org/releases/ITS-XML/Release-2.0.0/components/RM/latest/DataTypes.xsd
         tag = "code_phrase" if root_tag is None else root_tag
         cp = ElementTree.Element(tag)
-        cp.append(self.terminology_id.as_xml())
+        cp.append(self.terminology_id.as_xml("terminology_id"))
         cs = ElementTree.Element("code_string")
         cs.text = self.code_string
         cp.append(cs)

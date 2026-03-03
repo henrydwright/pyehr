@@ -4,7 +4,7 @@ from xmlschema import XMLSchema
 import xml.etree.ElementTree as ET
 
 from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CMultipleAttribute, CSingleAttribute
-from pyehr.core.base.base_types.identification import TerminologyID
+from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectVersionID, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.interval import Cardinality, Interval, MultiplicityInterval, PointInterval, ProperInterval
 from pyehr.core.base.foundation_types.time import ISODate, ISODateTime, ISODuration, ISOTime
@@ -78,6 +78,30 @@ def test_its_xml_basetypes_interval():
     int6_there_and_back = Interval.from_xml(int6.as_xml(), ISODuration)
     assert int6.is_equal(int6_there_and_back)
 
+def test_its_xml_basetypes_archetype_id():
+    aid = ArchetypeID("openEHR-EHR-INSTRUCTION.medication_order.v3")
+    validate(aid, "BaseTypes.xsd", "ARCHETYPE_ID")
+    check_from_xml(aid, ArchetypeID)
+
+def test_its_xml_basetypes_template_id():
+    tid = TemplateID("Glucose test result example")
+    validate(tid, "BaseTypes.xsd", "TEMPLATE_ID")
+    check_from_xml(tid, TemplateID)
+
+def test_its_xml_basetypes_terminology_id():
+    tid = TerminologyID("SNOMED-CT")
+    validate(tid, "BaseTypes.xsd", "TERMINOLOGY_ID")
+    check_from_xml(tid, TerminologyID)
+
+def test_its_xml_basetypes_object_version_id():
+    ovid = ObjectVersionID("154b1047-23aa-4d4d-8713-df848fd4d60a::net.example.ehr::1")
+    validate(ovid, "BaseTypes.xsd", "OBJECT_VERSION_ID")
+    check_from_xml(ovid, ObjectVersionID)
+
+def test_its_xml_basetypes_hier_object_id():
+    hid = HierObjectID("93f49724-c066-40f5-aea0-5d0ff1184326::abacus")
+    validate(hid, "BaseTypes.xsd", "HIER_OBJECT_ID")
+    check_from_xml(hid, HierObjectID)
 
 # DV_BOOLEAN
 
