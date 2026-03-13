@@ -13,6 +13,15 @@ class TestAuthoredResourceImplementation(AuthoredResource):
     def current_revision(self) -> str:
         return "(uncontrolled)"
     
+    def as_json(self):
+        return super().as_json()
+    
+    def as_xml(self, root_tag=None):
+        return super().as_xml(root_tag)
+    
+    def from_xml(root, **kwargs):
+        return super().from_xml(**kwargs)
+    
 def test_languages_available_valid():
     # invariant - Languages_available_valid: languages_available.has (original_language)
     lang = TerminologyCode("ISO639-1", "en")
@@ -32,14 +41,8 @@ def test_translations_valid():
         res.add_translation(TranslationDetails(lang_de, {"name": "Herr Beispiel Urheber"}), ResourceDescriptionItem(lang_de, "Testressource zum Testen von Invarianten auf Sprachen"))
 
     lifecycle = TerminologyCode("lifecycle", "DRAFT")
-    meta = ResourceDescription({"name", "Mr Test Author"}, lifecycle, res)
+    meta = ResourceDescription({"name": "Mr Test Author"}, lifecycle, {"en": ResourceDescriptionItem(lang, "Test resource to test invariant on languages")} ,res)
     res.set_description(meta)
-
-    # cannot create a translation for a resource with no description details
-    with pytest.raises(Exception):
-        res.add_translation(TranslationDetails(lang, {"name": "Mr Test Author"}), ResourceDescriptionItem(lang, "Test resource to test invariant on languages"))
-
-    res.description.details = {"en": ResourceDescriptionItem(lang, "Test resource to test invariant on languages")}
 
     # cannot create a translation with same language as original
     with pytest.raises(ValueError):
@@ -63,31 +66,25 @@ def test_description_valid():
 
     lifecycle = TerminologyCode("lifecycle", "DRAFT")
 
-    meta = ResourceDescription({"name", "Mr Test Author"}, lifecycle, res)
+    meta = ResourceDescription({"name", "Mr Test Author"}, lifecycle, {"en": ResourceDescriptionItem(lang, "Test resource to test invariant on languages")}, res)
     
     # setting description on an object which doesn't have one yet should work fine
     res.set_description(meta)
     assert res.description == meta
 
-    meta2 = ResourceDescription({"name", "Mr Test Author"}, lifecycle, res)
-    meta2.details = {"de": ResourceDescriptionItem(lang_de, "Testressource zum Testen von Invarianten auf Sprachen")}
+    meta2 = ResourceDescription({"name", "Mr Test Author"}, lifecycle, {"de": ResourceDescriptionItem(lang_de, "Testressource zum Testen von Invarianten auf Sprachen")}, res)
     # setting description on an object that already has one without no details, should NOT work if the new one has details without original_language
     with pytest.raises(ValueError):
         res.set_description(meta2)
 
     # setting description on an object that already has one without no details, should work if the new one has a set of details for the original_language
-    meta3 = ResourceDescription({"name", "Mr Test Author"}, lifecycle, res)
-    meta3.details = {"en": ResourceDescriptionItem(lang, "Test resource to test invariant on languages")}
+    meta3 = ResourceDescription({"name", "Mr Test Author"}, lifecycle, {"en": ResourceDescriptionItem(lang, "Test resource to test invariant on languages")}, res)
     res.set_description(meta3)
-    assert res.description == meta3
+    assert res.description.is_equal(meta3)
 
     res.add_translation(TranslationDetails(lang_de, {"name": "Herr Beispiel Urheber"}), ResourceDescriptionItem(lang_de, "Testressource zum Testen von Invarianten auf Sprachen"))
 
-    # setting details on an object which has a translation (and thus existing details) should fail when the new description doesn't have details
-    with pytest.raises(ValueError):
-        res.set_description(meta)
-
-    # ...or does not contain all the same language codes
+    # setting details on an object which has a translation (and thus existing details) should fail when the new description does not contain all the same language codes
     with pytest.raises(ValueError):
         res.set_description(meta2)
         
@@ -97,8 +94,8 @@ def test_resource_description_is_equal_true():
     parent = TestAuthoredResourceImplementation(lang)
     author = {"name": "Mr Test Author"}
 
-    rd1 = ResourceDescription(author, lifecycle, parent)
-    rd2 = ResourceDescription(author, lifecycle, parent)
+    rd1 = ResourceDescription(author, lifecycle, {"en": ResourceDescriptionItem(lang, "Purpose")}, parent)
+    rd2 = ResourceDescription(author, lifecycle, {"en": ResourceDescriptionItem(lang, "Purpose")}, parent)
 
     # Set all optional fields to same values
     rd1.original_namespace = rd2.original_namespace = "org.example"
@@ -113,7 +110,6 @@ def test_resource_description_is_equal_true():
     rd1.resource_package_uri = rd2.resource_package_uri = "http://package.uri"
     rd1.conversion_details = rd2.conversion_details = {"tool": "cem2adl"}
     rd1.other_details = rd2.other_details = {"extra": "detail"}
-    rd1.details = rd2.details = {"en": ResourceDescriptionItem(lang, "Purpose")}
 
     assert rd1.is_equal(rd2)
 
@@ -124,8 +120,8 @@ def test_resource_description_is_equal_false_different_author():
     author1 = {"name": "Mr Test Author"}
     author2 = {"name": "Ms Other Author"}
 
-    rd1 = ResourceDescription(author1, lifecycle, parent)
-    rd2 = ResourceDescription(author2, lifecycle, parent)
+    rd1 = ResourceDescription(author1, lifecycle, {"en": ResourceDescriptionItem(lang, "Purpose")}, parent)
+    rd2 = ResourceDescription(author2, lifecycle, {"en": ResourceDescriptionItem(lang, "Purpose")}, parent)
 
     assert not rd1.is_equal(rd2)
 
@@ -135,11 +131,8 @@ def test_resource_description_is_equal_false_different_details():
     parent = TestAuthoredResourceImplementation(lang)
     author = {"name": "Mr Test Author"}
 
-    rd1 = ResourceDescription(author, lifecycle, parent)
-    rd2 = ResourceDescription(author, lifecycle, parent)
-
-    rd1.details = {"en": ResourceDescriptionItem(lang, "Purpose")}
-    rd2.details = {"en": ResourceDescriptionItem(lang, "Different Purpose")}
+    rd1 = ResourceDescription(author, lifecycle, {"en": ResourceDescriptionItem(lang, "Purpose")}, parent)
+    rd2 = ResourceDescription(author, lifecycle, {"en": ResourceDescriptionItem(lang, "Different Purpose")}, parent)
 
     assert not rd1.is_equal(rd2)
 
@@ -149,10 +142,10 @@ def test_resource_description_is_equal_false_different_type():
     parent = TestAuthoredResourceImplementation(lang)
     author = {"name": "Mr Test Author"}
 
-    rd1 = ResourceDescription(author, lifecycle, parent)
+    rd1 = ResourceDescription(author, lifecycle, {"en": ResourceDescriptionItem(lang, "Purpose")}, parent)
     # Simulate a different type by subclassing
     class ResourceDescriptionSub(ResourceDescription):
         pass
-    rd2 = ResourceDescriptionSub(author, lifecycle, parent)
+    rd2 = ResourceDescriptionSub(author, lifecycle, {"en": ResourceDescriptionItem(lang, "Purpose")}, parent)
 
     assert not rd1.is_equal(rd2)

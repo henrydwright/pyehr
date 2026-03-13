@@ -1,3 +1,5 @@
+from uuid import UUID
+
 import numpy as np
 from xmlschema import XMLSchema
 
@@ -7,7 +9,9 @@ from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CMult
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectVersionID, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.interval import Cardinality, Interval, MultiplicityInterval, PointInterval, ProperInterval
+from pyehr.core.base.foundation_types.terminology import TerminologyCode
 from pyehr.core.base.foundation_types.time import ISODate, ISODateTime, ISODuration, ISOTime
+from pyehr.core.base.resource import AuthoredResource, ResourceDescription, ResourceDescriptionItem
 from pyehr.core.its.xml import IXMLSupport
 from pyehr.core.rm.data_types.text import CodePhrase
 
@@ -215,3 +219,18 @@ def test_its_xml_archetype_c_complex_object():
 
 # CONSTRAINT_REF
 
+# ===========
+# Resource
+
+def test_its_xml_resource_resource_description():
+    t_rd = ResourceDescription(
+        original_author={"Author name": "Joe Bloggs", "Organisation": "Anytown NHS Trust", "Email": "joe@example.net", "Date originally authored": "2017-11-30"},
+        lifecycle_state=TerminologyCode("openehr", "532"),
+        details={"en": ResourceDescriptionItem(
+            language=TerminologyCode("ISO_639-1", "en"),
+            purpose="Not Specified"
+        )}
+    )
+
+    validate(t_rd, "Resource.xsd", "RESOURCE_DESCRIPTION")
+    check_from_xml(t_rd, ResourceDescription)

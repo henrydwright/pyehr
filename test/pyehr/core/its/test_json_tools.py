@@ -217,12 +217,22 @@ class TestAuthoredResourceImplementation(AuthoredResource):
     
     def as_json(self):
         return super().as_json()
+    
+    def as_xml(self, root_tag=None):
+        return super().as_xml(root_tag)
+    
+    def from_xml(root, **kwargs):
+        return super().from_xml(**kwargs)
 
 def test_its_json_base_resource_description():
     res = TestAuthoredResourceImplementation(TerminologyCode("ISO639-1", "en"), uid=UUID("139940b4-8435-463e-93e6-d9e13b02c282"))
     t_rd = ResourceDescription(
         original_author={"Author name": "Joe Bloggs", "Organisation": "Anytown NHS Trust", "Email": "joe@example.net", "Date originally authored": "2017-11-30"},
         lifecycle_state=TerminologyCode("openehr", "532"),
+        details={"en": ResourceDescriptionItem(
+            language=TerminologyCode("ISO_639-1", "en"),
+            purpose="Not Specified"
+        )},
         parent_resource=res,
         custodian_namespace="org.openehr",
         custodian_organisation="openEHR Foundation"

@@ -100,27 +100,34 @@ class OperationalTemplate(AnyClass, IXMLSupport):
         tag = "template" if root_tag is None else root_tag
         root = ET.Element(tag)
         root.append(self.language.as_xml("language"))
+        
         is_cont = ET.Element("is_controlled")
         is_cont.text = str(self.is_controlled).lower()
         root.append(is_cont)
+
+        if self.description is not None:
+            root.append(self.description.as_xml("description"))
+        
         root.append(self.template_id.as_xml("template_id"))
+        
         conc = ET.Element("concept")
         conc.text = self.concept
         root.append(conc)
+        
         root.append(self.definition.as_xml("definition"))
         return root
     
     def from_xml(root: ET.Element, **kwargs) -> 'OperationalTemplate':
         lang = CodePhrase.from_xml(root.find("./language"))
         is_cont = (root.findtext("./is_controlled") == "true")
-        # desc
+        desc = ResourceDescription.from_xml(root.find("./description"))
         # rev_his
         # uid
         tid = TemplateID.from_xml(root.find("./template_id"))
         concept = root.findtext("./concept")
         definition = CArchetypeRoot.from_xml(root.find("./definition"))
         
-        return OperationalTemplate(lang, tid, concept, is_controlled=is_cont, definition=definition)
+        return OperationalTemplate(lang, tid, concept, is_controlled=is_cont, description=desc, definition=definition)
     
     def as_json(self):
         draft = {
