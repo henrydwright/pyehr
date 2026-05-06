@@ -6,6 +6,7 @@ from xmlschema import XMLSchema
 import xml.etree.ElementTree as ET
 
 from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CMultipleAttribute, CSingleAttribute
+from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingItem
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectVersionID, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.interval import Cardinality, Interval, MultiplicityInterval, PointInterval, ProperInterval
@@ -218,6 +219,20 @@ def test_its_xml_archetype_c_complex_object():
 # ARCHETYPE_INTERNAL_REF
 
 # CONSTRAINT_REF
+
+def test_its_xml_archetype_term():
+    at = ArchetypeTerm("at0093", 
+                       items={
+                           "text": "01",
+                           "description": "Cancelled for Clinical Reasons"
+                           })
+    validate(at, "Archetype.xsd", "ARCHETYPE_TERM")
+    check_from_xml(at, ArchetypeTerm)
+
+def test_its_xml_term_binding_item():
+    tbi = TermBindingItem("at0001", CodePhrase("SNOMED-CT", "95883001"))
+    validate(tbi, "Archetype.xsd", "TERM_BINDING_ITEM")
+    check_from_xml(tbi, TermBindingItem)
 
 # ===========
 # Resource

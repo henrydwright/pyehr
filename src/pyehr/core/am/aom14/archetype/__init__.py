@@ -2,6 +2,8 @@
 
 from typing import Optional
 from uuid import UUID
+import warnings
+import xml.etree.ElementTree as ET
 
 import numpy as np
 
@@ -122,4 +124,92 @@ class Archetype(AuthoredResource):
     
     def version(self) -> str:
         raise NotImplementedError()
+    
+    def as_xml(self, root_tag=None):
+        tag = "archetype" if root_tag is None else root_tag
+        super_xml = super().as_xml(tag)
+        super_xml.append(self.definition.as_xml("definition"))
+        super_xml.append(self.ontology.as_xml("ontology"))
+        super_xml.append(self.archetype_id.as_xml("archetype_id"))
 
+        conc_el = ET.Element("concept")
+        conc_el.text = self.concept
+        super_xml.append(conc_el)
+
+        if self.adl_version is not None:
+            adl_ver_el = ET.Element("adl_version")
+            adl_ver_el.text = self.adl_version
+            super_xml.append(adl_ver_el)
+
+        if self.parent_archetype_id is not None:
+            super_xml.append(self.parent_archetype_id.as_xml())
+
+        if self.invariants is not None:
+            for invariant in self.invariants:
+                super_xml.append(invariant.as_xml())
+
+        if self.uid is not None:
+            super_xml.append(self.uid.as_xml())
+
+        return super_xml
+    
+    def from_xml(root: ET.Element, **kwargs):
+        (ar_orig_lang, ar_is_cont, ar_description, ar_translations) = AuthoredResource.extract_xml_elements(root)
+
+        arch_id_el = root.find("./archetype_id")
+        arch_id = ArchetypeID.from_xml(arch_id_el)
+
+        conc_el = root.find("./concept")
+        conc = conc_el.text
+
+        def_el = root.find("./definition")
+        definition = CComplexObject.from_xml(def_el)
+
+        ont_el = root.find("./ontology")
+        ontology = ArchetypeOntology.from_xml(ont_el)
+
+        # TODO: implement remaining elements
+        warnings.warn("Parsing of Archetype xml is not fully supported, so some elements will be missed")
+
+        arch = Archetype(
+            ar_orig_lang,
+            definition,
+            ontology,
+            arch_id,
+            conc,
+            uid=None,
+            is_controlled=ar_is_cont,
+            annotations=None
+        )
+
+        arch.set_description(ar_description)
+
+        return arch
+    
+    def as_json(self):
+        draft = {
+            "original_language": self.original_language.as_json(),
+            "archetype_id": self.archetype_id.as_json(),
+            "concept": self.concept,
+            "definition": self.definition.as_json(),
+            "ontology": self.ontology.as_json() 
+        }
+        if self.is_controlled is not None:
+            draft["is_controlled"] = self.is_controlled
+        if self.description is not None:
+            draft["description"] = self.description.as_json()
+        if self._translations is not None:
+            draft["translations"] = [tr.as_json() for tr in self._translations.values()]
+        if self.uid is not None:
+            draft["uid"] = self.uid.as_json()
+        if self.adl_version is not None:
+            draft["adl_version"] = self.adl_version
+        if self.parent_archetype_id is not None:
+            draft["parent_archetype_id"] = self.parent_archetype_id.as_json()
+        if self.invariants is not None:
+            draft["invariants"] = [inv.as_json() for inv in self.invariants]
+        draft["_type"] = "ARCHETYPE"
+        return draft
+
+    def current_revision(self):
+        raise NotImplementedError()

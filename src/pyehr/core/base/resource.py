@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+from types import NoneType
 from typing import Optional
 import xml.etree.ElementTree as ET
+import warnings
 
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.structure import is_equal_value
@@ -585,6 +587,30 @@ class AuthoredResource(AnyClass, IXMLSupport):
                 root.append(translation_details.as_xml("translations"))
         # this version of rm does not have revision_history
         return root
+    
+    def extract_xml_elements(root: ET.Element) -> tuple[CodePhrase, Optional[bool], Optional[ResourceDescription], Optional[list[TranslationDetails]]]:
+        cphr = CodePhrase.from_xml(root.find("./original_language"))
+
+        is_cont_el = root.findtext("./is_controlled")
+        is_cont = None
+        if is_cont_el is not None:
+            is_cont = (is_cont_el.capitalize() == "True")
+
+        desc_el = root.find("./description")
+        desc = None
+        if desc_el is not None:
+            desc = ResourceDescription.from_xml(desc_el)
+
+        trans_els = root.findall("./translations")
+        trans = []
+        for trans_el in trans_els:
+            trans.append(TranslationDetails.from_xml(trans_el))
+
+        rev_his_el = root.find("./revision_history")
+        if rev_his_el != None:
+            warnings.warn("REVISION_HISTORY found within AUTHORED_RESOURCE when parsing XML v1.4. Library is on rm v1.10 and does not support REVISION_HISTORY in AUTHORED_RESOURCE. Ignoring.")
+            
+        return (cphr, is_cont, desc, trans)
 
 class ResourceDescriptionItem(AnyClass, IXMLSupport):
     """Language-specific detail of resource description. When a resource is translated for use in another language environment, each `ResourceDescriptionItem` needs to be copied and translated into the new language."""

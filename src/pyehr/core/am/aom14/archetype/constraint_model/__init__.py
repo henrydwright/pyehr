@@ -14,6 +14,7 @@ from pyehr.core.base.foundation_types.interval import Cardinality, Interval
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.its.json_path_utils import json_has_path
 from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
+from pyehr.core.rm.data_types.quantity import DVQuantity
 from pyehr.core.rm.data_types.text import CodePhrase
 
 # TODO: implement tests for member methods
@@ -151,6 +152,11 @@ class CObject(ArchetypeConstraint):
             return CArchetypeRoot.from_xml(root, **kwargs)
         elif typ == "C_PRIMITIVE_OBJECT":
             return CPrimitiveObject.from_xml(root, **kwargs)
+        elif typ == "C_DV_QUANTITY":
+            warnings.warn("C_DV_QUANTITY is unsupported, parsing as a placeholder class")
+            return CDomainPlaceholder.from_xml(root, **kwargs)
+        elif typ == "ARCHETYPE_INTERNAL_REF":
+            return ArchetypeInternalRef.from_xml(root, **kwargs)
         else:
             raise RuntimeError(f"Cannot parse C_OBJECT based element as given type \'{typ}\' was not a sub-type of C_OBJECT")
     
@@ -419,6 +425,8 @@ class CMultipleAttribute(CAttribute):
         tag = "c_multiple_attribute" if root_tag is None else root_tag
         sup = super().as_xml(tag)
         sup.append(self.cardinality.as_xml("cardinality"))
+        sup.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        sup.attrib["xsi:type"] = "C_MULTIPLE_ATTRIBUTE"
         return sup
     
     def as_json(self):
@@ -555,6 +563,8 @@ class CPrimitiveObject(CDefinedObject):
         sup = super().as_xml(tag)
         if self.item is not None:
             sup.append(self.item.as_xml("item"))
+        sup.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        sup.attrib["xsi:type"] = "C_PRIMITIVE_OBJECT"
         return sup
     
     def default_value(self):
@@ -723,6 +733,8 @@ class ArchetypeSlot(CReferenceObject):
         if self.excludes is not None:
             for excl in self.excludes:
                 sup.append(excl.as_xml("excludes"))
+        sup.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        sup.attrib["xsi:type"] = "ARCHETYPE_SLOT"
         return sup
     
     def from_xml(root: ET.Element, **kwargs):
@@ -877,9 +889,16 @@ class CArchetypeRoot(CComplexObject):
         if tid is not None:
             tid = TemplateID.from_xml(tid)
 
-        # TODO: TermDefinitions and TermBindings
+        tds = root.findall("./term_definitions")
+        term_defs = None
+        if len(tds) > 0:
+            term_defs = []
+            for td_el in tds:
+                term_defs.append(ArchetypeTerm.from_xml(td_el))
+
+        # TODO: TermBindings
         
-        return CArchetypeRoot(cco.rm_type_name, cco.occurrences, cco.node_id, aid, tid, None, None, cco.assumed_value, cco.attributes, cco._parent, cco._parent_container_attribute_name, cco._list_index)
+        return CArchetypeRoot(cco.rm_type_name, cco.occurrences, cco.node_id, aid, tid, term_defs, None, cco.assumed_value, cco.attributes, cco._parent, cco._parent_container_attribute_name, cco._list_index)
     
     def as_xml(self, root_tag=None):
         warnings.warn("C_ARCHETYPE_ROOT as_xml not fully implemented, elements will be missed when serialising.", UserWarning)
@@ -888,8 +907,15 @@ class CArchetypeRoot(CComplexObject):
         sup.append(self.archetype_id.as_xml("archetype_id"))
         if self.template_id is not None:
             sup.append(self.template_id.as_xml("template_id"))
+
+        sup.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        sup.attrib["xsi:type"] = "C_ARCHETYPE_ROOT"
         
-        # TODO: TermDefinitions and TermBindings
+        if self.term_definitions is not None:
+            for term_def in self.term_definitions:
+                sup.append(term_def.as_xml("term_definitions"))
+
+        # TODO: TermBindings
 
         return sup
     
@@ -914,3 +940,91 @@ class CArchetypeRoot(CComplexObject):
                 is_equal_value(self.template_id, other.template_id) and
                 is_equal_value(self.term_definitions, other.term_definitions) and
                 is_equal_value(self.term_bindings, other.term_bindings))
+    
+# C_DOMAIN_TYPEs that are defined in OpenehrProfile.xsd. Would be in a separate class
+#  however they are here to avoid headache of circular import errors
+
+class CDomainPlaceholder(CDomainType):
+    """Generic C_DOMAIN_TYPE used as placeholder for unsupported classes.
+    assumed_value will always be set to None but may not be in practice"""
+
+    def __init__(self,
+            rm_type_name: str,
+            occurrences: Interval[np.int32],
+            node_id: str,
+            assumed_value: Optional[AnyClass] = None,
+            parent: Optional['ArchetypeConstraint'] = None,
+            parent_container_attribute_name: Optional[str] = None,
+            list_index: Optional[int] = None,
+            **kwargs):
+        super().__init__(rm_type_name, occurrences, node_id, assumed_value, parent, parent_container_attribute_name, list_index, **kwargs)
+
+    def as_json(self):
+        warnings.warn("C_DOMAIN_PLACEHOLDER as_xml() used, produced json will be missing elements")
+        return super().as_json()
+    
+    def as_xml(self, root_tag=None):
+        warnings.warn("C_DOMAIN_PLACEHOLDER as_xml() used, produced xml will be missing elements")
+        return super().as_xml(root_tag)
+    
+    def from_xml(root, **kwargs):
+        warnings.warn("C_DOMAIN_PLACEHOLDER from_xml() used, produced class structure will not match imported XML")
+        rm_typ, occ, nod = CObject.extract_xml_elements(root)
+        return CDomainPlaceholder(rm_typ, occ, nod, assumed_value=None, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
+
+    def is_equal(self, other):
+        return super().is_equal(other)
+    
+    def any_allowed(self):
+        raise NotImplementedError()
+    
+    def default_value(self):
+        raise NotImplementedError()
+    
+    def prototype_value(self):
+        raise NotImplementedError()
+    
+    def standard_equivalent(self):
+        raise NotImplementedError()
+    
+    def valid_value(self, a_value):
+        raise NotImplementedError()
+
+# class CQuantityItem(AnyClass, IXMLSupport):
+#     """C_QUANTITY_ITEM as defined in Archetype.xsd"""
+#     pass
+
+# class CDVQuantity(CDomainType):
+#     """C_DV_QUANTITY as defined in Archetype.xsd"""
+    
+#     property_var : Optional[CodePhrase]
+
+#     list_var : Optional[list[CQuantityItem]]
+
+#     def __init__(self,
+#             rm_type_name: str,
+#             occurrences: Interval[np.int32],
+#             node_id: str,
+#             assumed_value: Optional[DVQuantity] = None,
+#             property_var: Optional[CodePhrase] = None,
+#             list_var: Optional[CodePhrase] = None,
+#             parent: Optional['ArchetypeConstraint'] = None,
+#             parent_container_attribute_name: Optional[str] = None,
+#             list_index: Optional[int] = None,
+#             **kwargs):
+#         self.property_var = property_var
+#         self.list_var = list_var
+#         super().__init__(rm_type_name, occurrences, node_id, assumed_value, parent, parent_container_attribute_name, list_index, **kwargs)
+
+#     def as_xml(self, root_tag=None):
+#         tag = "cdvquantity" if root_tag is None else root_tag
+#         sup = super().as_xml(tag)
+#         if self.property_var is not None:
+#             sup.append(self.property_var.as_xml("property"))
+#         if self.list_var is not None:
+#             for quant_item in self.list_var:
+#                 sup.append(quant_item.as_xml("list"))
+#         return sup
+
+#     def from_xml(root: ET.Element, **kwargs):
+#         rm_typ, occ, nod = CObject.extract_xml_elements(root)

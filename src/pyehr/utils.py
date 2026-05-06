@@ -1,3 +1,4 @@
+from pyehr.core.am.aom14.archetype import Archetype
 from pyehr.core.am.opt14 import OperationalTemplate
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectRef, ObjectVersionID
 from pyehr.core.its.rest.additions import UpdateAttestation, UpdateAudit, UpdateContribution, UpdateVersion
@@ -78,7 +79,8 @@ OPENEHR_TYPE_MAP = {
     "CONTACT": Contact,
     "ADDRESS": Address,
     "DV_DATE": DVDate,
-    "TEMPLATE": OperationalTemplate
+    "TEMPLATE": OperationalTemplate,
+    "ARCHETYPE": Archetype
 }
 """Map of OpenEHR string type names (e.g. as found in '_type' JSON) to pyehr Python types"""
 

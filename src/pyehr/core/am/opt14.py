@@ -107,6 +107,9 @@ class OperationalTemplate(AnyClass, IXMLSupport):
 
         if self.description is not None:
             root.append(self.description.as_xml("description"))
+
+        if self.uid is not None:
+            root.append(self.uid.as_xml("uid"))
         
         root.append(self.template_id.as_xml("template_id"))
         
@@ -120,14 +123,18 @@ class OperationalTemplate(AnyClass, IXMLSupport):
     def from_xml(root: ET.Element, **kwargs) -> 'OperationalTemplate':
         lang = CodePhrase.from_xml(root.find("./language"))
         is_cont = (root.findtext("./is_controlled") == "true")
-        desc = ResourceDescription.from_xml(root.find("./description"))
+        desc = root.find("./description")
+        if desc is not None:
+            desc = ResourceDescription.from_xml(desc)
         # rev_his
-        # uid
+        uid = root.find("./uid")
+        if uid is not None:
+            uid = HierObjectID.from_xml(uid)
         tid = TemplateID.from_xml(root.find("./template_id"))
         concept = root.findtext("./concept")
         definition = CArchetypeRoot.from_xml(root.find("./definition"))
         
-        return OperationalTemplate(lang, tid, concept, is_controlled=is_cont, description=desc, definition=definition)
+        return OperationalTemplate(lang, tid, concept, is_controlled=is_cont, description=desc, uid=uid, definition=definition)
     
     def as_json(self):
         draft = {

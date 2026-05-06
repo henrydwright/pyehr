@@ -200,8 +200,10 @@ class Interval[T : ordered](AnyClass, IXMLSupport):
     
     def from_xml(root: ET.Element, typ, **kwargs) -> 'Interval':
         # typ is the class for the contents of lower/upper
-        low_inc = root.findtext("./lower_included").capitalize() == "True"
-        up_inc = root.findtext("./upper_included").capitalize() == "True"
+        low_inc_el = root.findtext("./lower_included")
+        low_inc = (low_inc_el.capitalize() == "True") if low_inc_el is not None else None
+        up_inc_el = root.findtext("./upper_included")
+        up_inc = (up_inc_el.capitalize() == "True") if up_inc_el is not None else None
         low_txt = root.findtext("./lower")
         low = None
         if low_txt is not None:
