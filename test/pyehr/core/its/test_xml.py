@@ -1,11 +1,12 @@
 from uuid import UUID
 
 import numpy as np
+import pytest
 from xmlschema import XMLSchema
 
 import xml.etree.ElementTree as ET
 
-from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CMultipleAttribute, CSingleAttribute
+from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CMultipleAttribute, CQuantityItem, CSingleAttribute
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingItem
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectVersionID, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
@@ -14,7 +15,13 @@ from pyehr.core.base.foundation_types.terminology import TerminologyCode
 from pyehr.core.base.foundation_types.time import ISODate, ISODateTime, ISODuration, ISOTime
 from pyehr.core.base.resource import AuthoredResource, ResourceDescription, ResourceDescriptionItem
 from pyehr.core.its.xml import IXMLSupport
-from pyehr.core.rm.data_types.text import CodePhrase
+from pyehr.core.rm.data_types.quantity import DVCount, DVInterval, DVOrdinal, DVProportion, DVQuantity, DVScale, ProportionKind
+from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVDateTime, DVDuration, DVTime
+from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, TermMapping
+from pyehr.core.rm.data_types.uri import DVUri
+from term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
+
+test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES], [TERMINOLOGY_OPENEHR])
 
 def get_single_element_schema(schema_path: str, data_type: str):
     # this generates a single element schema to allow us to test a single element at a time
@@ -38,7 +45,7 @@ def check_from_xml(obj: IXMLSupport, cls):
     print(obj.as_json())
     print("\n")
     obj_there = obj.as_xml(root_tag="example")
-    obj_there_and_back : AnyClass = cls.from_xml(obj_there)
+    obj_there_and_back : AnyClass = cls.from_xml(obj_there, term_svc=test_ts)
     print(obj_there_and_back.as_json())
     assert obj_there_and_back.is_equal(obj) == True
 
@@ -114,23 +121,43 @@ def test_its_xml_basetypes_hier_object_id():
 
 # DV_STATE
 
-# DV_INTERVAL
+def test_its_xml_basetypes_dv_interval():
+    low = DVQuantity(97.5, "cm")
+    high = DVQuantity(122.0, "cm")
+    t_dvi = DVInterval(ProperInterval[DVQuantity](lower=low, upper=high, lower_included=True, upper_included=True))
+    # XML schema validator has issues with the inheritance when validating this, so conciously skipped
+    # validate(t_dvi, "BaseTypes.xsd", "DV_INTERVAL")
+    check_from_xml(t_dvi, DVInterval)
 
 # REFERENCE_RANGE
 
 # DV_QUANTIFIED
 
-# DV_COUNT
+def test_its_xml_datatypes_dv_count():
+    cnt = DVCount(5)
 
-# DV_QUANTITY
+    validate(cnt, "BaseTypes.xsd", "DV_COUNT")
+    check_from_xml(cnt, DVCount)
 
-# DV_ORDINAL
+def test_its_xml_datatypes_dv_quantity():
+    qty = DVQuantity(97.5, "cm", precision=np.int32(1))
 
-# DV_SCALE
+    validate(qty, "BaseTypes.xsd", "DV_QUANTITY")
+    check_from_xml(qty, DVQuantity)
+
+def test_its_xml_datatypes_dv_ordinal():
+    ordinal = DVOrdinal(2, DVCodedText("Moderate", CodePhrase(TerminologyID("local"), "at0001")))
+    
+    validate(ordinal, "BaseTypes.xsd", "DV_ORDINAL")
+    check_from_xml(ordinal, DVOrdinal)
 
 # PROPORTION_KIND
 
-# DV_PROPORTION
+def test_its_xml_datatypes_dv_proportion():
+    prop = DVProportion(1.0, 128.0, ProportionKind.PK_RATIO)
+
+    validate(prop, "BaseTypes.xsd", "DV_PROPORTION")
+    check_from_xml(prop, DVProportion)
 
 # DV_PARAGRAPH
 
@@ -144,15 +171,35 @@ def test_its_xml_basetypes_code_phrase():
     validate(cd_phrse, "BaseTypes.xsd", "CODE_PHRASE")
     check_from_xml(cd_phrse, CodePhrase)
 
-# TERM_MAPPING
+def test_its_xml_basetypes_term_mapping():
+    tm = TermMapping('=', CodePhrase("SNOMED_CT", "260205009"))
 
-# DV_DATE_TIME
+    validate(tm, "BaseTypes.xsd", "TERM_MAPPING")
+    check_from_xml(tm, TermMapping)
 
-# DV_TIME
+def test_its_xml_datatypes_dv_date_time():
+    dt = DVDateTime("20251231T143000")
 
-# DV_DATE
+    validate(dt, "BaseTypes.xsd", "DV_DATE_TIME")
+    check_from_xml(dt, DVDateTime)
 
-# DV_DURATION
+def test_its_xml_datatypes_dv_time():
+    time = DVTime("14:30:00")
+
+    validate(time, "BaseTypes.xsd", "DV_TIME")
+    check_from_xml(time, DVTime)
+
+def test_its_xml_datatypes_dv_date():    
+    date = DVDate("2025-12-31")
+
+    validate(date, "BaseTypes.xsd", "DV_DATE")
+    check_from_xml(date, DVDate)
+
+def test_its_xml_datatypes_dv_duration():    
+    dur = DVDuration("P1DT2H30M")
+
+    validate(dur, "BaseTypes.xsd", "DV_DURATION")
+    check_from_xml(dur, DVDuration)
 
 # DV_PERIODIC_TIME_SPECIFICATION
 
@@ -162,7 +209,11 @@ def test_its_xml_basetypes_code_phrase():
 
 # DV_PARSABLE
 
-# DV_URI
+def test_its_xml_datatypes_dv_uri():
+    ur = DVUri("https://www.bbc.co.uk/news")
+
+    validate(ur, "BaseTypes.xsd", "DV_URI")
+    check_from_xml(ur, DVUri)
 
 # DV_EHR_URI
 
@@ -229,7 +280,7 @@ def test_its_xml_archetype_term():
     validate(at, "Archetype.xsd", "ARCHETYPE_TERM")
     check_from_xml(at, ArchetypeTerm)
 
-def test_its_xml_term_binding_item():
+def test_its_xml_archetype_term_binding_item():
     tbi = TermBindingItem("at0001", CodePhrase("SNOMED-CT", "95883001"))
     validate(tbi, "Archetype.xsd", "TERM_BINDING_ITEM")
     check_from_xml(tbi, TermBindingItem)
@@ -249,3 +300,29 @@ def test_its_xml_resource_resource_description():
 
     validate(t_rd, "Resource.xsd", "RESOURCE_DESCRIPTION")
     check_from_xml(t_rd, ResourceDescription)
+
+# =========
+# OpenehrProfile
+
+# C_CODE_PHRASE
+
+# C_DV_ORDINAL
+
+# C_DV_QUANTITY
+
+def test_its_xml_openehrprofile_c_quantity_item():
+    t_cqi = CQuantityItem("mm[Hg]", ProperInterval(np.float32(0.0), np.float32(1000.0), True, False), PointInterval(np.int32(0)))
+
+    # validator once again struggles with inheritance of types
+    # validate(t_cqi, "OpenehrProfile.xsd", "C_QUANTITY_ITEM")
+    check_from_xml(t_cqi, CQuantityItem)
+
+# C_DV_STATE
+
+# STATE_MACHINE
+
+# NON_TERMINAL_STATE
+
+# TERMINAL_STATE
+
+# TRANSITION

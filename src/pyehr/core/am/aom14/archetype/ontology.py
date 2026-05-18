@@ -602,6 +602,7 @@ class TermBindingSet(AnyClass, IXMLSupport):
         if self.items is not None:
             draft["items"] = [item.as_json() for item in self.items]
         draft["_type"] = "TermBindingSet"
+        return draft
     
     def as_xml(self, root_tag = None):
         tag = "termbindingset" if root_tag is None else root_tag

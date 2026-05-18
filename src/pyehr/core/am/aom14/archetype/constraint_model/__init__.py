@@ -153,8 +153,7 @@ class CObject(ArchetypeConstraint):
         elif typ == "C_PRIMITIVE_OBJECT":
             return CPrimitiveObject.from_xml(root, **kwargs)
         elif typ == "C_DV_QUANTITY":
-            warnings.warn("C_DV_QUANTITY is unsupported, parsing as a placeholder class")
-            return CDomainPlaceholder.from_xml(root, **kwargs)
+            return CDVQuantity.from_xml(root, **kwargs)
         elif typ == "ARCHETYPE_INTERNAL_REF":
             return ArchetypeInternalRef.from_xml(root, **kwargs)
         else:
@@ -961,7 +960,9 @@ class CDomainPlaceholder(CDomainType):
 
     def as_json(self):
         warnings.warn("C_DOMAIN_PLACEHOLDER as_xml() used, produced json will be missing elements")
-        return super().as_json()
+        draft = super().as_json()
+        draft["_type"] = "C_DOMAIN_PLACEHOLDER"
+        return draft
     
     def as_xml(self, root_tag=None):
         warnings.warn("C_DOMAIN_PLACEHOLDER as_xml() used, produced xml will be missing elements")
@@ -990,41 +991,141 @@ class CDomainPlaceholder(CDomainType):
     def valid_value(self, a_value):
         raise NotImplementedError()
 
-# class CQuantityItem(AnyClass, IXMLSupport):
-#     """C_QUANTITY_ITEM as defined in Archetype.xsd"""
-#     pass
-
-# class CDVQuantity(CDomainType):
-#     """C_DV_QUANTITY as defined in Archetype.xsd"""
+class CQuantityItem(AnyClass, IXMLSupport):
+    """C_QUANTITY_ITEM as defined in OpenehrProfile.xsd"""
     
-#     property_var : Optional[CodePhrase]
+    magnitude : Optional[Interval[np.float32]]
 
-#     list_var : Optional[list[CQuantityItem]]
+    precision: Optional[Interval[np.int32]]
 
-#     def __init__(self,
-#             rm_type_name: str,
-#             occurrences: Interval[np.int32],
-#             node_id: str,
-#             assumed_value: Optional[DVQuantity] = None,
-#             property_var: Optional[CodePhrase] = None,
-#             list_var: Optional[CodePhrase] = None,
-#             parent: Optional['ArchetypeConstraint'] = None,
-#             parent_container_attribute_name: Optional[str] = None,
-#             list_index: Optional[int] = None,
-#             **kwargs):
-#         self.property_var = property_var
-#         self.list_var = list_var
-#         super().__init__(rm_type_name, occurrences, node_id, assumed_value, parent, parent_container_attribute_name, list_index, **kwargs)
+    units: str
 
-#     def as_xml(self, root_tag=None):
-#         tag = "cdvquantity" if root_tag is None else root_tag
-#         sup = super().as_xml(tag)
-#         if self.property_var is not None:
-#             sup.append(self.property_var.as_xml("property"))
-#         if self.list_var is not None:
-#             for quant_item in self.list_var:
-#                 sup.append(quant_item.as_xml("list"))
-#         return sup
+    def __init__(self, units: str, magnitude: Optional[Interval[np.float32]] = None, precision: Optional[Interval[np.int32]] = None, **kwargs):
+        self.units = units
+        self.magnitude = magnitude
+        self.precision = precision
 
-#     def from_xml(root: ET.Element, **kwargs):
-#         rm_typ, occ, nod = CObject.extract_xml_elements(root)
+    def is_equal(self, other: 'CQuantityItem'):
+        return (type(self) == type(other) and
+                is_equal_value(self.magnitude, other.magnitude) and
+                is_equal_value(self.precision, other.precision))
+    
+    def as_json(self):
+        draft = {
+            "units": self.units
+        }
+        if self.magnitude is not None:
+            draft["magnitude"] = self.magnitude.as_json()
+        if self.precision is not None:
+            draft["precision"] = self.precision.as_json()
+        draft["_type"] = "C_QUANTITY_ITEM"
+        return draft
+    
+    def as_xml(self, root_tag = None):
+        tag = "c_quantity_item" if root_tag is None else root_tag
+        root = ET.Element(tag)
+
+        unit_el = ET.Element("units")
+        unit_el.text = self.units
+        root.append(unit_el)
+
+        if self.magnitude is not None:
+            root.append(self.magnitude.as_xml("magnitude"))
+        
+        if self.precision is not None:
+            root.append(self.precision.as_xml("precision"))
+
+        return root
+    
+    @staticmethod
+    def from_xml(root, **kwargs):
+        units = root.findtext("./units")
+
+        mag_el = root.find("./magnitude")
+        mag = Interval.from_xml(mag_el, np.float32) if mag_el is not None else None
+
+        prec_el = root.find("./precision")
+        prec = Interval.from_xml(prec_el, np.int32) if prec_el is not None else None
+
+        return CQuantityItem(units, mag, prec)
+
+class CDVQuantity(CDomainType):
+    """C_DV_QUANTITY as defined in OpenehrProfile.xsd"""
+    
+    property_var : Optional[CodePhrase]
+
+    list_var : Optional[list[CQuantityItem]]
+
+    assumed_value: Optional[DVQuantity]
+
+    def __init__(self,
+            rm_type_name: str,
+            occurrences: Interval[np.int32],
+            node_id: str,
+            assumed_value: Optional[DVQuantity] = None,
+            property_var: Optional[CodePhrase] = None,
+            list_var: Optional[list[CQuantityItem]] = None,
+            parent: Optional['ArchetypeConstraint'] = None,
+            parent_container_attribute_name: Optional[str] = None,
+            list_index: Optional[int] = None,
+            **kwargs):
+        self.property_var = property_var
+        self.list_var = list_var
+        super().__init__(rm_type_name, occurrences, node_id, assumed_value, parent, parent_container_attribute_name, list_index, **kwargs)
+
+    def as_xml(self, root_tag=None):
+        tag = "cdvquantity" if root_tag is None else root_tag
+        sup = super().as_xml(tag)
+        if self.property_var is not None:
+            sup.append(self.property_var.as_xml("property"))
+        if self.list_var is not None:
+            for quant_item in self.list_var:
+                sup.append(quant_item.as_xml("list"))
+        return sup
+
+    def from_xml(root: ET.Element, **kwargs):
+        rm_typ, occ, nod = CObject.extract_xml_elements(root)
+        
+        assval_el = root.find("./assumed_value")
+        assumed_value = DVQuantity.from_xml(assval_el) if assval_el is not None else None
+
+        prop_el = root.find("./property")
+        property_val = CodePhrase.from_xml(prop_el) if prop_el is not None else None
+
+        list_els = root.findall("./list")
+        list_val = None
+        if len(list_els) > 0:
+            list_val = []
+            for list_el in list_els:
+                list_val.append(CQuantityItem.from_xml(list_el))
+        
+        return CDVQuantity(rm_typ, occ, nod, assumed_value, property_val, list_val)
+    
+    def as_json(self):
+        draft = super().as_json()
+        if self.property_var is not None:
+            draft["property"] = self.property_var.as_json()
+        if self.list_var is not None:
+            draft["list"] = [lst.as_json() for lst in self.list_var]
+        draft["_type"] = "C_DV_QUANTITY"
+        return draft
+    
+    def is_equal(self, other):
+        return (super().is_equal(other) and
+                is_equal_value(self.property_var, other.property_var) and
+                is_equal_value(self.list_var, other.list_var))
+    
+    def any_allowed(self):
+        raise NotImplementedError()
+    
+    def default_value(self):
+        raise NotImplementedError()
+    
+    def prototype_value(self):
+        raise NotImplementedError()
+    
+    def standard_equivalent(self):
+        raise NotImplementedError()
+    
+    def valid_value(self, a_value):
+        raise NotImplementedError()

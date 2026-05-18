@@ -6,6 +6,8 @@ from enum import IntEnum, StrEnum
 from math import floor
 from typing import Optional, Union
 
+import warnings
+import xml.etree.ElementTree as ET
 import numpy as np
 
 from pyehr.core.base.foundation_types.primitive_types import ordered, integer_type, ordered_numeric
@@ -13,12 +15,13 @@ from pyehr.core.base.foundation_types.time import ISOType, ISODate, ISODuration
 from pyehr.core.base.foundation_types.interval import Interval, ProperInterval, PointInterval
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.structure import is_equal_value
+from pyehr.core.its.xml import IXMLSupport
 from pyehr.core.rm.data_types import DataValue
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
 from pyehr.core.rm.support.terminology import TerminologyService, util_verify_code_in_openehr_codeset_or_error, OpenEHRCodeSetIdentifiers
 
 # wrapper around an 'ordered' datatype
-class DVOrdered(DataValue):
+class DVOrdered(DataValue, IXMLSupport):
     """Abstract class defining the concept of ordered values, which includes ordinals 
     as well as true quantities. It defines the functions < and is_strictly_comparable_to(), 
     the latter of which must evaluate to True for instances being compared with the < function, 
@@ -169,9 +172,39 @@ class DVOrdered(DataValue):
             for other_reference_range in self.other_reference_ranges:
                 orr_list += other_reference_range.as_json()
         return draft
+    
+    @abstractmethod
+    def as_xml(self, root_tag = None):
+        root_tag = "dv_ordered" if root_tag is None else root_tag
+        root = ET.Element(root_tag)
+        if self.normal_status is not None:
+            root.append(self.normal_status.as_xml("normal_status"))
+        if self.normal_range is not None:
+            root.append(self.normal_range.as_xml("normal_range"))
+        if self.other_reference_ranges is not None:
+            for ref_range in self.other_reference_ranges:
+                root.append(ref_range.as_xml("other_reference_ranges"))
+        return root
+    
+    @staticmethod
+    def extract_xml_elements(root: ET.Element, **kwargs) -> tuple[Optional[CodePhrase], Optional['DVInterval'], Optional[list['ReferenceRange']]]:
+        """Extracts tuple of (normal_status, normal_range, other_reference_ranges) from XML"""
+        normal_status_el = root.find("./normal_status")
+        normal_status = CodePhrase.from_xml(normal_status_el) if normal_status_el is not None else None
+        
+        normal_range_el = root.find("./normal_range")
+        normal_range = DVInterval.from_xml(normal_range_el) if normal_range_el is not None else None
+        
+        other_ref_ranges_els = root.findall("./other_reference_ranges")
+        other_reference_ranges = None
+        if len(other_ref_ranges_els) > 0:
+            other_reference_ranges = []
+            for ref_range_el in other_ref_ranges_els:
+                other_reference_ranges.append(ReferenceRange.from_xml(ref_range_el))
 
+        return (normal_status, normal_range, other_reference_ranges)
 
-class DVInterval[T](DataValue):
+class DVInterval[T](DataValue, IXMLSupport):
     """Generic class defining an interval (i.e. range) of a comparable type. An interval is a 
     contiguous subrange of a comparable base type. Used to define intervals of dates, times, 
     quantities (whose units match) and so on. The type parameter, T, must be a descendant of the 
@@ -246,6 +279,29 @@ class DVInterval[T](DataValue):
             draft["upper"] = self.value.upper.as_json()
         return draft
     
+    def as_xml(self, root_tag = None):
+        root_tag = "DV_INTERVAL" if root_tag is None else root_tag
+        return self.value.as_xml(root_tag)
+    
+    def from_xml(root: ET.Element, **kwargs):
+        lower_el = root.find("./lower")
+        upper_el = root.find("./upper")
+        type_str = None
+        if lower_el is not None:
+            type_str = lower_el.attrib["xsi:type"]
+        elif upper_el is not None:
+            type_str = upper_el.attrib["xsi:type"]
+        
+        lookup_dict = {
+            "DV_COUNT": DVCount,
+            "DV_QUANTITY": DVQuantity,
+            "DV_ORDINAL": DVOrdinal,
+            "DV_PROPORTION": DVProportion
+        }
+        if type_str not in lookup_dict:
+            raise NotImplementedError(f"Cannot create DV_INTERVAL with type {type_str} as it is not (yet) supported")
+        interv = Interval.from_xml(root, (lookup_dict[type_str] if type_str is not None else None))
+        return DVInterval(interv)
 
 class ReferenceRange(AnyClass):
     """Defines a named range to be associated with any DV_ORDERED datum. Each such range is particular 
@@ -283,6 +339,28 @@ class ReferenceRange(AnyClass):
             "range": self.range.as_json(),
             "meaning": self.meaning.as_json()
         }
+    
+    def as_xml(self, root_tag=None):
+        # https://specifications.openehr.org/releases/ITS-XML/Release-2.0.0/components/RM/latest/DataTypes.xsd
+        tag = "reference_range" if root_tag is None else root_tag
+        root = ET.Element(tag)
+        
+        root.append(self.meaning.as_xml("meaning"))
+        root.append(self.range.as_xml("range"))
+        
+        return root
+    
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs) -> 'ReferenceRange':
+        from pyehr.core.rm.data_types.text import DVText
+        
+        meaning_el = root.find("./meaning")
+        meaning = DVText.from_xml(meaning_el)
+        
+        range_el = root.find("./range")
+        range_obj = DVInterval.from_xml(range_el)
+        
+        return ReferenceRange(meaning, range_obj)
 
 class DVOrdinal(DVOrdered):
     """A data type that represents integral score values, e.g. pain, Apgar values, etc, where there is:
@@ -329,6 +407,34 @@ class DVOrdinal(DVOrdered):
         draft["symbol"] = self.symbol.as_json()
         return draft
     
+    def as_xml(self, root_tag=None):
+        # https://specifications.openehr.org/releases/ITS-XML/Release-2.0.0/components/RM/latest/DataTypes.xsd
+        tag = "dv_ordinal" if root_tag is None else root_tag
+        root = super().as_xml(root_tag)
+        
+        value_el = ET.Element("value")
+        value_el.text = str(int(self.value))
+        root.append(value_el)
+        
+        root.append(self.symbol.as_xml("symbol"))
+
+        root.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        root.attrib["xsi:type"] = "DV_ORDINAL"
+                
+        return root
+    
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs) -> 'DVOrdinal':
+        value = int(root.findtext("./value"))
+        symbol_el = root.find("./symbol")
+        symbol = DVCodedText.from_xml(symbol_el)
+
+        normal_status, normal_range, other_reference_ranges = DVOrdered.extract_xml_elements(root, **kwargs)
+
+        term_svc = kwargs.get("term_svc")
+        
+        return DVOrdinal(value, symbol, normal_status, normal_range, other_reference_ranges, term_svc)
+    
 class DVScale(DVOrdered):
     """A data type that represents scale values, where there is:
 
@@ -372,6 +478,35 @@ class DVScale(DVOrdered):
         draft["value"] = self.value
         draft["symbol"] = self.symbol.as_json()
         return draft
+    
+    def as_xml(self, root_tag=None):
+        warnings.warn("DV_SCALE is not supported in the 1.0.2 XML schema so output XML will not be valid")
+
+        tag = "dv_scale" if root_tag is None else root_tag
+        root = super().as_xml(tag)
+        
+        value_el = ET.Element("value")
+        value_el.text = str(self.value)
+        root.append(value_el)
+        
+        root.append(self.symbol.as_xml("symbol"))
+
+        root.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        root.attrib["xsi:type"] = "DV_SCALE"
+        
+        return root
+    
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs) -> 'DVScale':
+        value = float(root.findtext("./value"))
+        symbol_el = root.find("./symbol")
+        symbol = DVCodedText.from_xml(symbol_el)
+
+        normal_status, normal_range, other_reference_ranges = DVOrdered.extract_xml_elements(root, **kwargs)
+
+        term_svc = kwargs.get("term_svc")
+        
+        return DVScale(value, symbol, normal_status, normal_range, other_reference_ranges, term_svc)
     
 
 class DVQuantified(DVOrdered):
@@ -450,8 +585,27 @@ class DVQuantified(DVOrdered):
             else:
                 draft["accuracy"] = self.accuracy
         return draft
+    
+    @abstractmethod
+    def as_xml(self, root_tag=None):
+        root_tag = "dv_quantified" if root_tag is None else root_tag
+        root = super().as_xml(root_tag)
 
+        if self.magnitude_status is not None:
+            mag_stat_el = ET.Element("magnitude_status")
+            mag_stat_el.text = self.magnitude_status
 
+        return root
+    
+    @staticmethod
+    def extract_xml_elements(root: ET.Element, **kwargs) -> tuple[Optional[str], Optional[CodePhrase], Optional['DVInterval'], Optional[list['ReferenceRange']]]:
+        """Extracts tuple of (magnitude_status, normal_status, normal_range, other_reference_ranges) from XML"""
+        normal_status, normal_range, other_reference_ranges = DVOrdered.extract_xml_elements(root, **kwargs)
+
+        magnitude_status = root.findtext("./magnitude_status")
+
+        return (magnitude_status, normal_status, normal_range, other_reference_ranges)
+        
 
 class DVAmount(DVQuantified):
     """Abstract class defining the concept of relative quantified 'amounts'. For relative quantities, 
@@ -568,6 +722,40 @@ class DVAmount(DVQuantified):
             draft["accuracy_is_percent"] = self.accuracy_is_percent
         return draft
     
+    def as_xml(self, root_tag = None):
+        root_tag = "dv_amount" if root_tag is None else root_tag
+
+        root = super().as_xml(root_tag)
+        if self.accuracy is not None:
+            accuracy_el = ET.Element("accuracy")
+            accuracy_el.text = str(self.accuracy)
+            root.append(accuracy_el)
+        
+        if self.accuracy_is_percent is not None:
+            accuracy_is_percent_el = ET.Element("accuracy_is_percent")
+            accuracy_is_percent_el.text = str(self.accuracy_is_percent).lower()
+            root.append(accuracy_is_percent_el)
+
+        return root
+    
+    @staticmethod
+    def from_xml(root, **kwargs):
+        raise NotImplementedError("DVAmount is an abstract class so should not be instantiated")
+    
+    @staticmethod
+    def extract_xml_elements(root: ET.Element, **kwargs) -> tuple[Optional[np.float32], Optional[bool], Optional[str], Optional[CodePhrase], Optional['DVInterval'], Optional[list['ReferenceRange']]]:
+        """Extracts tuple of (accuracy, accuracy_is_percent, magnitude_status, normal_status, normal_range, other_reference_ranges) from XML"""
+        magnitude_status, normal_status, normal_range, other_reference_ranges = DVQuantified.extract_xml_elements(root, **kwargs)
+
+        accuracy_el = root.findtext("./accuracy")
+        accuracy = float(accuracy_el) if accuracy_el is not None else None
+
+        accuracy_is_percent_el = root.findtext("./accuracy_is_percent")
+        accuracy_is_percent = None
+        if accuracy_is_percent_el is not None:
+            accuracy_is_percent = accuracy_is_percent_el.lower() == "true"
+
+        return (accuracy, accuracy_is_percent, magnitude_status, normal_status, normal_range, other_reference_ranges)
 
 class DVQuantity(DVAmount):
     """Quantitified type representing scientific quantities, i.e. quantities expressed as a magnitude and units. 
@@ -719,6 +907,48 @@ class DVQuantity(DVAmount):
         if self.units_display_name is not None:
             draft["units_display_name"] = self.units_display_name
         return draft
+    
+    def as_xml(self, root_tag=None):
+        # https://specifications.openehr.org/releases/ITS-XML/Release-2.0.0/components/RM/latest/DataTypes.xsd
+        tag = "dv_quantity" if root_tag is None else root_tag
+        root = super().as_xml(tag)
+        
+        magnitude_el = ET.Element("magnitude")
+        magnitude_el.text = str(self._value)
+        root.append(magnitude_el)
+        
+        units_el = ET.Element("units")
+        units_el.text = self.units
+        root.append(units_el)
+        
+        if self.precision is not None:
+            precision_el = ET.Element("precision")
+            precision_el.text = str(int(self.precision))
+            root.append(precision_el)
+        
+        # rm 1.1.0 has many other elements, none of which are supported
+        #  in the 1.0.2 XML output so it is supressed here
+
+        root.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        root.attrib["xsi:type"] = "DV_QUANTITY"
+
+        return root
+    
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs) -> 'DVQuantity':
+        magnitude = float(root.findtext("./magnitude"))
+        units = root.findtext("./units")
+        
+        precision_el = root.findtext("./precision")
+        precision = int(precision_el) if precision_el is not None else None
+        
+        accuracy, accuracy_is_percent, magnitude_status, normal_status, normal_range, other_reference_ranges = DVAmount.extract_xml_elements(root, **kwargs)
+
+        ts = kwargs.get("term_svc")
+
+        return DVQuantity(magnitude, units, None, None, normal_status, 
+                         normal_range, other_reference_ranges, magnitude_status, accuracy, 
+                         accuracy_is_percent, precision, ts)
 
     
 class DVCount(DVAmount):
@@ -753,6 +983,31 @@ class DVCount(DVAmount):
         draft["_type"] = "DV_COUNT"
         draft["magnitude"] = int(self._value)
         return draft
+    
+    def as_xml(self, root_tag=None):
+        # https://specifications.openehr.org/releases/ITS-XML/Release-2.0.0/components/RM/latest/DataTypes.xsd
+        tag = "dv_count" if root_tag is None else root_tag
+        root = super().as_xml(tag)
+        
+        magnitude_el = ET.Element("magnitude")
+        magnitude_el.text = str(int(self._value))
+        root.append(magnitude_el)
+
+        root.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        root.attrib["xsi:type"] = "DV_COUNT"
+        
+        return root
+    
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs) -> 'DVCount':
+        magnitude = int(root.findtext("./magnitude"))
+
+        accuracy, accuracy_is_percent, magnitude_status, normal_status, normal_range, other_reference_ranges = DVAmount.extract_xml_elements(root, **kwargs)
+
+        ts = kwargs.get("term_svc")
+        
+        return DVCount(magnitude, normal_status, normal_range, other_reference_ranges, 
+                      magnitude_status, accuracy, accuracy_is_percent, ts)
 
 class ProportionKind(IntEnum):
     """Class of enumeration constants defining types of proportion for the DV_PROPORTION class."""
@@ -951,6 +1206,50 @@ class DVProportion(DVAmount):
         if self.precision is not None:
             draft["precision"] = int(self.precision)
         return draft
+    
+    def as_xml(self, root_tag=None):
+        # https://specifications.openehr.org/releases/ITS-XML/Release-2.0.0/components/RM/latest/DataTypes.xsd
+        tag = "dv_proportion" if root_tag is None else root_tag
+        root = super().as_xml(tag)
+        
+        numerator_el = ET.Element("numerator")
+        numerator_el.text = str(self.numerator)
+        root.append(numerator_el)
+        
+        denominator_el = ET.Element("denominator")
+        denominator_el.text = str(self.denominator)
+        root.append(denominator_el)
+        
+        type_el = ET.Element("type")
+        type_el.text = str(int(self.proportion_type))
+        root.append(type_el)
+        
+        if self.precision is not None:
+            precision_el = ET.Element("precision")
+            precision_el.text = str(int(self.precision))
+            root.append(precision_el)
+
+        root.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        root.attrib["xsi:type"] = "DV_PROPORTION"
+        
+        return root
+    
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs) -> 'DVProportion':
+        numerator = float(root.findtext("./numerator"))
+        denominator = float(root.findtext("./denominator"))
+        proportion_type = int(root.findtext("./type"))
+        
+        precision_el = root.findtext("./precision")
+        precision = int(precision_el) if precision_el is not None else None
+        
+        accuracy, accuracy_is_percent, magnitude_status, normal_status, normal_range, other_reference_ranges = DVAmount.extract_xml_elements(root, **kwargs)
+
+        ts = kwargs.get("term_svc")
+        
+        return DVProportion(numerator, denominator, proportion_type, precision, normal_status, 
+                           normal_range, other_reference_ranges, magnitude_status, accuracy, 
+                           accuracy_is_percent, ts)
             
 class DVAbsoluteQuantity(DVQuantified):
     """Abstract class defining the concept of quantified entities whose values are absolute with respect to an origin. 

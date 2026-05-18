@@ -184,6 +184,8 @@ class Interval[T : ordered](AnyClass, IXMLSupport):
             low = ET.Element("lower")
             if isinstance(self._lower, ISOType):
                 low.text = str(self._lower.value)
+            elif isinstance(self._lower, IXMLSupport):
+                low = self._lower.as_xml("lower")
             else:
                 low.text = str(self._lower)
             root.append(low)
@@ -192,6 +194,8 @@ class Interval[T : ordered](AnyClass, IXMLSupport):
             up = ET.Element("upper")
             if isinstance(self._upper, ISOType):
                 up.text = str(self._upper.value)
+            elif isinstance(self._upper, IXMLSupport):
+                up = self._upper.as_xml("upper")
             else:
                 up.text = str(self._upper)
             root.append(up)
@@ -204,16 +208,25 @@ class Interval[T : ordered](AnyClass, IXMLSupport):
         low_inc = (low_inc_el.capitalize() == "True") if low_inc_el is not None else None
         up_inc_el = root.findtext("./upper_included")
         up_inc = (up_inc_el.capitalize() == "True") if up_inc_el is not None else None
-        low_txt = root.findtext("./lower")
+        
         low = None
-        if low_txt is not None:
-            low = typ(low_txt)
-        up_txt = root.findtext("./upper")
         up = None
-        if up_txt is not None:
-            up = typ(up_txt)
+        if issubclass(typ, IXMLSupport):
+            low_el = root.find("./lower")
+            if low_el is not None:
+                low = typ.from_xml(low_el)
+            up_el = root.find("./upper")
+            if up_el is not None:
+                up = typ.from_xml(up_el)
+        else:
+            low_txt = root.findtext("./lower")
+            if low_txt is not None:
+                low = typ(low_txt)
+            up_txt = root.findtext("./upper")
+            if up_txt is not None:
+                up = typ(up_txt)
 
-        if low_inc == up_inc and low_txt == up_txt:
+        if low_inc == up_inc and is_equal_value(low, up):
             pi = PointInterval(low)
             pi.lower_included = low_inc
             return pi

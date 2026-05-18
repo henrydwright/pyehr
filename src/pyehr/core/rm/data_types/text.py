@@ -77,7 +77,7 @@ class CodePhrase(AnyClass, IXMLSupport):
         pt = root.findtext("./preferred_term")
         return CodePhrase(tid, cs, pt)
     
-class TermMapping(AnyClass):
+class TermMapping(AnyClass, IXMLSupport):
     """Represents a coded term mapped to a DV_TEXT, and the relative match of the target term with respect to the mapped item. Plain or coded text items may appear in the EHR for which one or mappings in alternative terminologies are required. Mappings are only used to enable computer processing, so they can only be instances of DV_CODED_TEXT.
 
     Used for adding classification terms (e.g. adding ICD classifiers to SNOMED descriptive terms), or mapping into equivalents in other terminologies (e.g. across nursing vocabularies)."""
@@ -158,8 +158,36 @@ class TermMapping(AnyClass):
         if self.purpose is not None:
             draft["purpose"] = self.purpose.as_json()
         return draft
+    
+    def as_xml(self, root_tag = None):
+        tag = "term_mapping" if root_tag is None else root_tag
+        root = ElementTree.Element(tag)
 
-class DVText(DataValue):
+        match_el = ElementTree.Element("match")
+        match_el.text = str(self.match)
+        root.append(match_el)
+
+        root.append(self.target.as_xml("target"))
+
+        if self.purpose is not None:
+            root.append(self.purpose.as_xml("purpose"))
+
+        return root
+    
+    @staticmethod
+    def from_xml(root, **kwargs):
+        mat = root.findtext("./match")
+        tar = CodePhrase.from_xml(root.find("./target"))
+
+        pur_el = root.find("./purpose")
+        pur = None
+        if pur_el is not None:
+            pur = DVCodedText.from_xml(pur_el)
+
+        return TermMapping(mat, tar, pur)
+
+
+class DVText(DataValue, IXMLSupport):
     """A text item, which may contain any amount of legal characters arranged as e.g. words, sentences etc (i.e. one DV_TEXT may be more than one word). Visual formatting and hyperlinks may be included via markdown.
 
     If the formatting field is set, the value field is affected as follows:
@@ -266,6 +294,61 @@ class DVText(DataValue):
                 mappings.append(mapping.as_json())
             draft["mappings"] = mappings
         return draft
+    
+    def as_xml(self, root_tag = None):
+        root_tag = "dv_text" if root_tag is None else root_tag
+        root = ElementTree.Element(root_tag)
+
+        val_el = ElementTree.Element("value")
+        val_el.text = self.value
+        root.append(val_el)
+
+        if self.hyperlink is not None:
+            root.append(self.hyperlink.as_xml("hyperlink"))
+        
+        if self.formatting is not None:
+            form_el = ElementTree.Element("formatting")
+            form_el.text = self.formatting
+            root.append(form_el)
+
+        if self.mappings is not None:
+            for mapping in self.mappings:
+                root.append(mapping.as_xml("mappings"))
+
+        if self.language is not None:
+            root.append(self.language.as_xml("language"))
+
+        if self.encoding is not None:
+            root.append(self.encoding.as_xml("encoding"))
+
+        return root
+    
+    @staticmethod
+    def from_xml(root: ElementTree.Element, **kwargs):
+        value = root.findtext("./value")
+
+        hyp_el = root.find("./hyperlink")
+        hyp = DVUri.from_xml(hyp_el) if hyp_el is not None else None
+
+        formatting = root.findtext("./formatting")
+
+        mapping_els = root.findall("./mappings")
+        mappings = None
+        if len(mapping_els) > 0:
+            mappings = []
+            for mapping_el in mapping_els:
+                mappings.append(TermMapping.from_xml(mapping_el))
+
+        lang_el = root.find("./language")
+        lang = CodePhrase.from_xml(lang_el) if lang_el is not None else None
+
+        enc_el = root.find("./encoding")
+        enc = CodePhrase.from_xml(enc_el) if enc_el is not None else None
+
+        ts = kwargs.get("term_svc")
+
+        return DVText(value, hyp, formatting, mappings, lang, enc, ts)
+
 
 class DVCodedText(DVText):
     """A text item whose value must be the rubric from a controlled terminology, the key (i.e. the 'code') of which is the _defining_code_ attribute. In other words: a `DV_CODED_TEXT` is a combination of a `CODE_PHRASE` (effectively a code) and the rubric of that term, from a terminology service, in the language in which the data were authored.
@@ -292,6 +375,24 @@ class DVCodedText(DVText):
         draft["_type"] = "DV_CODED_TEXT"
         draft["defining_code"] = self.defining_code.as_json()
         return draft
+    
+    def as_xml(self, root_tag=None):
+        tag = "dv_coded_text" if root_tag is None else root_tag
+        draft = super().as_xml(tag)
+
+        draft.append(self.defining_code.as_xml("defining_code"))
+
+        return draft
+    
+    @staticmethod
+    def from_xml(root, **kwargs):
+        dvt = DVText.from_xml(root, **kwargs)
+
+        defining_code = CodePhrase.from_xml(root.find("./defining_code"))
+
+        ts = kwargs.get("term_svc")
+
+        return DVCodedText(dvt.value, defining_code, dvt.hyperlink, dvt.formatting, dvt.mappings, dvt.language, dvt.encoding, ts)
 
 class DVParagraph(DataValue):
     """DEPRECATED: use markdown formatted DV_TEXT instead.
