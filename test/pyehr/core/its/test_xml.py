@@ -7,7 +7,9 @@ from xmlschema import XMLSchema
 import xml.etree.ElementTree as ET
 
 from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CMultipleAttribute, CQuantityItem, CSingleAttribute
+from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CInteger, CReal, CString
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingItem
+from pyehr.core.base.base_types.definitions import ValidityKind
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectVersionID, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.interval import Cardinality, Interval, MultiplicityInterval, PointInterval, ProperInterval
@@ -125,27 +127,26 @@ def test_its_xml_basetypes_dv_interval():
     low = DVQuantity(97.5, "cm")
     high = DVQuantity(122.0, "cm")
     t_dvi = DVInterval(ProperInterval[DVQuantity](lower=low, upper=high, lower_included=True, upper_included=True))
-    # XML schema validator has issues with the inheritance when validating this, so conciously skipped
-    # validate(t_dvi, "BaseTypes.xsd", "DV_INTERVAL")
+    validate(t_dvi, "BaseTypes.xsd", "DV_INTERVAL")
     check_from_xml(t_dvi, DVInterval)
 
 # REFERENCE_RANGE
 
 # DV_QUANTIFIED
 
-def test_its_xml_datatypes_dv_count():
+def test_its_xml_basetypes_dv_count():
     cnt = DVCount(5)
 
     validate(cnt, "BaseTypes.xsd", "DV_COUNT")
     check_from_xml(cnt, DVCount)
 
-def test_its_xml_datatypes_dv_quantity():
+def test_its_xml_basetypes_dv_quantity():
     qty = DVQuantity(97.5, "cm", precision=np.int32(1))
 
     validate(qty, "BaseTypes.xsd", "DV_QUANTITY")
     check_from_xml(qty, DVQuantity)
 
-def test_its_xml_datatypes_dv_ordinal():
+def test_its_xml_basetypes_dv_ordinal():
     ordinal = DVOrdinal(2, DVCodedText("Moderate", CodePhrase(TerminologyID("local"), "at0001")))
     
     validate(ordinal, "BaseTypes.xsd", "DV_ORDINAL")
@@ -153,7 +154,7 @@ def test_its_xml_datatypes_dv_ordinal():
 
 # PROPORTION_KIND
 
-def test_its_xml_datatypes_dv_proportion():
+def test_its_xml_basetypes_dv_proportion():
     prop = DVProportion(1.0, 128.0, ProportionKind.PK_RATIO)
 
     validate(prop, "BaseTypes.xsd", "DV_PROPORTION")
@@ -177,25 +178,25 @@ def test_its_xml_basetypes_term_mapping():
     validate(tm, "BaseTypes.xsd", "TERM_MAPPING")
     check_from_xml(tm, TermMapping)
 
-def test_its_xml_datatypes_dv_date_time():
+def test_its_xml_basetypes_dv_date_time():
     dt = DVDateTime("20251231T143000")
 
     validate(dt, "BaseTypes.xsd", "DV_DATE_TIME")
     check_from_xml(dt, DVDateTime)
 
-def test_its_xml_datatypes_dv_time():
+def test_its_xml_basetypes_dv_time():
     time = DVTime("14:30:00")
 
     validate(time, "BaseTypes.xsd", "DV_TIME")
     check_from_xml(time, DVTime)
 
-def test_its_xml_datatypes_dv_date():    
+def test_its_xml_basetypes_dv_date():    
     date = DVDate("2025-12-31")
 
     validate(date, "BaseTypes.xsd", "DV_DATE")
     check_from_xml(date, DVDate)
 
-def test_its_xml_datatypes_dv_duration():    
+def test_its_xml_basetypes_dv_duration():    
     dur = DVDuration("P1DT2H30M")
 
     validate(dur, "BaseTypes.xsd", "DV_DURATION")
@@ -209,7 +210,7 @@ def test_its_xml_datatypes_dv_duration():
 
 # DV_PARSABLE
 
-def test_its_xml_datatypes_dv_uri():
+def test_its_xml_basetypes_dv_uri():
     ur = DVUri("https://www.bbc.co.uk/news")
 
     validate(ur, "BaseTypes.xsd", "DV_URI")
@@ -285,6 +286,41 @@ def test_its_xml_archetype_term_binding_item():
     validate(tbi, "Archetype.xsd", "TERM_BINDING_ITEM")
     check_from_xml(tbi, TermBindingItem)
 
+# C_PRIMITIVE
+
+def test_its_xml_archetype_c_boolean():
+    cbool = CBoolean(True, True, True)
+    validate(cbool, "Archetype.xsd", "C_BOOLEAN")
+    check_from_xml(cbool, CBoolean)
+
+def test_its_xml_archetype_c_string():
+    cstr = CString(False, None, ["alpha", "beta", "live"], "beta")
+    validate(cstr, "Archetype.xsd", "C_STRING")
+    check_from_xml(cstr, CString)
+
+def test_its_xml_archetype_c_integer():
+    cint = CInteger([np.int32(1), np.int32(2), np.int32(3)], None, np.int32(1))
+    validate(cint, "Archetype.xsd", "C_INTEGER")
+    check_from_xml(cint, CInteger)
+
+def test_its_xml_archetype_c_real():
+    cint = CReal([np.float32(1.0), np.float32(1.5), np.float32(4.25)], None, np.float32(4.25))
+    validate(cint, "Archetype.xsd", "C_REAL")
+    check_from_xml(cint, CReal)
+
+def test_its_xml_archetype_c_date():
+    cdat = CDate(ValidityKind.OPTIONAL, ValidityKind.PROHIBITED, ValidityKind.PROHIBITED, None, ISODate("2026-01-01"))
+    validate(cdat, "Archetype.xsd", "C_DATE")
+    check_from_xml(cdat, CDate)
+
+# C_DATE_TIME
+
+# C_TIME
+
+# C_DURATION
+
+
+
 # ===========
 # Resource
 
@@ -313,8 +349,7 @@ def test_its_xml_resource_resource_description():
 def test_its_xml_openehrprofile_c_quantity_item():
     t_cqi = CQuantityItem("mm[Hg]", ProperInterval(np.float32(0.0), np.float32(1000.0), True, False), PointInterval(np.int32(0)))
 
-    # validator once again struggles with inheritance of types
-    # validate(t_cqi, "OpenehrProfile.xsd", "C_QUANTITY_ITEM")
+    validate(t_cqi, "OpenehrProfile.xsd", "C_QUANTITY_ITEM")
     check_from_xml(t_cqi, CQuantityItem)
 
 # C_DV_STATE

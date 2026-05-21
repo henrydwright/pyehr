@@ -160,25 +160,26 @@ class Interval[T : ordered](AnyClass, IXMLSupport):
                 }
         return draft
     
-    def as_xml(self, root_tag = None):
+    def as_xml(self, root_tag = None, dv_interval_ordering=False):
         tag = "interval" if root_tag is None else root_tag
         root = ET.Element(tag)
-        
-        low_inc = ET.Element("lower_included")
-        low_inc.text = str(self.lower_included).lower()
-        root.append(low_inc)
 
-        up_inc = ET.Element("upper_included")
-        up_inc.text = str(self.upper_included).lower()
-        root.append(up_inc)
+        if not dv_interval_ordering:
+            low_inc = ET.Element("lower_included")
+            low_inc.text = str(self.lower_included).lower()
+            root.append(low_inc)
 
-        low_unb = ET.Element("lower_unbounded")
-        low_unb.text = str(self.lower_unbounded).lower()
-        root.append(low_unb)
+            up_inc = ET.Element("upper_included")
+            up_inc.text = str(self.upper_included).lower()
+            root.append(up_inc)
 
-        up_unb = ET.Element("upper_unbounded")
-        up_unb.text = str(self.upper_unbounded).lower()
-        root.append(up_unb)
+            low_unb = ET.Element("lower_unbounded")
+            low_unb.text = str(self.lower_unbounded).lower()
+            root.append(low_unb)
+
+            up_unb = ET.Element("upper_unbounded")
+            up_unb.text = str(self.upper_unbounded).lower()
+            root.append(up_unb)
 
         if self.lower is not None:
             low = ET.Element("lower")
@@ -200,8 +201,26 @@ class Interval[T : ordered](AnyClass, IXMLSupport):
                 up.text = str(self._upper)
             root.append(up)
 
+        if dv_interval_ordering:
+            low_inc = ET.Element("lower_included")
+            low_inc.text = str(self.lower_included).lower()
+            root.append(low_inc)
+
+            up_inc = ET.Element("upper_included")
+            up_inc.text = str(self.upper_included).lower()
+            root.append(up_inc)
+
+            low_unb = ET.Element("lower_unbounded")
+            low_unb.text = str(self.lower_unbounded).lower()
+            root.append(low_unb)
+
+            up_unb = ET.Element("upper_unbounded")
+            up_unb.text = str(self.upper_unbounded).lower()
+            root.append(up_unb)
+
         return root
     
+    @staticmethod
     def from_xml(root: ET.Element, typ, **kwargs) -> 'Interval':
         # typ is the class for the contents of lower/upper
         low_inc_el = root.findtext("./lower_included")

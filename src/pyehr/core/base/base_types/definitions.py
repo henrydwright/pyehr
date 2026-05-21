@@ -1,6 +1,9 @@
 from enum import Enum
 
 import numpy as np
+import xml.etree.ElementTree as ET
+
+from pyehr.core.its.xml import IXMLSupport
 
 class BaseDefinitions:
     """Defines globally used constant values."""
@@ -36,6 +39,25 @@ class ValidityKind(Enum):
     
     PROHIBITED = "prohibited"
     """Constant to indicate disallowed presence of something."""
+
+    def as_xml(self, root_tag = None):
+        root = ET.Element("validity_kind" if root_tag is None else root_tag)
+        if self.value == "mandatory":
+            root.text = "1001"
+        elif self.value == "optional":
+            root.text = "1002"
+        elif self.value == "prohibited":
+            root.text = "1003"
+        return root
+    
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs):
+        if root.text == "1001":
+            return ValidityKind.MANDATORY
+        elif root.text == "1002":
+            return ValidityKind.OPTIONAL
+        elif root.text == "1003":
+            return ValidityKind.PROHIBITED
 
 class VersionStatus(Enum):
     """Status of a versioned artefact, as one of a number of possible values: 

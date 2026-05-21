@@ -281,7 +281,7 @@ class DVInterval[T](DataValue, IXMLSupport):
     
     def as_xml(self, root_tag = None):
         root_tag = "DV_INTERVAL" if root_tag is None else root_tag
-        return self.value.as_xml(root_tag)
+        return self.value.as_xml(root_tag, dv_interval_ordering=True)
     
     def from_xml(root: ET.Element, **kwargs):
         lower_el = root.find("./lower")

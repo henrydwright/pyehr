@@ -1025,15 +1025,15 @@ class CQuantityItem(AnyClass, IXMLSupport):
         tag = "c_quantity_item" if root_tag is None else root_tag
         root = ET.Element(tag)
 
-        unit_el = ET.Element("units")
-        unit_el.text = self.units
-        root.append(unit_el)
-
         if self.magnitude is not None:
             root.append(self.magnitude.as_xml("magnitude"))
         
         if self.precision is not None:
             root.append(self.precision.as_xml("precision"))
+
+        unit_el = ET.Element("units")
+        unit_el.text = self.units
+        root.append(unit_el)
 
         return root
     
