@@ -7,7 +7,7 @@ from xmlschema import XMLSchema
 import xml.etree.ElementTree as ET
 
 from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CMultipleAttribute, CQuantityItem, CSingleAttribute
-from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CInteger, CReal, CString
+from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingItem
 from pyehr.core.base.base_types.definitions import ValidityKind
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectVersionID, TemplateID, TerminologyID
@@ -313,13 +313,24 @@ def test_its_xml_archetype_c_date():
     validate(cdat, "Archetype.xsd", "C_DATE")
     check_from_xml(cdat, CDate)
 
-# C_DATE_TIME
+def test_its_xml_archetype_c_date_time():
+    c_dati = CDateTime(ValidityKind.OPTIONAL, ValidityKind.PROHIBITED, ValidityKind.PROHIBITED, ValidityKind.PROHIBITED, ValidityKind.PROHIBITED, assumed_value=ISODateTime("1998"))
+    validate(c_dati, "Archetype.xsd", "C_DATE_TIME")
+    check_from_xml(c_dati, CDateTime)
 
-# C_TIME
+def test_its_xml_archetype_c_time():
+    ctim = CTime(ValidityKind.MANDATORY, ValidityKind.OPTIONAL, ValidityKind.PROHIBITED, None, ISOTime("09:00"))
+    validate(ctim, "Archetype.xsd", "C_TIME")
+    check_from_xml(ctim, CTime)
 
-# C_DURATION
-
-
+def test_its_xml_archetype_c_duration():
+    cdur1 = CDuration(True, False, True, True, False, False, False)
+    validate(cdur1, "Archetype.xsd", "C_DURATION")
+    check_from_xml(cdur1, CDuration)
+    
+    cdur2 = CDuration(False, False, False, False, True, False, True)
+    validate(cdur2, "Archetype.xsd", "C_DURATION")
+    check_from_xml(cdur2, CDuration)
 
 # ===========
 # Resource
