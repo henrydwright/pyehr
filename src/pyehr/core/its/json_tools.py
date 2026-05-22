@@ -8,9 +8,62 @@ from term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALG
 from pyehr.core.base.base_types.identification import HierObjectID, ObjectID, ObjectRef, ObjectVersionID, GenericID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID
-from pyehr.core.rm.ehr import EHR
+from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemTree
+from pyehr.core.rm.data_structures.representation import Cluster, Element
+from pyehr.core.rm.data_types.basic import DVIdentifier
+from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVDateTime
+from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText, DVUri
+from pyehr.core.rm.demographic import Address, Agent, Contact, Organisation, PartyIdentity, Person, VersionedParty
+from pyehr.core.rm.ehr import EHR, EHRStatus, VersionedEHRStatus
 from pyehr.core.rm.support.terminology import TerminologyService
 
+_type_map = {
+    "OBJECT_VERSION_ID": ObjectVersionID,
+    "OBJECT_REF": ObjectRef,
+    "HIER_OBJECT_ID" : HierObjectID,
+    "DV_TEXT": DVText,
+    "DV_URI": DVUri,
+    "DV_DATE_TIME": DVDateTime,
+    "PARTY_SELF": PartySelf,
+    "EHR": EHR,
+    "EHR_STATUS": EHRStatus,
+    "ARCHETYPED": Archetyped,
+    "ARCHETYPE_ID": ArchetypeID,
+    "PARTY_REF": PartyRef,
+    "GENERIC_ID": GenericID,
+    "PERSON": Person,
+    "PARTY_IDENTITY": PartyIdentity,
+    "ITEM_TREE": ItemTree,
+    "ELEMENT": Element,
+    "DV_IDENTIFIER": DVIdentifier,
+    "CLUSTER": Cluster,
+    "DV_CODED_TEXT": DVCodedText,
+    "CODE_PHRASE": CodePhrase,
+    "TERMINOLOGY_ID": TerminologyID,
+    "VERSIONED_EHR_STATUS": VersionedEHRStatus,
+    "REVISION_HISTORY": RevisionHistory,
+    "REVISION_HISTORY_ITEM": RevisionHistoryItem,
+    "AUDIT_DETAILS": AuditDetails,
+    "PARTY_IDENTIFIED": PartyIdentified,
+    "ORIGINAL_VERSION": OriginalVersion,
+    "IMPORTED_VERSION": ImportedVersion,
+    "CONTRIBUTION": Contribution,
+    "ITEM_SINGLE": ItemSingle,
+    "VERSIONED_PARTY": VersionedParty,
+    "VERSIONED_OBJECT": VersionedObject,
+    "INTERNET_ID": InternetID,
+    "ATTESTATION": Attestation,
+    "UPDATE_CONTRIBUTION": UpdateContribution,
+    "UPDATE_VERSION": UpdateVersion,
+    "UPDATE_AUDIT": UpdateAudit,
+    "UPDATE_ATTESTATION": UpdateAttestation,
+    "ORGANISATION": Organisation,
+    "CONTACT": Contact,
+    "ADDRESS": Address,
+    "DV_DATE": DVDate,
+    "AGENT": Agent
+}
+"""Map of OpenEHR JSON '_type' attributes to pyehr.core types"""
 
 _possible_object_refs = {
     "EHR": {
@@ -124,13 +177,14 @@ def decode_json(json_obj: dict,
             arg_dict["ehr_access"] = ObjectRef("null", "VERSIONED_EHR_ACCESS", HierObjectID("00000000-0000-0000-0000-000000000000"))
     elif target_type == "DV_IDENTIFIER":
         # pyehr uses 'id_type' to avoid collision with Python 'type'
-        arg_dict["id_type"] = arg_dict["type"]
-        del arg_dict["type"]
+        if "type" in arg_dict:
+            arg_dict["id_type"] = arg_dict["type"]
+            del arg_dict["type"]
     elif target_type == "PARTY_IDENTITY":
         # pyehr library uses 'purpose' to clarify meaning of the inherited 'name' field
         arg_dict["purpose"] = arg_dict["name"]
         del arg_dict["name"]
-    elif target_type == "PERSON" or target_type == "ORGANISATION":
+    elif target_type == "PERSON" or target_type == "ORGANISATION" or target_type == "AGENT":
         # pyehr library uses 'actor_type' to clarify meaning of inherited 'name' field
         arg_dict["actor_type"] = arg_dict["name"]
         del arg_dict["name"]
