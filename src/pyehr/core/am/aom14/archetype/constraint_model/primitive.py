@@ -126,7 +126,7 @@ class CString(CPrimitive):
     list_var: Optional[list[str]]
     """Set of Strings specifying constraint."""
 
-    list_open: bool
+    list_open: Optional[bool]
     """True if the list is being used to specify the constraint but is not 
     considered exhaustive."""
 
@@ -134,7 +134,7 @@ class CString(CPrimitive):
     """The value to assume if this item is not included in data, due to being 
     part of an optional structure."""
 
-    def __init__(self, list_open: bool, pattern: Optional[str] = None, list_var: Optional[list[str]] = None, assumed_value : Optional[str] = None, **kwargs):
+    def __init__(self, list_open: Optional[bool] = None, pattern: Optional[str] = None, list_var: Optional[list[str]] = None, assumed_value : Optional[str] = None, **kwargs):
         self.pattern = pattern
         self.list_var = list_var
         self.list_open = list_open
@@ -148,9 +148,9 @@ class CString(CPrimitive):
                 is_equal_value(self.assumed_value, other.assumed_value))
     
     def as_json(self):
-        draft = {
-            "list_open": self.list_open
-        }
+        draft = {}
+        if self.list_open is not None:
+            draft["list_open"] = self.list_open
         if self.pattern is not None:
             draft["pattern"] = self.pattern
         if self.list_var is not None:
@@ -175,9 +175,10 @@ class CString(CPrimitive):
                 item_el.text = item
                 root.append(item_el)
 
-        lo_el = ET.Element("list_open")
-        lo_el.text = str(self.list_open).lower()
-        root.append(lo_el)
+        if self.list_open is not None:
+            lo_el = ET.Element("list_open")
+            lo_el.text = str(self.list_open).lower()
+            root.append(lo_el)
 
         if self.assumed_value is not None:
             av_el = ET.Element("assumed_value")
@@ -188,7 +189,8 @@ class CString(CPrimitive):
     
     @staticmethod
     def from_xml(root: ET.Element, **kwargs):
-        lo = (root.findtext("./list_open") == "true")
+        lo = root.findtext("./list_open")
+        lo = (lo.lower() == "true") if lo is not None else None
         pattern = root.findtext("./pattern")
         list_var = None
         list_els = root.findall("./list")

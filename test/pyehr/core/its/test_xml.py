@@ -6,6 +6,7 @@ from xmlschema import XMLSchema
 
 import xml.etree.ElementTree as ET
 
+from pyehr.core.am.aom14.archetype.assertion import Assertion, AssertionVariable, ExprBinaryOperator, ExprLeaf, ExprUnaryOperator, OperatorKind
 from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CMultipleAttribute, CQuantityItem, CSingleAttribute
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingItem
@@ -269,6 +270,58 @@ def test_its_xml_archetype_c_complex_object():
 # ARCHETYPE_SLOT
 
 # ARCHETYPE_INTERNAL_REF
+
+def test_its_xml_archetype_assertion():
+    ass = Assertion(
+        expression=ExprBinaryOperator(
+            "Boolean",
+            ExprLeaf(
+                "String",
+                "attribute",
+                "archetype_id/value"
+            ),
+            OperatorKind.MATCHES,
+            ExprLeaf(
+                "C_STRING",
+                "constraint",
+                CString(pattern=".*")
+            ),
+        ),
+        string_expression="archetype_id/value matches {/.*/}"
+    )
+    validate(ass, "Archetype.xsd", "ASSERTION")
+    check_from_xml(ass, Assertion)
+
+def test_its_xml_archetype_assertion_variable():
+    av = AssertionVariable("a", "a_definition")
+    validate(av, "Archetype.xsd", "ASSERTION_VARIABLE")
+    check_from_xml(av, AssertionVariable)
+
+def test_its_xml_archetype_expr_leaf():
+    el = ExprLeaf("String", "attribute", "archetype_id/value")
+    validate(el, "Archetype.xsd", "EXPR_LEAF")
+    check_from_xml(el, ExprLeaf)
+
+def test_its_xml_archetype_expr_unary_operator():
+    euo = ExprUnaryOperator("Boolean", OperatorKind.NOT, ExprLeaf("Boolean", "constant", True))
+    validate(euo, "Archetype.xsd", "EXPR_UNARY_OPERATOR")
+    check_from_xml(euo, ExprUnaryOperator)
+
+def test_its_xml_archetype_expr_binary_operator():
+    ebo = ExprBinaryOperator("Boolean", 
+                             ExprLeaf(
+                                 type_var="String",
+                                 reference_type="attribute",
+                                 item="archetype_id/value"
+                             ),
+                             OperatorKind.MATCHES,
+                             ExprLeaf(
+                                 type_var="String",
+                                 reference_type="constraint",
+                                 item=CString(pattern="openEHR-EHR-CLUSTER\.health_event(-[a-zA-Z0-9_]+)*\.v0|openEHR-EHR-CLUSTER\.issue(-[a-zA-Z0-9_]+)*\.v0|openEHR-EHR-CLUSTER\.symptom_sign(-[a-zA-Z0-9_]+)*\.v2")
+                             ))
+    validate(ebo, "Archetype.xsd", "EXPR_BINARY_OPERATOR")
+    check_from_xml(ebo, ExprBinaryOperator)
 
 # CONSTRAINT_REF
 

@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 import numpy as np
 
 from pyehr.core.am.aom14.archetype.assertion import Assertion
-from pyehr.core.am.aom14.archetype.constraint_model.primitive import CPrimitive
+from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDateTime, CDuration, CInteger, CPrimitive, CReal, CString, CTime
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingSet
 from pyehr.core.base.base_types.identification import ArchetypeID, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
@@ -154,6 +154,9 @@ class CObject(ArchetypeConstraint):
             return CPrimitiveObject.from_xml(root, **kwargs)
         elif typ == "C_DV_QUANTITY":
             return CDVQuantity.from_xml(root, **kwargs)
+        elif typ == "C_DV_ORDINAL" or typ == "C_DV_STATE":
+            warnings.warn(f"'{typ}' is not supported, replacing with a placeholder (C_DOMAIN_PLACEHOLDER).")
+            return CDomainPlaceholder.from_xml(root, **kwargs)
         elif typ == "ARCHETYPE_INTERNAL_REF":
             return ArchetypeInternalRef.from_xml(root, **kwargs)
         else:
@@ -576,9 +579,29 @@ class CPrimitiveObject(CDefinedObject):
         raise NotImplementedError()
     
     def from_xml(root: ET.Element, **kwargs):
-        warnings.warn("C_PRIMITIVE_OBJECT from_xml not fully implemented so will not be fully parsed")
         rm_typ, occur, nod = CObject.extract_xml_elements(root)
-        return CPrimitiveObject(rm_typ, occur, nod, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
+        item_el = root.find("./item")
+        item = None
+        if item_el is not None:
+            typ=get_pyehr_type_from_element(item_el)
+            if typ == "C_BOOLEAN":
+                item = CBoolean.from_xml(item_el)
+            elif typ == "C_STRING":
+                item = CString.from_xml(item_el)
+            elif typ == "C_INTEGER":
+                item = CInteger.from_xml(item_el)
+            elif typ == "C_REAL":
+                item = CReal.from_xml(item_el)
+            elif typ == "C_TIME":
+                item = CTime.from_xml(item_el)
+            elif typ == "C_DATE_TIME":
+                item = CDateTime.from_xml(item_el)
+            elif typ == "C_DURATION":
+                item = CDuration.from_xml(item_el)
+            else:
+                warnings.warn(f"Could not parse child type \'{typ}\' of C_PRIMITIVE_OBJECT as type not recognised. Skipping.")
+
+        return CPrimitiveObject(rm_typ, occur, nod, item, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
     
 class CDomainType(CDefinedObject):
     """Abstract parent type of domain-specific constrainer types, to be defined in external packages."""
@@ -881,7 +904,6 @@ class CArchetypeRoot(CComplexObject):
         super().__init__(rm_type_name, occurrences, node_id, assumed_value, attributes, parent, parent_container_attribute_name, list_index, **kwargs)
 
     def from_xml(root: ET.Element, **kwargs):
-        warnings.warn("C_ARCHETYPE_ROOT from_xml not fully implemented, elements will be missed when parsing.", UserWarning)
         cco : CComplexObject = CComplexObject.from_xml(root, **kwargs)
         aid = ArchetypeID.from_xml(root.find("./archetype_id"))
         tid = root.find("./template_id")
@@ -895,12 +917,14 @@ class CArchetypeRoot(CComplexObject):
             for td_el in tds:
                 term_defs.append(ArchetypeTerm.from_xml(td_el))
 
-        # TODO: TermBindings
+        tbs = root.findall("./term_bindings")
+        term_binds = None
+        if len(tbs) > 0:
+            term_binds = [TermBindingSet.from_xml(tb_el) for tb_el in tbs]
         
-        return CArchetypeRoot(cco.rm_type_name, cco.occurrences, cco.node_id, aid, tid, term_defs, None, cco.assumed_value, cco.attributes, cco._parent, cco._parent_container_attribute_name, cco._list_index)
+        return CArchetypeRoot(cco.rm_type_name, cco.occurrences, cco.node_id, aid, tid, term_defs, term_binds, cco.assumed_value, cco.attributes, cco._parent, cco._parent_container_attribute_name, cco._list_index)
     
     def as_xml(self, root_tag=None):
-        warnings.warn("C_ARCHETYPE_ROOT as_xml not fully implemented, elements will be missed when serialising.", UserWarning)
         tag = "c_archetype_root" if root_tag is None else root_tag
         sup = super().as_xml(tag)
         sup.append(self.archetype_id.as_xml("archetype_id"))
@@ -914,7 +938,9 @@ class CArchetypeRoot(CComplexObject):
             for term_def in self.term_definitions:
                 sup.append(term_def.as_xml("term_definitions"))
 
-        # TODO: TermBindings
+        if self.term_bindings is not None:
+            for term_bind in self.term_bindings:
+                sup.append(term_bind.as_xml("term_bindings"))
 
         return sup
     

@@ -168,8 +168,24 @@ class Archetype(AuthoredResource):
         ont_el = root.find("./ontology")
         ontology = ArchetypeOntology.from_xml(ont_el)
 
-        # TODO: implement remaining elements
-        warnings.warn("Parsing of Archetype xml is not fully supported, so some elements will be missed")
+        adl_ver = root.findtext("./adl_version")
+
+        invs = root.findall("./invariants")
+        invariants = None
+        if len(invs) > 0:
+            invariants = [Assertion.from_xml(inv) for inv in invs]
+
+        uid_el = root.find("./uid")
+        uid = None
+        if uid_el is not None:
+            uid = HierObjectID.from_xml(uid_el)
+
+        paid_el = root.find("./parent_archetype_id")
+        paid = None
+        if paid_el is not None:
+            paid = ArchetypeID.from_xml(paid_el)
+
+        # annotations exists in the RM for this class but not in XML so ignored
 
         arch = Archetype(
             ar_orig_lang,
@@ -177,7 +193,10 @@ class Archetype(AuthoredResource):
             ontology,
             arch_id,
             conc,
-            uid=None,
+            adl_version=adl_ver,
+            parent_archetype_id=paid,
+            invariants=invariants,
+            uid=uid,
             is_controlled=ar_is_cont,
             annotations=None
         )
