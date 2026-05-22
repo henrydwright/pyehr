@@ -16,12 +16,24 @@ class _TstDVOrderedImpl(DVOrdered):
     def is_strictly_comparable_to(self, other):
         return super().is_strictly_comparable_to(other)
     
+    def as_xml(self, root_tag=None):
+        return super().as_xml(root_tag)
+    
+    def from_xml(root, **kwargs):
+        return super().from_xml(**kwargs)
+    
 class _TstDVQuantifiedImpl(DVQuantified):
     def __init__(self, value, normal_status=None, normal_range=None, other_reference_ranges=None, magnitude_status=None, accuracy=None, terminology_service=None):
         super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, terminology_service)
     
     def is_strictly_comparable_to(self, other):
         return super().is_strictly_comparable_to(other)
+    
+    def as_xml(self, root_tag=None):
+        return super().as_xml(root_tag)
+    
+    def from_xml(root, **kwargs):
+        return super().from_xml(**kwargs)
     
 class _TstDVAbsoluteQuantityImpl(DVAbsoluteQuantity):
     def __init__(self, value, normal_status = None, normal_range = None, other_reference_ranges = None, magnitude_status = None, accuracy = None, terminology_service = None):
@@ -38,6 +50,12 @@ class _TstDVAbsoluteQuantityImpl(DVAbsoluteQuantity):
     
     def subtract(self, a_diff):
         return super().subtract(a_diff)
+    
+    def as_xml(self, root_tag=None):
+        return super().as_xml(root_tag)
+    
+    def from_xml(root, **kwargs):
+        return super().from_xml(**kwargs)
 
 def test_other_reference_ranges_validity():
     # OK

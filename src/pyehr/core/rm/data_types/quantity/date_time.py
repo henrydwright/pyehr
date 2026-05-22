@@ -2,6 +2,7 @@ from abc import abstractmethod
 from typing import Optional, Union
 
 import numpy as np
+import xml.etree.ElementTree as ET
 
 from pyehr.core.base.foundation_types.primitive_types import ordered_numeric
 from pyehr.core.base.foundation_types.time import ISODuration, ISOTime, ISODateTime, ISODate, TimeDefinitions, ISOTimeZone
@@ -132,6 +133,71 @@ class DVDuration(DVAmount):
         draft["value"] = self.as_string()
         return draft
     
+    def as_xml(self, root_tag=None):
+        # https://specifications.openehr.org/releases/ITS-XML/Release-2.0.0/components/RM/latest/DataTypes.xsd
+        import xml.etree.ElementTree as ET
+        tag = "dv_duration" if root_tag is None else root_tag
+        root = ET.Element(tag)
+        
+        value_el = ET.Element("value")
+        value_el.text = self.as_string()
+        root.append(value_el)
+        
+        if self.magnitude_status is not None:
+            magnitude_status_el = ET.Element("magnitude_status")
+            magnitude_status_el.text = self.magnitude_status
+            root.append(magnitude_status_el)
+        
+        if self.accuracy is not None:
+            root.append(self.accuracy.as_xml("accuracy"))
+        
+        if self.accuracy_is_percent is not None:
+            accuracy_is_percent_el = ET.Element("accuracy_is_percent")
+            accuracy_is_percent_el.text = str(self.accuracy_is_percent).lower()
+            root.append(accuracy_is_percent_el)
+        
+        if self.normal_status is not None:
+            root.append(self.normal_status.as_xml("normal_status"))
+        if self.normal_range is not None:
+            root.append(self.normal_range.as_xml("normal_range"))
+        if self.other_reference_ranges is not None:
+            for ref_range in self.other_reference_ranges:
+                root.append(ref_range.as_xml("other_reference_ranges"))
+        
+        return root
+    
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs) -> 'DVDuration':
+        value = root.findtext("./value")
+        
+        magnitude_status = root.findtext("./magnitude_status")
+        
+        accuracy_el = root.find("./accuracy")
+        accuracy = DVDuration.from_xml(accuracy_el) if accuracy_el is not None else None
+        
+        accuracy_is_percent_el = root.findtext("./accuracy_is_percent")
+        accuracy_is_percent = None
+        if accuracy_is_percent_el is not None:
+            accuracy_is_percent = accuracy_is_percent_el.lower() == "true"
+        
+        normal_status_el = root.find("./normal_status")
+        from pyehr.core.rm.data_types.text import CodePhrase
+        normal_status = CodePhrase.from_xml(normal_status_el) if normal_status_el is not None else None
+        
+        normal_range_el = root.find("./normal_range")
+        from pyehr.core.rm.data_types.quantity import DVInterval
+        normal_range = DVInterval.from_xml(normal_range_el) if normal_range_el is not None else None
+        
+        other_ref_ranges_els = root.findall("./other_reference_ranges")
+        other_reference_ranges = None
+        if len(other_ref_ranges_els) > 0:
+            from pyehr.core.rm.data_types.quantity import ReferenceRange
+            other_reference_ranges = []
+            for ref_range_el in other_ref_ranges_els:
+                other_reference_ranges.append(ReferenceRange.from_xml(ref_range_el))
+        
+        return DVDuration(value, normal_status, normal_range, other_reference_ranges, 
+                         magnitude_status, accuracy, accuracy_is_percent)
 class DVTemporal(DVAbsoluteQuantity):
     """Specialised temporal variant of DV_ABSOLUTE_QUANTITY whose diff type is DV_DURATION."""
 
@@ -265,6 +331,61 @@ class DVDate(DVTemporal):
         draft = super().as_json()
         draft["_type"] = "DV_DATE"
         return draft
+    
+    def as_xml(self, root_tag=None):
+        # https://specifications.openehr.org/releases/ITS-XML/Release-2.0.0/components/RM/latest/DataTypes.xsd
+        import xml.etree.ElementTree as ET
+        tag = "dv_date" if root_tag is None else root_tag
+        root = ET.Element(tag)
+        
+        value_el = ET.Element("value")
+        value_el.text = self._value.value
+        root.append(value_el)
+        
+        if self.magnitude_status is not None:
+            magnitude_status_el = ET.Element("magnitude_status")
+            magnitude_status_el.text = self.magnitude_status
+            root.append(magnitude_status_el)
+        
+        if self.accuracy is not None:
+            root.append(self.accuracy.as_xml("accuracy"))
+        
+        if self.normal_status is not None:
+            root.append(self.normal_status.as_xml("normal_status"))
+        if self.normal_range is not None:
+            root.append(self.normal_range.as_xml("normal_range"))
+        if self.other_reference_ranges is not None:
+            for ref_range in self.other_reference_ranges:
+                root.append(ref_range.as_xml("other_reference_ranges"))
+        
+        return root
+    
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs) -> 'DVDate':
+        value = root.findtext("./value")
+        
+        magnitude_status = root.findtext("./magnitude_status")
+        
+        accuracy_el = root.find("./accuracy")
+        accuracy = DVDuration.from_xml(accuracy_el) if accuracy_el is not None else None
+        
+        normal_status_el = root.find("./normal_status")
+        from pyehr.core.rm.data_types.text import CodePhrase
+        normal_status = CodePhrase.from_xml(normal_status_el) if normal_status_el is not None else None
+        
+        normal_range_el = root.find("./normal_range")
+        from pyehr.core.rm.data_types.quantity import DVInterval
+        normal_range = DVInterval.from_xml(normal_range_el) if normal_range_el is not None else None
+        
+        other_ref_ranges_els = root.findall("./other_reference_ranges")
+        other_reference_ranges = None
+        if len(other_ref_ranges_els) > 0:
+            from pyehr.core.rm.data_types.quantity import ReferenceRange
+            other_reference_ranges = []
+            for ref_range_el in other_ref_ranges_els:
+                other_reference_ranges.append(ReferenceRange.from_xml(ref_range_el))
+        
+        return DVDate(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy)
 
 class DVTime(DVTemporal):
     """Represents an absolute point in time from an origin usually interpreted as meaning 
@@ -397,6 +518,60 @@ class DVTime(DVTemporal):
         draft["_type"] = "DV_TIME"
         return draft
     
+    def as_xml(self, root_tag=None):
+        # https://specifications.openehr.org/releases/ITS-XML/Release-2.0.0/components/RM/latest/DataTypes.xsd
+        import xml.etree.ElementTree as ET
+        tag = "dv_time" if root_tag is None else root_tag
+        root = ET.Element(tag)
+        
+        value_el = ET.Element("value")
+        value_el.text = self._value.value
+        root.append(value_el)
+        
+        if self.magnitude_status is not None:
+            magnitude_status_el = ET.Element("magnitude_status")
+            magnitude_status_el.text = self.magnitude_status
+            root.append(magnitude_status_el)
+        
+        if self.accuracy is not None:
+            root.append(self.accuracy.as_xml("accuracy"))
+        
+        if self.normal_status is not None:
+            root.append(self.normal_status.as_xml("normal_status"))
+        if self.normal_range is not None:
+            root.append(self.normal_range.as_xml("normal_range"))
+        if self.other_reference_ranges is not None:
+            for ref_range in self.other_reference_ranges:
+                root.append(ref_range.as_xml("other_reference_ranges"))
+        
+        return root
+    
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs) -> 'DVTime':
+        value = root.findtext("./value")
+        
+        magnitude_status = root.findtext("./magnitude_status")
+        
+        accuracy_el = root.find("./accuracy")
+        accuracy = DVDuration.from_xml(accuracy_el) if accuracy_el is not None else None
+        
+        normal_status_el = root.find("./normal_status")
+        from pyehr.core.rm.data_types.text import CodePhrase
+        normal_status = CodePhrase.from_xml(normal_status_el) if normal_status_el is not None else None
+        
+        normal_range_el = root.find("./normal_range")
+        from pyehr.core.rm.data_types.quantity import DVInterval
+        normal_range = DVInterval.from_xml(normal_range_el) if normal_range_el is not None else None
+        
+        other_ref_ranges_els = root.findall("./other_reference_ranges")
+        other_reference_ranges = None
+        if len(other_ref_ranges_els) > 0:
+            from pyehr.core.rm.data_types.quantity import ReferenceRange
+            other_reference_ranges = []
+            for ref_range_el in other_ref_ranges_els:
+                other_reference_ranges.append(ReferenceRange.from_xml(ref_range_el))
+        
+        return DVTime(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy)
 class DVDateTime(DVTemporal):
     """Represents an absolute point in time, specified to the second. Semantics defined 
     by ISO 8601.
@@ -534,4 +709,60 @@ class DVDateTime(DVTemporal):
         # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_DATE_TIME.json
         draft = super().as_json()
         draft["_type"] = "DV_DATE_TIME"
+        return draft
+    
+    def as_xml(self, root_tag=None):
+        # https://specifications.openehr.org/releases/ITS-XML/Release-2.0.0/components/RM/latest/DataTypes.xsd
+        import xml.etree.ElementTree as ET
+        tag = "dv_date_time" if root_tag is None else root_tag
+        root = ET.Element(tag)
+        
+        value_el = ET.Element("value")
+        value_el.text = self._value.value
+        root.append(value_el)
+        
+        if self.magnitude_status is not None:
+            magnitude_status_el = ET.Element("magnitude_status")
+            magnitude_status_el.text = self.magnitude_status
+            root.append(magnitude_status_el)
+        
+        if self.accuracy is not None:
+            root.append(self.accuracy.as_xml("accuracy"))
+        
+        if self.normal_status is not None:
+            root.append(self.normal_status.as_xml("normal_status"))
+        if self.normal_range is not None:
+            root.append(self.normal_range.as_xml("normal_range"))
+        if self.other_reference_ranges is not None:
+            for ref_range in self.other_reference_ranges:
+                root.append(ref_range.as_xml("other_reference_ranges"))
+        
+        return root
+    
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs) -> 'DVDateTime':
+        value = root.findtext("./value")
+        
+        magnitude_status = root.findtext("./magnitude_status")
+        
+        accuracy_el = root.find("./accuracy")
+        accuracy = DVDuration.from_xml(accuracy_el) if accuracy_el is not None else None
+        
+        normal_status_el = root.find("./normal_status")
+        from pyehr.core.rm.data_types.text import CodePhrase
+        normal_status = CodePhrase.from_xml(normal_status_el) if normal_status_el is not None else None
+        
+        normal_range_el = root.find("./normal_range")
+        from pyehr.core.rm.data_types.quantity import DVInterval
+        normal_range = DVInterval.from_xml(normal_range_el) if normal_range_el is not None else None
+        
+        other_ref_ranges_els = root.findall("./other_reference_ranges")
+        other_reference_ranges = None
+        if len(other_ref_ranges_els) > 0:
+            from pyehr.core.rm.data_types.quantity import ReferenceRange
+            other_reference_ranges = []
+            for ref_range_el in other_ref_ranges_els:
+                other_reference_ranges.append(ReferenceRange.from_xml(ref_range_el))
+        
+        return DVDateTime(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy)
         return draft

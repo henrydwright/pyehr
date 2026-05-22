@@ -1,11 +1,14 @@
 """The data_types.uri package includes two types used for referring to information resources."""
 
+import xml.etree.ElementTree as ET
+
+from pyehr.core.its.xml import IXMLSupport
 from pyehr.core.rm.data_types import DataValue
 from pyehr.core.base.foundation_types.primitive_types import Uri
 
 from uritools import urisplit
 
-class DVUri(DataValue):
+class DVUri(DataValue, IXMLSupport):
     """
     A reference to an object which structurally conforms to the Universal Resource Identifier (URI) RFC-3986 standard. The reference is contained in the value attribute, which is a `String`. So-called 'plain-text URIs' that contain RFC-3986 forbidden characters such as spaces etc, are allowed on the basis that they need to be RFC-3986 encoded prior to use in e.g. REST APIs or other contexts relying on machine-level conformance.
     """
@@ -51,6 +54,21 @@ class DVUri(DataValue):
             "_type": "DV_URI",
             "value": self.value
         }
+    
+    def as_xml(self, root_tag = None):
+        tag = "dv_uri" if root_tag is None else root_tag
+        root = ET.Element(tag)
+
+        val_el = ET.Element("value")
+        val_el.text = self.value
+        root.append(val_el)
+
+        return root
+    
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs):
+        val = root.findtext("./value")
+        return DVUri(val)
     
 class DVEHRUri(DVUri):
     """A DV_EHR_URI is a DV_URI which has the scheme name 'ehr', and which can only reference items in EHRs.

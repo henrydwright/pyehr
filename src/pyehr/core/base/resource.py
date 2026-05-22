@@ -1,12 +1,17 @@
 from abc import ABC, abstractmethod
+from types import NoneType
 from typing import Optional
+import xml.etree.ElementTree as ET
+import warnings
 
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.base.base_types.identification import UUID
 from pyehr.core.base.foundation_types.terminology import TerminologyCode
+from pyehr.core.its.xml import IXMLSupport
+from pyehr.core.rm.data_types.text import CodePhrase
 
-class ResourceDescription(AnyClass):
+class ResourceDescription(AnyClass, IXMLSupport):
     """Defines the descriptive meta-data of a resource."""
     
     original_author : dict[str, str]
@@ -78,7 +83,8 @@ class ResourceDescription(AnyClass):
     def __init__(self, 
                  original_author: dict[str, str], 
                  lifecycle_state: TerminologyCode, 
-                 parent_resource:'AuthoredResource',
+                 details: dict[str, 'ResourceDescriptionItem'],
+                 parent_resource: Optional['AuthoredResource'] = None,
                  original_namespace: Optional[str] = None,
                  original_publisher: Optional[str] = None,
                  other_contributors: Optional[list[str]] = None,
@@ -90,10 +96,12 @@ class ResourceDescription(AnyClass):
                  references: Optional[dict[str, str]] = None,
                  resource_package_uri: Optional[str] = None,
                  conversion_details: Optional[dict[str, str]] = None,
-                 other_details: Optional[dict[str, str]] = None,
-                 details: Optional[dict[str, 'ResourceDescriptionItem']] = None):
+                 other_details: Optional[dict[str, str]] = None):
         self.original_author = original_author
         self.lifecycle_state = lifecycle_state
+        if len(details.items()) == 0:
+            raise ValueError("details must be provided for at least one language (XML ITS restriction)")
+        self.details = details
         self.parent_resource = parent_resource
         self.original_namespace = original_namespace
         self.original_publisher = original_publisher
@@ -107,7 +115,6 @@ class ResourceDescription(AnyClass):
         self.resource_package_uri = resource_package_uri
         self.conversion_details = conversion_details
         self.other_details = other_details
-        self.details = details
         super().__init__()
 
     def is_equal(self, other: 'ResourceDescription'):
@@ -137,9 +144,15 @@ class ResourceDescription(AnyClass):
         draft = {
             "_type": "RESOURCE_DESCRIPTION",
             "original_author": self.original_author,
-            "lifecycle_state": self.lifecycle_state.code_string,
-            "parent_resource": self.parent_resource.as_json()
+            "lifecycle_state": self.lifecycle_state.code_string
         }
+        det_list = []
+        for rdi in self.details.values():
+            det_list.append(rdi.as_json())
+        draft["details"] = det_list
+
+        if self.parent_resource is not None:
+            draft["parent_resource"] = self.parent_resource.as_json()
         if self.original_namespace is not None:
             draft["original_namespace"] = self.original_namespace
         if self.original_publisher is not None:
@@ -164,13 +177,105 @@ class ResourceDescription(AnyClass):
             draft["conversion_details"] = self.conversion_details
         if self.other_details is not None:
             draft["other_details"] = self.other_details
-        if self.details is not None:
-            det_list = []
-            for rdi in self.details.values:
-                det_list.append(rdi)
-            draft["details"] = det_list
-        return draft
 
+        return draft
+    
+    def as_xml(self, root_tag = None):
+        tag = "resource_description" if root_tag is None else root_tag
+        root = ET.Element(tag)
+        for (id, value) in self.original_author.items():
+            original_author = ET.Element("original_author")
+            original_author.attrib["id"] = id
+            original_author.text = value
+            root.append(original_author)
+        if self.other_contributors is not None:
+            for other_contrib in self.other_contributors:
+                other_contrib_el = ET.Element("other_contributors")
+                other_contrib_el.text = other_contrib
+                root.append(other_contrib_el)
+
+        # lifecycle_state is a string in v1.0.2, not TERMINOLOGY_CODE
+        lf_state = ET.Element("lifecycle_state")
+        lf_state.text = self.lifecycle_state.code_string
+        root.append(lf_state)
+
+        if self.resource_package_uri is not None:
+            rpu = ET.Element("resource_package_uri")
+            rpu.text = self.resource_package_uri
+            root.append(rpu)
+        if self.other_details is not None:
+            for (id, value) in self.other_details.items():
+                other_detail = ET.Element("other_details")
+                other_detail.attrib["id"] = id
+                other_detail.text = value
+                root.append(other_detail)
+
+        for (_, detail) in self.details.items():
+            root.append(detail.as_xml("details"))
+
+        if self.parent_resource is not None:
+            root.append(self.parent_resource.as_xml("parent_resource"))
+        
+        return root
+    
+    def from_xml(root: ET.Element, **kwargs):
+        orig_author_els = root.findall("./original_author")
+        orig_author = {}
+        for orig_author_el in orig_author_els:
+            orig_author[orig_author_el.attrib["id"]] = orig_author_el.text
+
+        other_contrib_els = root.findall("./other_contributors")
+        other_contributors = None
+        if len(other_contrib_els) > 0:
+            other_contributors = []
+            for other_contrib_el in other_contrib_els:
+                other_contributors.append(other_contrib_el.text)
+
+        lf_state_el = root.find("./lifecycle_state")
+        lf_state = TerminologyCode("openehr", lf_state_el.text)
+
+        rpu = root.findtext("./resource_package_uri")
+
+        o_dt_els = root.findall("./other_details")
+        other_details = None
+        if len(o_dt_els) > 0:
+            other_details = {}
+            for o_dt_el in o_dt_els:
+                other_details[o_dt_el.attrib["id"]] = o_dt_el.text
+
+        det_els = root.findall("./details")
+        details = None
+        if len(det_els) > 0:
+            details = {}
+            for det_el in det_els:
+                rdi = ResourceDescriptionItem.from_xml(det_el)
+                details[rdi.language.code_string] = rdi
+
+        parent_res_el = root.find("./parent_resource")
+        parent_resource = None
+        # TODO: implement parsing for parent_resource once 
+        #        a concrete implementation of AUTHORED_RESOURCE
+        #        exists
+
+        return ResourceDescription(
+            original_author=orig_author,
+            lifecycle_state=lf_state,
+            details=details,
+            parent_resource=parent_resource,
+            original_namespace=None,
+            original_publisher=None,
+            other_contributors=other_contributors,
+            custodian_namespace=None,
+            custodian_organisation=None,
+            copyright=None,
+            licence=None,
+            ip_acknowledgements=None,
+            references=None,
+            resource_package_uri=rpu,
+            conversion_details=None,
+            other_details=other_details
+        )
+        
 
 class ResourceAnnotations(AnyClass):
     """Class to store annotations for `AuthoredResource`"""
@@ -187,7 +292,7 @@ class ResourceAnnotations(AnyClass):
             is_equal_value(self.documentation, other.documentation)
         )
 
-class TranslationDetails(AnyClass):
+class TranslationDetails(AnyClass, IXMLSupport):
     """Class providing details of a natural language translation."""
     
     language : TerminologyCode
@@ -251,9 +356,78 @@ class TranslationDetails(AnyClass):
         if self.other_contributors is not None:
             draft["other_contributors"] = self.other_contributors
         return draft
+    
+    def as_xml(self, root_tag = None):
+        tag = "translation_details" if root_tag is None else root_tag
+        root = ET.Element(tag)
+
+        lang_cp = CodePhrase(self.language.terminology_id, self.language.code_string)
+        root.append(lang_cp.as_xml("language"))
+
+        for (id, value) in self.author:
+            author_el = ET.Element("author")
+            author_el.attrib["id"] = id
+            author_el.text = value
+            root.append(author_el)
+
+        if self.accreditation is not None:
+            accred = ET.Element("accreditation")
+            accred.text = self.accreditation
+            root.append(accred)
+
+        if self.other_contributors is not None:
+            for other_contrib in self.other_contributors:
+                other_contrib_el = ET.Element("other_contributors")
+                other_contrib_el.text = other_contrib
+                root.append(other_contrib_el)
+
+        # version_last_translated does not exist in XML v1.0.2
+
+        if self.other_details is not None:
+            for (id, value) in self.other_details.items():
+                other_detail = ET.Element("other_details")
+                other_detail.attrib["id"] = id
+                other_detail.text = value
+                root.append(other_detail)
+
+        return root
+    
+    def from_xml(root: ET.Element, **kwargs):
+        lang_el = root.find("./language")
+        lang : CodePhrase = CodePhrase.from_xml(lang_el)
+
+        author_els = root.findall("./author")
+        author = {}
+        for author_el in author_els:
+            author[author_el.attrib["id"]] = author_el.text
+
+        accred = root.findtext("./accreditation")
+
+        other_contrib_els = root.findall("./other_contributors")
+        other_contributors = None
+        if len(other_contrib_els) > 0:
+            other_contributors = []
+            for other_contrib_el in other_contrib_els:
+                other_contributors.append(other_contrib_el.text)
+
+        o_dt_els = root.findall("./other_details")
+        other_details = None
+        if len(o_dt_els) > 0:
+            other_details = {}
+            for o_dt_el in o_dt_els:
+                other_details[o_dt_el.attrib["id"]] = o_dt_el.text
+
+        return TranslationDetails(
+            language=TerminologyCode(lang.terminology_id.value, lang.code_string),
+            author=author,
+            accreditation=accred,
+            other_details=other_details,
+            version_last_translated=None,
+            other_contributors=other_contributors
+        )
 
 
-class AuthoredResource(AnyClass, ABC):
+class AuthoredResource(AnyClass, IXMLSupport):
     """Abstract idea of an online resource created by a human author."""
     
     uid : Optional[UUID] = None
@@ -379,6 +553,7 @@ class AuthoredResource(AnyClass, ABC):
                 else:
                     self._description = resource_description
 
+    @abstractmethod
     def as_json(self):
         draft = {
             "original_language": self.original_language.as_json()
@@ -394,9 +569,50 @@ class AuthoredResource(AnyClass, ABC):
         if self.translations is not None:
             draft["translations"] = self.translations
         return draft
+    
+    @abstractmethod
+    def as_xml(self, root_tag = None):
+        tag = "authored_resource" if root_tag is None else root_tag
+        root = ET.Element(tag)
+        olang_cp = CodePhrase(self.original_language.terminology_id, self.original_language.code_string)
+        root.append(olang_cp.as_xml("original_language"))
+        if self.is_controlled is not None:
+            is_cont = ET.Element("is_controlled")
+            is_cont.text = str(self.is_controlled).lower()
+            root.append(is_cont)
+        if self._description is not None:
+            root.append(self._description.as_xml("description"))
+        if self._translations is not None:
+            for (_, translation_details) in self._translations:
+                root.append(translation_details.as_xml("translations"))
+        # this version of rm does not have revision_history
+        return root
+    
+    def extract_xml_elements(root: ET.Element) -> tuple[CodePhrase, Optional[bool], Optional[ResourceDescription], Optional[list[TranslationDetails]]]:
+        cphr = CodePhrase.from_xml(root.find("./original_language"))
 
+        is_cont_el = root.findtext("./is_controlled")
+        is_cont = None
+        if is_cont_el is not None:
+            is_cont = (is_cont_el.capitalize() == "True")
 
-class ResourceDescriptionItem(AnyClass):
+        desc_el = root.find("./description")
+        desc = None
+        if desc_el is not None:
+            desc = ResourceDescription.from_xml(desc_el)
+
+        trans_els = root.findall("./translations")
+        trans = []
+        for trans_el in trans_els:
+            trans.append(TranslationDetails.from_xml(trans_el))
+
+        rev_his_el = root.find("./revision_history")
+        if rev_his_el != None:
+            warnings.warn("REVISION_HISTORY found within AUTHORED_RESOURCE when parsing XML v1.4. Library is on rm v1.10 and does not support REVISION_HISTORY in AUTHORED_RESOURCE. Ignoring.")
+            
+        return (cphr, is_cont, desc, trans)
+
+class ResourceDescriptionItem(AnyClass, IXMLSupport):
     """Language-specific detail of resource description. When a resource is translated for use in another language environment, each `ResourceDescriptionItem` needs to be copied and translated into the new language."""
     
     language : TerminologyCode
@@ -468,4 +684,87 @@ class ResourceDescriptionItem(AnyClass):
         if self.other_details is not None:
             draft["other_details"] = self.other_details
         return draft
+    
+    def as_xml(self, root_tag = None):
+        tag = "resource_description_item" if root_tag is None else root_tag
+        root = ET.Element(tag)
+
+        # in v1.0.2 XML language is a CODE_PHRASE not TERMINOLOGY_CODE
+        lang_cp = CodePhrase(self.language.terminology_id, self.language.code_string)
+        lang = lang_cp.as_xml("language")
+        root.append(lang)
+
+        purp = ET.Element("purpose")
+        purp.text = self.purpose
+        root.append(purp)
+
+        if self.keywords is not None:
+            for keyword_str in self.keywords:
+                keyword = ET.Element("keywords")
+                keyword.text = keyword_str
+                root.append(keyword_str)
+
+        if self.use is not None:
+            use = ET.Element("use")
+            use.text = self.use
+            root.append(use)
+
+        if self.misuse is not None:
+            misuse = ET.Element("misuse")
+            misuse.text = self.misuse
+            root.append(misuse)
+
+        if self.original_resource_uri is not None:
+            for (key, value) in self.original_resource_uri.items():
+                orig_uri = ET.Element("original_resource_uri")
+                orig_uri.attrib["id"] = key
+                orig_uri.text = value
+                root.append(orig_uri)
+
+        if self.other_details is not None:
+            for (key, value) in self.other_details.items():
+                other_detail = ET.Element("other_details")
+                other_detail.attrib["id"] = key
+                other_detail.text = value
+                root.append(other_detail)
+
+        # copyright is missing from this RM version
+
+        return root
+    
+    def from_xml(root: ET.Element, **kwargs) -> 'ResourceDescriptionItem':
+        lang : CodePhrase = CodePhrase.from_xml(root.find("./language"))
+        purp = root.findtext("./purpose")
+        keyword_els = root.findall("./keywords")
+        keywords = None
+        if len(keyword_els) > 0:
+            keywords = []
+            for keyword_el in keyword_els:
+                keywords.append(keyword_el.text)
+        use = root.findtext("./use")
+        misuse = root.findtext("./misuse")
+        # copyright is missing from this RM version
+        oru_els = root.findall("./original_resource_uri")
+        orus = None
+        if len(oru_els) > 0:
+            orus = dict()
+            for oru_el in oru_els:
+                orus[oru_el.attrib["id"]] = oru_el.text
+        o_dt_els = root.findall("./other_details")
+        other_details = None
+        if len(o_dt_els) > 0:
+            other_details = dict()
+            for o_dt_el in o_dt_els:
+                other_details[o_dt_el.attrib["id"]] = o_dt_el.text
+        
+        return ResourceDescriptionItem(
+            language=TerminologyCode(lang.terminology_id.value, lang.code_string),
+            purpose=purp,
+            keywords=keywords,
+            use=use,
+            misuse=misuse,
+            original_resource_uri=orus,
+            other_details=other_details
+        )
+
 

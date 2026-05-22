@@ -1,5 +1,5 @@
 from abc import abstractmethod
-import json
+import xml.etree.ElementTree as ET
 from typing import Optional, Union
 import warnings
 
@@ -8,8 +8,11 @@ from pydantic import ValidationError, field_validator
 
 from pyehr.core.base.foundation_types import AnyClass
 from pyehr.core.base.foundation_types.primitive_types import ordered
+from pyehr.core.base.foundation_types.structure import is_equal_value
+from pyehr.core.base.foundation_types.time import ISODateTime, ISOType
+from pyehr.core.its.xml import IXMLSupport
 
-class Interval[T : ordered](AnyClass):
+class Interval[T : ordered](AnyClass, IXMLSupport):
     """Interval abstraction, featuring upper and lower limits that may be open or closed, 
     included or not included. Interval of ordered items."""
 
@@ -156,7 +159,99 @@ class Interval[T : ordered](AnyClass):
                     "value": str(self._upper)
                 }
         return draft
+    
+    def as_xml(self, root_tag = None, dv_interval_ordering=False):
+        tag = "interval" if root_tag is None else root_tag
+        root = ET.Element(tag)
 
+        if not dv_interval_ordering:
+            low_inc = ET.Element("lower_included")
+            low_inc.text = str(self.lower_included).lower()
+            root.append(low_inc)
+
+            up_inc = ET.Element("upper_included")
+            up_inc.text = str(self.upper_included).lower()
+            root.append(up_inc)
+
+            low_unb = ET.Element("lower_unbounded")
+            low_unb.text = str(self.lower_unbounded).lower()
+            root.append(low_unb)
+
+            up_unb = ET.Element("upper_unbounded")
+            up_unb.text = str(self.upper_unbounded).lower()
+            root.append(up_unb)
+
+        if self.lower is not None:
+            low = ET.Element("lower")
+            if isinstance(self._lower, ISOType):
+                low.text = str(self._lower.value)
+            elif isinstance(self._lower, IXMLSupport):
+                low = self._lower.as_xml("lower")
+            else:
+                low.text = str(self._lower)
+            root.append(low)
+
+        if self.upper is not None:
+            up = ET.Element("upper")
+            if isinstance(self._upper, ISOType):
+                up.text = str(self._upper.value)
+            elif isinstance(self._upper, IXMLSupport):
+                up = self._upper.as_xml("upper")
+            else:
+                up.text = str(self._upper)
+            root.append(up)
+
+        if dv_interval_ordering:
+            low_inc = ET.Element("lower_included")
+            low_inc.text = str(self.lower_included).lower()
+            root.append(low_inc)
+
+            up_inc = ET.Element("upper_included")
+            up_inc.text = str(self.upper_included).lower()
+            root.append(up_inc)
+
+            low_unb = ET.Element("lower_unbounded")
+            low_unb.text = str(self.lower_unbounded).lower()
+            root.append(low_unb)
+
+            up_unb = ET.Element("upper_unbounded")
+            up_unb.text = str(self.upper_unbounded).lower()
+            root.append(up_unb)
+
+        return root
+    
+    @staticmethod
+    def from_xml(root: ET.Element, typ, **kwargs) -> 'Interval':
+        # typ is the class for the contents of lower/upper
+        low_inc_el = root.findtext("./lower_included")
+        low_inc = (low_inc_el.capitalize() == "True") if low_inc_el is not None else None
+        up_inc_el = root.findtext("./upper_included")
+        up_inc = (up_inc_el.capitalize() == "True") if up_inc_el is not None else None
+        
+        low = None
+        up = None
+        if issubclass(typ, IXMLSupport):
+            low_el = root.find("./lower")
+            if low_el is not None:
+                low = typ.from_xml(low_el)
+            up_el = root.find("./upper")
+            if up_el is not None:
+                up = typ.from_xml(up_el)
+        else:
+            low_txt = root.findtext("./lower")
+            if low_txt is not None:
+                low = typ(low_txt)
+            up_txt = root.findtext("./upper")
+            if up_txt is not None:
+                up = typ(up_txt)
+
+        if low_inc == up_inc and is_equal_value(low, up):
+            pi = PointInterval(low)
+            pi.lower_included = low_inc
+            return pi
+        else:
+            propi = ProperInterval(low, up, low_inc, up_inc)
+            return propi
 
 class PointInterval[T : ordered](Interval[T]):
     """Type representing an `Interval` that happens to be a point value. 
@@ -211,8 +306,8 @@ class PointInterval[T : ordered](Interval[T]):
     # override
     def is_equal(self, other) -> bool:
         return (type(self) == type(other) and
-                self.lower == other.lower and
-                self.upper == other.upper and
+                is_equal_value(self.lower, other.lower) and
+                is_equal_value(self.upper, other.upper) and
                 self.lower_included == other.lower_included and
                 self.upper_included == other.upper_included
                 )
@@ -235,8 +330,8 @@ class ProperInterval[T: ordered](Interval[T]):
     # override
     def is_equal(self, other) -> bool:
         return (type(self) == type(other) and
-                self.lower == other.lower and
-                self.upper == other.upper and
+                is_equal_value(self.lower, other.lower) and
+                is_equal_value(self.upper, other.upper) and
                 self.lower_included == other.lower_included and
                 self.upper_included == other.upper_included
                 )
@@ -334,7 +429,7 @@ class MultiplicityInterval(ProperInterval[np.int32]):
         """True if this interval is set to 0..0."""
         return self.lower == 0 and self.upper == 1 and self.lower_included and not self.upper_included
     
-class Cardinality(AnyClass):
+class Cardinality(AnyClass, IXMLSupport):
     """Express constraints on the cardinality of container objects which are the values of 
     multiply-valued attributes, including uniqueness and ordering, providing the means to 
     state that a container acts like a logical list, set or bag."""
@@ -373,9 +468,31 @@ class Cardinality(AnyClass):
         return self.is_unique and not self.is_ordered
     
     def as_json(self):
-        warnings.warn("Cardinality does not have a valid ITS JSON schema, potentially non-standard JSON emitted.", RuntimeWarning)
         return {
             "interval": self.interval.as_json(),
             "is_ordered": self.is_ordered,
             "is_unique": self.is_unique
         }
+    
+    def as_xml(self, root_tag = None):
+        # https://specifications.openehr.org/releases/ITS-XML/Release-1.0.2/components/ALL/Archetype.xsd
+        tag = "cardinality" if root_tag is None else root_tag
+        root = ET.Element(tag)
+
+        ord = ET.Element("is_ordered")
+        ord.text = str(self.is_ordered).lower()
+        root.append(ord)
+
+        uni = ET.Element("is_unique")
+        uni.text = str(self.is_unique).lower()
+        root.append(uni)
+
+        root.append(self.interval.as_xml("interval"))
+
+        return root
+    
+    def from_xml(root: ET.Element, **kwargs) -> 'Cardinality':
+        ord = root.findtext("./is_ordered").capitalize() == "True"
+        uni = root.findtext("./is_unique").capitalize() == "True"
+        inter = Interval.from_xml(root.find("./interval"), np.int32)
+        return Cardinality(ord, uni, inter)

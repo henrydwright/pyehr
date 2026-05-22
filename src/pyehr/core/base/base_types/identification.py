@@ -2,8 +2,10 @@ from abc import ABC, abstractmethod
 from typing import Optional
 import re
 import warnings
+from xml.etree import ElementTree
 
 from pyehr.core.base.foundation_types import AnyClass
+from pyehr.core.its.xml import IXMLSupport
 
 class UID(AnyClass, ABC):
     """Abstract parent of classes representing unique identifiers 
@@ -108,7 +110,7 @@ class InternetID(UID):
             "value": self.value
         }
 
-class ObjectID(AnyClass):
+class ObjectID(AnyClass, IXMLSupport):
     """Ancestor class of identifiers of informational objects. Ids may 
     be completely meaningless, in which case their only job is to refer 
     to something, or may carry some information to do with the identified object.
@@ -143,6 +145,18 @@ class ObjectID(AnyClass):
         return {
             "value": self.value
         }
+    
+    def as_xml(self, root_tag = None):
+        tag = "object_id" if root_tag is None else root_tag
+        root = ElementTree.Element(tag)
+        val = ElementTree.Element("value")
+        val.text = self.value
+        root.append(val)
+        return root
+    
+    def from_xml(root: ElementTree.Element, **kwargs):
+        val = root.findtext("./value")
+        return ObjectID(val)
     
 class UIDBasedID(ObjectID):
     """Abstract model of UID-based identifiers consisting of a root part and an 
@@ -199,6 +213,10 @@ class HierObjectID(UIDBasedID):
             "_type": "HIER_OBJECT_ID",
             "value": self.value
         }
+    
+    def from_xml(root: ElementTree.Element, **kwargs):
+        val = root.findtext("./value")
+        return HierObjectID(val)
 
 class VersionTreeID(AnyClass):
     """Version tree identifier for one version. 
@@ -315,6 +333,10 @@ class ObjectVersionID(UIDBasedID):
             "value": self.value
         }
     
+    def from_xml(root: ElementTree.Element, **kwargs):
+        val = root.findtext("./value")
+        return ObjectVersionID(val)
+    
 class ArchetypeID(ObjectID):
     """Identifier for archetypes. Ideally these would identify globally unique archetypes.
     
@@ -384,8 +406,12 @@ class ArchetypeID(ObjectID):
             "_type": "ARCHETYPE_ID",
             "value": self.value
         }
+    
+    def from_xml(root: ElementTree.Element, **kwargs):
+        val = root.findtext("./value")
+        return ArchetypeID(val)
 
-class TemplateID(ObjectID):
+class TemplateID(ObjectID, IXMLSupport):
     """Identifier for templates. Lexical form to be determined."""
     
     def __init__(self, value, **kwargs):
@@ -397,8 +423,12 @@ class TemplateID(ObjectID):
             "_type": "TEMPLATE_ID",
             "value": self.value
         }
+    
+    def from_xml(root: ElementTree.Element, **kwargs) -> 'TemplateID':
+        val = root.findtext("./value")
+        return TemplateID(val)
 
-class TerminologyID(ObjectID):
+class TerminologyID(ObjectID, IXMLSupport):
     """Identifier for terminologies such as accessed via a terminology 
     query service. In this class, the value attribute identifies the 
     Terminology in the terminology service, e.g. SNOMED-CT. A terminology 
@@ -442,6 +472,10 @@ class TerminologyID(ObjectID):
             "_type": "TERMINOLOGY_ID",
             "value": self.value
         }
+    
+    def from_xml(root: ElementTree.Element, **kwargs) -> 'TerminologyID':
+        val = root.findtext("./value")
+        return TerminologyID(val)
 
 
 class GenericID(ObjectID):

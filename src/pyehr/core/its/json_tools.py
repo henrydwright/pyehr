@@ -1,14 +1,15 @@
 """Functions and classes for creating and reading OpenEHR JSON files"""
 
-from json import JSONEncoder, dumps
+from json import JSONEncoder
 from typing import Union, Optional
 
 from pyehr.core.its.rest.additions import UpdateAttestation, UpdateAudit, UpdateContribution, UpdateVersion
+from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion, VersionedObject
+from pyehr.core.rm.common.generic import Attestation, AuditDetails, PartyIdentified, PartySelf, RevisionHistory, RevisionHistoryItem
+from pyehr.utils import OPENEHR_TYPE_MAP
 from term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
 from pyehr.core.base.base_types.identification import HierObjectID, InternetID, ObjectID, ObjectRef, ObjectVersionID, GenericID, PartyRef, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
-from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion, Version, VersionedObject
-from pyehr.core.rm.common.generic import Attestation, AuditDetails, PartyIdentified, PartySelf, RevisionHistory, RevisionHistoryItem
 from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID
 from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemTree
 from pyehr.core.rm.data_structures.representation import Cluster, Element
@@ -140,10 +141,10 @@ def decode_json(json_obj: dict,
             raise ValueError("Could not decode object: '_type' attribute not present")
         target_type = json_obj['_type']
     
-    if target_type not in _type_map:
+    if target_type not in OPENEHR_TYPE_MAP:
         raise NotImplementedError(f"Could not decode object: '_type' of \'{target_type}\' is either not yet supported or is not a valid openEHR type")
 
-    target_cls = _type_map[target_type]
+    target_cls = OPENEHR_TYPE_MAP[target_type]
     
     if '_type' in json_obj:
         # not a valid argument
@@ -253,4 +254,4 @@ def decode_json(json_obj: dict,
     else:
         return result
 
-        
+

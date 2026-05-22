@@ -1,0 +1,165 @@
+from typing import Optional
+
+import warnings
+import xml.etree.ElementTree as ET
+
+import numpy as np
+
+from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeConstraint, CArchetypeRoot, CAttribute, CComplexObject
+from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, TermBindingItem, TermBindingSet
+from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, TemplateID
+from pyehr.core.base.foundation_types.any import AnyClass
+from pyehr.core.base.foundation_types.interval import Interval
+from pyehr.core.base.foundation_types.structure import is_equal_value
+from pyehr.core.base.resource import ResourceDescription
+from pyehr.core.its.xml import IXMLSupport
+from pyehr.core.rm.common.generic import RevisionHistory
+from pyehr.core.rm.data_types.text import CodePhrase
+
+class FlatArchetypeOntology(ArchetypeOntology):
+    pass
+
+class Annotation(AnyClass, IXMLSupport):
+    pass
+
+class TComplexObject(CComplexObject):
+    pass
+
+class TAttribute(AnyClass, IXMLSupport):
+    pass
+
+class TConstraint(AnyClass, IXMLSupport):
+    pass
+
+class TViewConstraint(AnyClass, IXMLSupport):
+    pass
+
+class TView(AnyClass, IXMLSupport):
+    pass
+
+class OperationalTemplate(AnyClass, IXMLSupport):
+    """pyehr representation of the OPT 1.4 XML template represented in XML
+    schemas in Template.xsd"""
+
+    language: CodePhrase
+
+    is_controlled: Optional[bool]
+
+    description: Optional[ResourceDescription]
+
+    revision_history: Optional[RevisionHistory]
+
+    uid: Optional[HierObjectID]
+
+    template_id: TemplateID
+
+    concept: str
+
+    definition : Optional[CArchetypeRoot] = None
+
+    ontology : Optional[FlatArchetypeOntology] = None
+
+    component_ontologies : Optional[FlatArchetypeOntology] = None
+
+    annotations : Optional[list[Annotation]] = None
+
+    constraints : Optional[TConstraint] = None
+
+    view : Optional[TView] = None
+
+    def __init__(self, 
+                 language:CodePhrase, 
+                 template_id: TemplateID, 
+                 concept: str, 
+                 is_controlled: Optional[bool] = None, 
+                 description: Optional[ResourceDescription] = None, 
+                 revision_history: Optional[RevisionHistory] = None, 
+                 uid: Optional[HierObjectID] = None,
+                 definition: Optional[CArchetypeRoot] = None,
+                 ontology: Optional[FlatArchetypeOntology] = None,
+                 component_ontologies: Optional[FlatArchetypeOntology] = None,
+                 annotations: Optional[list[Annotation]] = None,
+                 constraints: Optional[TConstraint] = None,
+                 view: Optional[TView] = None
+                 ):
+        self.language = language
+        self.template_id = template_id
+        self.concept = concept
+        self.is_controlled = is_controlled
+        self.description = description
+        self.revision_history = revision_history
+        self.uid = uid
+        self.definition = definition
+        self.ontology = ontology
+        self.component_ontologies = component_ontologies
+        self.annotations = annotations
+        self.constraints = constraints
+        self.view = view
+
+    def as_xml(self, root_tag = None):
+        tag = "template" if root_tag is None else root_tag
+        root = ET.Element(tag)
+        root.append(self.language.as_xml("language"))
+        
+        is_cont = ET.Element("is_controlled")
+        is_cont.text = str(self.is_controlled).lower()
+        root.append(is_cont)
+
+        if self.description is not None:
+            root.append(self.description.as_xml("description"))
+
+        if self.uid is not None:
+            root.append(self.uid.as_xml("uid"))
+        
+        root.append(self.template_id.as_xml("template_id"))
+        
+        conc = ET.Element("concept")
+        conc.text = self.concept
+        root.append(conc)
+        
+        root.append(self.definition.as_xml("definition"))
+        return root
+    
+    def from_xml(root: ET.Element, **kwargs) -> 'OperationalTemplate':
+        lang = CodePhrase.from_xml(root.find("./language"))
+        is_cont = (root.findtext("./is_controlled") == "true")
+        desc = root.find("./description")
+        if desc is not None:
+            desc = ResourceDescription.from_xml(desc)
+        # rev_his
+        uid = root.find("./uid")
+        if uid is not None:
+            uid = HierObjectID.from_xml(uid)
+        tid = TemplateID.from_xml(root.find("./template_id"))
+        concept = root.findtext("./concept")
+        definition = CArchetypeRoot.from_xml(root.find("./definition"))
+        
+        return OperationalTemplate(lang, tid, concept, is_controlled=is_cont, description=desc, uid=uid, definition=definition)
+    
+    def as_json(self):
+        draft = {
+            "language": self.language.as_json(),
+            "is_controlled": self.is_controlled,
+            "template_id": self.template_id.as_json(),
+            "concept": self.concept
+        }
+        if self.definition is not None:
+            draft["definition"] = self.definition.as_json()
+        draft["_type"] = "TEMPLATE"
+        return draft
+
+    def is_equal(self, other: 'OperationalTemplate'):
+        return (type(self) == type(other) and
+                is_equal_value(self.language, other.language) and
+                is_equal_value(self.is_controlled, other.is_controlled) and
+                is_equal_value(self.description, other.description) and
+                is_equal_value(self.revision_history, other.revision_history) and
+                is_equal_value(self.uid, other.uid) and
+                is_equal_value(self.template_id, other.template_id) and
+                is_equal_value(self.concept, other.concept) and
+                is_equal_value(self.definition, other.definition) and
+                is_equal_value(self.ontology, other.ontology) and
+                is_equal_value(self.component_ontologies, other.component_ontologies) and
+                is_equal_value(self.annotations, other.annotations) and
+                is_equal_value(self.constraints, other.constraints) and
+                is_equal_value(self.view, other.view))
