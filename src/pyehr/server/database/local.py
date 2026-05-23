@@ -1,7 +1,7 @@
 from logging import getLogger, Logger
 import json
 
-from pyehr.core.rm.common.archetyped import PyehrInternalPathPredicateType, PyehrInternalProcessedPath
+from pyehr.core.rm.common.archetyped import Locatable, PyehrInternalPathPredicateType, PyehrInternalProcessedPath
 from pyehr.core.rm.common.change_control import OriginalVersion, VersionedObject
 from pyehr.core.rm.common.generic import RevisionHistory, RevisionHistoryItem
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
@@ -46,7 +46,8 @@ class InMemoryDB(IDatabaseEngine):
             is_deleted=None,
             action_history=[
                 DBActionItem(DBActionType.GENERATE_HID, party=generator)
-            ]
+            ],
+            obj_archetype_id=None
         )
         self._log.info(f"{gen}:Generated")
         return ret_id
@@ -116,13 +117,15 @@ class InMemoryDB(IDatabaseEngine):
                 raise ObjectAlreadyExistsError(f"Item with UID of {uid.value} already exists in database so could not be created.")
 
         type_str = get_openehr_type_str(obj) if type_override is None else type_override
+        arch_id = obj.archetype_node_id if isinstance(obj, Locatable) else None
 
         if uid.value not in self._meta:
             met = DBMetadata(
                 uid=uid,
                 obj_type=type_str,
                 is_deleted=False,
-                action_history=[]
+                action_history=[],
+                obj_archetype_id=arch_id
             )
             self._meta[uid.value] = met
         else:

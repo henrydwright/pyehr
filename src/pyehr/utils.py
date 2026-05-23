@@ -85,7 +85,8 @@ OPENEHR_TYPE_MAP = {
     "DV_DATE": DVDate,
     "TEMPLATE": OperationalTemplate,
     "ARCHETYPE": Archetype,
-    "C_STRING": CString
+    "C_STRING": CString,
+    "AGENT": Agent
 }
 """Map of OpenEHR string type names (e.g. as found in '_type' JSON) to pyehr Python types"""
 

@@ -15,6 +15,7 @@ from pyehr.core.rm.common.change_control import Contribution, Version
 from pyehr.core.rm.common.generic import PartyIdentified, PartyProxy
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import DVText
+from pyehr.server.apps.rest.blueprints.shared import _add_headers_to_response, _create_empty_response, _create_error_response, _create_not_found_response, _create_object_response, _get_audit_change_type, _get_audit_description, _get_committer, _get_lifecycle_state, _parse_request_body 
 from pyehr.server.apps.rest.meta import OpenEHRFormat, OpenEHRRequestHeaders
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState, VersionedStore
 from pyehr.server.database import IDatabaseEngine
@@ -24,83 +25,6 @@ def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine
     demo_bp = Blueprint("demographic", __name__, url_prefix="/demographic")
 
     log = logging.getLogger("apps.rest.demographic")
-
-    def _add_headers_to_response(response_to_add_to: Response, obj_id: Union[HierObjectID, ObjectVersionID], last_modified: Optional[DVDateTime] = None, location: Optional[str] = None, ehr_uri: Optional[str] = None):
-        response_to_add_to.headers.add("ETag", f"W/\"{obj_id.value}\"")
-        if last_modified is not None:
-            dt = datetime.datetime.fromisoformat(last_modified.value)
-            response_to_add_to.headers.add("Last-Modified", dt.strftime("%a, %d %b %Y %H:%M:%S GMT"))
-        if location is not None:
-            response_to_add_to.headers.add("Location", location)
-        if ehr_uri is not None:
-            response_to_add_to.headers.add("openEHR-uri", ehr_uri)
-
-    def _create_error_response(error_text: str, status_code: int):
-        err_response = make_response(jsonify({"error": error_text}))
-        err_response.status_code = status_code
-        err_response.headers["Content-Type"] = "application/json"
-        return err_response
-
-    def _create_object_response(obj: AnyClass, status_code: int):
-        accepted_formats = g.processed_headers.preferred_response_formats
-        if accepted_formats is None:
-            accepted_formats = {OpenEHRFormat.JSON}
-        if OpenEHRFormat.JSON in accepted_formats or OpenEHRFormat.NONSTANDARD_HTML in accepted_formats:
-            success_resp = make_response(jsonify(obj.as_json()))
-            success_resp.status_code = status_code
-            success_resp.headers["Content-Type"] = "application/json"
-            return success_resp
-        else:
-            return _create_error_response(f"412 Precondition Failed: Server does not support any OpenEHR format that the client accepts ({str(accepted_formats)})", 412)
-        
-    def _create_empty_response():
-        empty_resp = make_response("")
-        empty_resp.status_code = 204
-        return empty_resp
-
-    def _create_not_found_response(obj_type: str, uid_based_id: str):
-        return _create_error_response(f"404 Not Found: Could not find {obj_type} with uid of \'{uid_based_id}\'", 404)
-
-    def _parse_request_body(target_type: str):
-        parse_format = g.processed_headers.provided_content_format
-        if parse_format is None:
-            parse_format = OpenEHRFormat.JSON
-        
-        if parse_format != OpenEHRFormat.JSON:
-            return _create_error_response(f"415 Unsupported Media Type: Server cannot parse the OpenEHR \'{str(parse_format)}\' format", 415)
-        else:
-            return decode_json(request.get_json(), target_type)
-
-    def _get_lifecycle_state(fallback_value: VersionLifecycleState):
-        header_state : VersionLifecycleState = g.processed_headers.version_lifecycle_state
-        if header_state is not None:
-            log.debug(f"Using lifecycle state from header: {header_state.value.value}")
-            return header_state
-        else:
-            return fallback_value
-
-    def _get_committer():
-        header_state : PartyIdentified = g.processed_headers.version_committer
-        if header_state is not None:
-            log.debug(f"Using committer from header: {json.dumps(header_state.as_json())}")
-            return header_state
-        else:
-            return logged_in_user
-
-    def _get_audit_change_type(fallback_value: AuditChangeType):
-        header_state : AuditChangeType = g.processed_headers.version_audit_change_type
-        if header_state is not None:
-            log.debug(f"Using audit change type from header: {header_state.value.value}")
-            return header_state
-        else:
-            return fallback_value
-
-    def _get_audit_description(fallback_value: Optional[DVText] = None):
-        header_state : DVText = g.processed_headers.version_audit_description
-        if header_state is not None:
-            log.debug(f"Using audit description from header: {header_state.value}")
-        else:
-            return fallback_value
 
     @demo_bp.before_request
     def process_headers():
@@ -167,7 +91,7 @@ def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine
             contrib=contrib,
             versions=orig_versions,
             owner_id=owner_id,
-            committer=_get_committer().external_ref
+            committer=_get_committer(log, logged_in_user).external_ref
         )
 
         resp = _create_object_response(contrib, 201)
@@ -187,10 +111,10 @@ def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine
         d_ovid, d_contrib, d_vo = vs.create(
             obj=body_obj,
             owner_id=ObjectRef("null", "NULL", HierObjectID("00000000-0000-0000-0000-000000000000")),
-            committer=_get_committer(),
-            lifecycle_state=_get_lifecycle_state(VersionLifecycleState.COMPLETE),
-            description=_get_audit_description(),
-            user=_get_committer().external_ref)
+            committer=_get_committer(log, logged_in_user),
+            lifecycle_state=_get_lifecycle_state(VersionLifecycleState.COMPLETE, log),
+            description=_get_audit_description(log),
+            user=_get_committer(log, logged_in_user).external_ref)
         new_obj = d_vo.all_versions()[0].data()
         resp = _create_object_response(new_obj, 201)
         _add_headers_to_response(resp, d_ovid, d_contrib.audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/{typ.lower()}/{d_ovid.value}", f"demographic://{d_ovid.object_id().value}")
@@ -282,10 +206,10 @@ def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine
 
         object_version : Version = None
         if "::" in uid_based_id:
-            object_version = vs.read_version(typ, ObjectVersionID(uid_based_id), _get_committer().external_ref)
+            object_version = vs.read_version(typ, ObjectVersionID(uid_based_id), _get_committer(log, logged_in_user).external_ref)
         else:
             version_at_time = request.args.get("version_at_time")
-            object_version = vs.read(typ, HierObjectID(uid_based_id), version_at_time, _get_committer().external_ref)
+            object_version = vs.read(typ, HierObjectID(uid_based_id), version_at_time, _get_committer(log, logged_in_user).external_ref)
         
         if object_version is None:
             return _create_not_found_response(typ, uid_based_id)
@@ -317,12 +241,12 @@ def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine
         
         d_ovid, d_contrib, _ = vs.update(
             obj=body_object,
-            committer=_get_committer(),
-            lifecycle_state=_get_lifecycle_state(VersionLifecycleState.COMPLETE),
-            change_type=_get_audit_change_type(AuditChangeType.MODIFICATION),
+            committer=_get_committer(log, logged_in_user),
+            lifecycle_state=_get_lifecycle_state(VersionLifecycleState.COMPLETE, log),
+            change_type=_get_audit_change_type(AuditChangeType.MODIFICATION, log),
             preceding_version_uid=preceding_uid,
-            description=_get_audit_description(),
-            user=_get_committer().external_ref
+            description=_get_audit_description(log),
+            user=_get_committer(log, logged_in_user).external_ref
         )
 
         resp = _create_object_response(body_object, 200)
@@ -342,10 +266,10 @@ def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine
         
         d_ovid, d_contrib, _ = vs.delete(
             obj_type=typ,
-            deleter=_get_committer(),
+            deleter=_get_committer(log, logged_in_user),
             preceding_version_uid=preceding_uid,
-            description=_get_audit_description(),
-            user=_get_committer().external_ref
+            description=_get_audit_description(log),
+            user=_get_committer(log, logged_in_user).external_ref
         )
 
         resp = make_response("", 204)

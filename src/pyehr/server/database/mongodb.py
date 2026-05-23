@@ -11,7 +11,7 @@ from pymongo.collection import Collection
 from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import HierObjectID, UIDBasedID
 from pyehr.core.its.json_tools import decode_json
-from pyehr.core.rm.common.archetyped import PyehrInternalProcessedPath
+from pyehr.core.rm.common.archetyped import Locatable, PyehrInternalProcessedPath
 from pyehr.core.rm.common.change_control import OriginalVersion, VersionedObject
 from pyehr.core.rm.common.generic import RevisionHistoryItem
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
@@ -61,7 +61,8 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             is_deleted=None,
             action_history=[
                 DBActionItem(DBActionType.GENERATE_HID, party=generator)
-            ]
+            ],
+            obj_archetype_id=None
         )
 
         self._meta.insert_one(meta_ob.as_json())
@@ -100,13 +101,15 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             raise ObjectAlreadyExistsError(f"Item with UID of {uid.value} already exists in database so could not be created.")
         
         type_str = get_openehr_type_str(obj) if type_override is None else type_override
+        arch_id = obj.archetype_node_id if isinstance(obj, Locatable) else None
 
         if meta is None:
             meta = DBMetadata(
                 uid=uid,
                 obj_type=type_str,
                 is_deleted=False,
-                action_history=[]
+                action_history=[],
+                obj_archetype_id=arch_id
             )
             self._meta.insert_one(meta.as_json())
         else:
@@ -222,13 +225,16 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             raise ObjectAlreadyExistsError(f"Item with UID of {uid.value} already exists in database so could not be created.")
         
         type_str = get_openehr_type_str(vo)
+        ver = vo.latest_version().data()
+        arch_id = ver.archetype_node_id if isinstance(ver, Locatable) else None
 
         if meta is None:
             meta = DBMetadata(
                 uid=uid,
                 obj_type=type_str,
                 is_deleted=False,
-                action_history=[]
+                action_history=[],
+                obj_archetype_id=arch_id
             )
             self._meta.insert_one(meta.as_json())
         else:
@@ -237,7 +243,8 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
                 update={
                     "$set": {
                         "type": type_str,
-                        "is_deleted": False
+                        "is_deleted": False,
+                        "archetype_id": arch_id
                     }
                 }
             )

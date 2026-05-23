@@ -84,24 +84,29 @@ class DBMetadata():
     obj_type: Optional[str]
     """OpenEHR object type of the object"""
 
+    obj_archetype_id: Optional[str]
+    """OpenEHR archetype_id of the object, if it is a 'top-level' object with archetype_node_id"""
+
     is_deleted: Optional[bool]
     """Whether or not this object should be treated as deleted"""
 
     action_history: list[DBActionItem]
     """List of actions carried out on this item"""
 
-    def __init__(self, uid: UIDBasedID, obj_type: Optional[str], is_deleted: Optional[bool], action_history: list[DBActionItem]):
+    def __init__(self, uid: UIDBasedID, obj_type: Optional[str], is_deleted: Optional[bool], action_history: list[DBActionItem], obj_archetype_id: Optional[str]):
         self.uid = uid
         self.obj_type = obj_type
         self.is_deleted = is_deleted
         self.action_history = action_history
+        self.obj_archetype_id = obj_archetype_id
 
     def as_json(self):
         return {
             "_id": self.uid.value,
             "type": self.obj_type,
             "is_deleted": self.is_deleted,
-            "action_history": [a.as_json() for a in self.action_history]
+            "action_history": [a.as_json() for a in self.action_history],
+            "archetype_id": self.obj_archetype_id
         }
     
     def from_json(js_dict: dict):
@@ -110,7 +115,7 @@ class DBMetadata():
             uid = ObjectVersionID(uid)
         else:
             uid = HierObjectID(uid)
-        draft = DBMetadata(uid, js_dict.get("type"), js_dict.get("is_deleted"), [])
+        draft = DBMetadata(uid, js_dict.get("type"), js_dict.get("is_deleted"), [], js_dict.get("archetype_id"))
         draft_ah = []
         for ah_dict in js_dict["action_history"]:
             draft_ah.append(DBActionItem.from_json(ah_dict))

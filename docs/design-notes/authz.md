@@ -292,9 +292,9 @@ Access control settings choices:
 * Later policy layers take precedence over earlier ones (e.g. default policy allows access to all users in a group, but the more detailed policy denies access, the later one takes precedence)
 * The default assumption is to DENY access unless explictly granted somewhere by a policy
 * Activities can be allowed/denied at the following level of granularity
-    * REST API endpoint
-        * request parameter
-            * response content
+    * REST resource
+        * REST API endpoint
+            * archetype_node_id
 * To help users and be able to comply with CIS2 national authentication, a default policy will be provided that makes use of NHS national roles
 
 > Example: The EHR repository owner wishes for there to be a role X which can only access Compositions of a certain archetype.
@@ -322,15 +322,10 @@ Members:
 Members:
 * resource_endpoint - str - 0..1 - resource endpoint to which this policy applies (if None, assumed to apply to all resource endpoints)
 * resource_action - list[PYEHR_ENDPOINT_ACTION] - 0..1 - resource actions to which this policy applies (if None, assume to apply to all resource endpoints)
-* match_roles - 0..1 - set[ROLE] - set of roles that the user or system has that would caues the policy to trigger (if None, assume to match all roles)
+* archetype_id - list[str] - 0..1 - list of archetype_ids that this rule should match in the request body or in the response object (dependant on action). This will match the archetype_node_id in the top level object being retrieved. (if None, assume to apply to all archetype_ids)
+
+* match_roles - 0..1 - set[PartyRef] - set of roles that the user or system has that would caues the policy to trigger (if None, assume to match all roles)
 * action_allowed - bool - 1..1 - if True the action is ALLOWED, if False the action is DENIED
-
-> Note: all below matches are "OR" if any one of any one of them matches the policy will be triggered
-
-* match_request_param_constraints - dict[str, C_PRIMITIVE] - 0..1 - dict of parameters and content of those parameters which cause the policy item to trigger (e.g. )
-* match_request_body_content - dict[str, C_PRIMITIVE] - 0..1 - dict of paths to items within the request body and content of those paths which cause the policy item to trigger (e.g. archetype_node_id matching a certain type)
-
-* match_response_body_content - dict[str, C_PRIMITIVE] - 0..1 - for 'GET' requests only, content of item that would be returned that would cause the policy to trigger (e.g. archetype_node_id matching a certain type of archetype)
 
 #### PYEHR_ACCESS_CONTROL_SETTINGS
 
@@ -340,24 +335,17 @@ Members:
 * base_settings - OBJECT_REF - 0..1 - reference to another set of settings which this one specialises
 * policies - dict[str, PYEHR_POLICY_ITEM] - 0..1 - dict of resource endpoints to policy items
 
-Methods:
-* request_permitted(endpoint: str, resource_action: PYEHR_ENDPOINT_ACTION, user_role: ROLE, request_params: dict[str, str], request_body: Union[endpoint_types]) -> boolean
-    * Returns whether the request that has been requested should be run or not
-
-* response_permitted(endpoint: str, resource_action: PYEHR_ENDPOINT_ACTION, user_role: ROLE, response_body: Union[endpoint_types]) -> boolean
-    * Returns whether the response resulting from the request is one that is authorised to be returned
-
 ### Auth setup configuration
 
 Those setting up pyehr therefore would need to:
-1. Create ORGANISATIONs in the demographic service
+1. Create ORGANISATIONs in the demographic service and note the UID identifiers
 2. Create ROLEs in the authorisation provider and assign them to uesrs and applications
-3. Create ROLEs in the demographic service with matching identifiers
-4. Provide some configuration as follows for each organisation accessing the repository
-    1. Identifier of organisation
+3. Provide some configuration as follows for each organisation accessing the repository
+    1. Identifier of ORGANISATION in the demographic service
     2. Supported auth providers
     3. (OAuth) Scopes to request from auth providers
     4. (OAuth) The claim corresponding to the list of roles
     5. (OAuth) The claim corresponding to the user ID
     6. (OAuth) The claim(s) corresponding to user details
-    7. Provide a mapping of roles to administrative endpoints of pyehr
+4. Set the policy for access to administrative endpoints (i.e. the ones allowing policy to be set)
+5. Upload a PYEHR_ACCESS_CONTROL_SETTINGS for the default policy and then mark it as such in the settings.
