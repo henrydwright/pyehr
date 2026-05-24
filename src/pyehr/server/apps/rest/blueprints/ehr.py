@@ -12,7 +12,7 @@ from pyehr.core.rm.common.generic import PartyProxy, PartySelf
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus
-from pyehr.server.apps.rest.blueprints.shared import _add_headers_to_response, _create_error_response, _create_object_response, _get_committer, _parse_request_body, _process_headers
+from pyehr.server.apps.rest.blueprints.shared import _add_headers_to_response, _add_location_headers_to_response, _create_error_response, _create_object_response, _get_committer, _parse_request_body, _process_headers, get_object, get_versioned_object, get_versioned_object_revision_history, get_versioned_object_version_at_time, get_versioned_object_version_by_id
 from pyehr.server.apps.rest.meta import OpenEHRRequestHeaders
 from pyehr.server.change_control import VersionLifecycleState, VersionedStore
 from pyehr.server.database import IDatabaseEngine
@@ -26,6 +26,16 @@ def create_ehr_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine, vs: Ve
     @ehr_bp.before_request
     def process_headers():
         _process_headers(log)
+
+    @ehr_bp.route("/<string:ehr_id>/ehr_status/<string:version_uid>", methods=["GET"])
+    def get_ehr_status_by_version_id(ehr_id: str, version_uid:str):
+        ovid = ObjectVersionID(version_uid)
+        hid = HierObjectID(ovid.object_id().value)
+
+        resp, ovid = get_object(logged_in_user, vs, version_uid, "EHR_STATUS", log)
+        if ovid is not None:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/ehr_status/{version_uid}", f"ehr://{ehr_id}/ehr_status/{version_uid}")
+        return resp
 
     def _create_ehr_status(owner_ehr_id: ObjectRef, status_obj: Optional[EHRStatus] = None) -> ObjectRef:
         if status_obj is None:
@@ -111,15 +121,103 @@ def create_ehr_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine, vs: Ve
         
         return resp
     
-    @ehr_bp.route("/<ehr_id>", methods=['GET'])
-    def get_ehr_by_id(ehr_id: str):
-        hid = HierObjectID(ehr_id)
+    def _get_ehr_from_id(hid: HierObjectID) -> Union[EHR, Response]:
         met = db.retrieve_db_metadata(hid, logged_in_user.external_ref)
 
         if met is None or met.obj_type != "EHR":
-            return _create_error_response(f"404 Not Found: No EHR exists with id \'{ehr_id}\'")
+            return _create_error_response(f"404 Not Found: No EHR exists with id \'{hid.value}\'")
         
-        ehr : EHR = db.retrieve_uid_object("EHR", hid, logged_in_user.external_ref)
+        ehr : EHR = db.retrieve_uid_object("EHR", hid, logged_in_user.external_ref)#
+
+        return ehr
+
+    @ehr_bp.route("/<string:ehr_id>/ehr_status")
+    def get_ehr_status_at_time(ehr_id: str):
+        hid = HierObjectID(ehr_id)
+
+        ehr : EHR = _get_ehr_from_id(hid)
+        if isinstance(ehr, Response):
+            return ehr
+        
+        es_hid = ehr.ehr_status.id.value
+        log.info(f"EHR_STATUS has ID of \'{es_hid}\'")
+
+        resp, ovid = get_object(logged_in_user, vs, es_hid, "EHR_STATUS", log)
+        if ovid is not None:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/ehr_status/{ovid.value}", f"ehr://{ehr_id}/ehr_status/{ovid.value}")
+        return resp
+    
+    @ehr_bp.route("/<ehr_id>/versioned_ehr_status/version")
+    def get_versioned_ehr_status_version_at_time(ehr_id: str):
+        hid = HierObjectID(ehr_id)
+
+        ehr : EHR = _get_ehr_from_id(hid)
+        if isinstance(ehr, Response):
+            return ehr
+        
+        es_hid = HierObjectID(ehr.ehr_status.id.value)
+        log.info(f"EHR_STATUS has ID of \'{es_hid.value}\'")
+
+        resp, ovid = get_versioned_object_version_at_time(logged_in_user, db, vs, es_hid, "EHR_STATUS")
+
+        if ovid is not None:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/versioned_ehr_status/version/{ovid.value}", f"ehr://{ehr_id}/versioned_ehr_status/version/{ovid.value}")
+
+        return resp
+    
+    @ehr_bp.route("/<ehr_id>/versioned_ehr_status/version/<version_uid>")
+    def get_versioned_ehr_status_version_by_id(ehr_id: str, version_uid: str):
+        ovid = ObjectVersionID(version_uid)
+
+        resp = get_versioned_object_version_by_id(logged_in_user, db, vs, "EHR_STATUS", HierObjectID(ovid.object_id().value), ovid)
+
+        if resp.status_code == 200:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/versioned_ehr_status/version/{ovid.value}", f"ehr://{ehr_id}/versioned_ehr_status/version/{ovid.value}")
+
+        return resp
+
+
+
+    @ehr_bp.route("/<ehr_id>/versioned_ehr_status/revision_history")
+    def get_versioned_ehr_status_revision_history(ehr_id: str):
+        hid = HierObjectID(ehr_id)
+
+        ehr : EHR = _get_ehr_from_id(hid)
+        if isinstance(ehr, Response):
+            return ehr
+        
+        es_hid = HierObjectID(ehr.ehr_status.id.value)
+        log.info(f"EHR_STATUS has ID of \'{es_hid.value}\'")
+
+        resp = get_versioned_object_revision_history(logged_in_user, vs, es_hid, "EHR_STATUS")
+
+        if resp.status_code == 200:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/versioned_ehr_status/revision_history", f"ehr://{ehr_id}/versioned_ehr_status/revision_history")
+        return resp
+
+    @ehr_bp.route("/<ehr_id>/versioned_ehr_status")
+    def get_versioned_ehr_status(ehr_id: str):
+        hid = HierObjectID(ehr_id)
+
+        ehr : EHR = _get_ehr_from_id(hid)
+        if isinstance(ehr, Response):
+            return ehr
+        
+        es_hid = HierObjectID(ehr.ehr_status.id.value)
+        log.info(f"EHR_STATUS has ID of \'{es_hid.value}\'")
+
+        resp = get_versioned_object(logged_in_user, vs, es_hid, "EHR_STATUS")
+        if resp.status_code == 200:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/versioned_ehr_status", f"ehr://{ehr_id}/versioned_ehr_status")
+        return resp
+
+    @ehr_bp.route("/<ehr_id>", methods=['GET'])
+    def get_ehr_by_id(ehr_id: str):
+        hid = HierObjectID(ehr_id)
+
+        ehr = _get_ehr_from_id(hid)
+        if isinstance(ehr, Response):
+            return ehr
 
         resp = _create_object_response(ehr, 200)
         _add_headers_to_response(resp, hid, ehr.time_created, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}", f"ehr://{ehr_id}")

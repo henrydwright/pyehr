@@ -99,6 +99,7 @@ def get_object(logged_in_user: PartyProxy, vs: VersionedStore, uid_based_id: str
         object_version = vs.read_version(typ, ObjectVersionID(uid_based_id), _get_committer(log, logged_in_user).external_ref)
     else:
         version_at_time = request.args.get("version_at_time")
+        version_at_time = DVDateTime(version_at_time) if version_at_time is not None else None
         object_version = vs.read(typ, HierObjectID(uid_based_id), version_at_time, _get_committer(log, logged_in_user).external_ref)
     
     if object_version is None:
@@ -202,6 +203,16 @@ def get_versioned_object_version_at_time(logged_in_user: PartyProxy, db:IDatabas
     else:
         return (_create_not_found_response(obj_type, hier_object_id), None)
 
+def get_versioned_object_revision_history(logged_in_user: PartyProxy, vs: VersionedStore, hier_object_id: HierObjectID, typ: str):
+    _, rev_history = vs.retrieve_versioned_object(hier_object_id, logged_in_user.external_ref)
+
+    if rev_history is None:
+        return _create_not_found_response(typ, hier_object_id.value)
+    else:
+        resp = _create_object_response(rev_history, 200)
+        _add_headers_to_response(resp, hier_object_id, DVDateTime(rev_history.most_recent_version_time_committed()))
+        return resp
+
 def get_versioned_object(logged_in_user: PartyProxy, vs: VersionedStore, hier_object_id: HierObjectID, typ: str):
     versioned_object, _ = vs.retrieve_versioned_object(hier_object_id, logged_in_user.external_ref)
 
@@ -234,7 +245,7 @@ def _process_headers(log: Logger):
 def _add_headers_to_response(response_to_add_to: Response, obj_id: Union[HierObjectID, ObjectVersionID], last_modified: Optional[DVDateTime] = None, location: Optional[str] = None, ehr_uri: Optional[str] = None):
     response_to_add_to.headers.add("ETag", f"W/\"{obj_id.value}\"")
     if last_modified is not None:
-        dt = datetime.datetime.fromisoformat(last_modified.value)
+        dt = datetime.datetime.fromisoformat(last_modified.value).astimezone(datetime.timezone.utc)
         response_to_add_to.headers.add("Last-Modified", dt.strftime("%a, %d %b %Y %H:%M:%S GMT"))
     if location is not None:
         response_to_add_to.headers.add("Location", location)

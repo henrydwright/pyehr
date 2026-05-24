@@ -23,6 +23,10 @@ def create_app():
 
     log = logging.getLogger("apps.rest")
     log.info("pyehr REST API server starting...")
+    log.info("Using parameter settings of:")
+    log.info(f"SYSTEM_ID_STR: {app.config["SYSTEM_ID_STR"]}")
+    log.info(f"SYSTEM_ID_HID: {app.config["SYSTEM_ID_HID"]}")
+    log.info(f"BASE_URL: {app.config["BASE_URL"]}")
 
     log.info("Initialising database")
     db = InMemoryDB()
