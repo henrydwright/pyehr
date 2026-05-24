@@ -6,6 +6,7 @@ from pyehr.core.its.rest.additions import UpdateAttestation, UpdateAudit, Update
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.its.rest.additions import UpdateVersion
 from pyehr.core.rm.common.change_control import Contribution, OriginalVersion, VersionedObject
+from pyehr.core.rm.common.directory import Folder
 from pyehr.core.rm.composition import Composition
 from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.demographic import Agent, Organisation, Party, Person
@@ -37,7 +38,8 @@ PYTHON_TYPE_TO_STRING_TYPE_MAP : dict[type, str] = {
     Organisation: "ORGANISATION",
     Agent: "AGENT",
     EHRAccess: "EHR_ACCESS",
-    Composition: "COMPOSITION"
+    Composition: "COMPOSITION",
+    Folder: "FOLDER"
 }
 """Mapping of pyehr type (Python type) to the openEHR type string (e.g. pyehr type
 of Party maps to 'PARTY')"""

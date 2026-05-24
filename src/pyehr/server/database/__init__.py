@@ -234,6 +234,15 @@ class IDatabaseEngine(ABC):
         pass
 
     @abstractmethod
+    def add_to_ehr_lists(self, ehr_id: HierObjectID, addition: ObjectRef, adder: Optional[PartyRef] = None):
+        """Add a new reference to a CONTRIBUTION, VERSIONED_COMPOSITION or VERSIONED_FOLDER to an existing EHR.
+        
+        Reference must have the correct reference type set.
+
+        :param adder: If provided, this is stored in an audit trail of database actions for the EHR associated with users."""
+        pass
+
+    @abstractmethod
     def retrieve_versioned_object(self, 
                                   uid: HierObjectID, 
                                   reader: Optional[PartyRef] = None,

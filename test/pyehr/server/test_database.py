@@ -1,4 +1,6 @@
 from uuid import uuid4
+from pyehr.core.rm.common.directory import Folder, VersionedFolder
+from pyehr.core.rm.ehr import EHR
 import pytest
 import mongomock
 
@@ -338,3 +340,40 @@ def test_create_and_retrieve_versioned_object(get_db_func):
 
     vo_ret, rhis_ret = db.retrieve_versioned_object(vo.uid, metadata_only_versioned_object=False)
     assert vo.is_equal(vo_ret)
+
+@pytest.mark.parametrize("get_db_func", dbs_under_test)
+def test_add_to_ehr_list_contribution(get_db_func):
+    db : IDatabaseEngine = get_db_func()
+
+    ehr_id = HierObjectID("cdd513dc-d9d4-43c8-b874-82de4924e56d")
+
+    test_ehr = EHR(
+        system_id=HierObjectID("1fba5736-6d30-49c3-81af-afea28256e44"),
+        ehr_id=ehr_id,
+        ehr_status=ObjectRef("local", "VERSIONED_EHR_STATUS", HierObjectID("a8b0d075-af32-4321-a8fb-517378be6430")),
+        ehr_access=ObjectRef("local", "VERSIONED_EHR_ACCESS", HierObjectID("8ec63a2f-f2df-4715-8b1c-63b4bf4450b7")),
+        time_created=DVDateTime(Env.current_date_time())
+    )
+    db.create_uid_object(test_ehr)
+
+    folder_id = HierObjectID("95fa9cc9-d2ec-47f0-943d-3d84d6042c5b")
+    test_folder = Folder(
+        name=DVText("root"),
+        archetype_node_id="openEHR-EHR-FOLDER.generic.v1",
+        uid=folder_id
+    )
+    test_vf = VersionedFolder(
+        uid=folder_id,
+        owner_id=ObjectRef("local", "EHR", ehr_id),
+        time_created=DVDateTime(Env.current_date_time())
+    )
+
+    test_folder_ref = ObjectRef("local", "VERSIONED_FOLDER", folder_id)
+
+    db.add_to_ehr_lists(ehr_id, test_folder_ref)
+
+    ehr_back : EHR = db.retrieve_uid_object("EHR", ehr_id)
+
+    assert ehr_back.directory.is_equal(test_folder_ref)
+    assert len(ehr_back.folders) == 1
+    assert ehr_back.folders[0].is_equal(test_folder_ref)

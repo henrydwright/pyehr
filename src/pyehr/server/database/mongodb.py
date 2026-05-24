@@ -4,6 +4,7 @@ from typing import Optional
 from uuid import uuid4
 from warnings import warn
 
+from pyehr.core.rm.ehr import EHR
 from pymongo import MongoClient
 from pymongo.database import Database
 from pymongo.collection import Collection
@@ -435,5 +436,50 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             session.commit_transaction()
         self._log.info(f"{version_id.value}:Finished adding ATTESTATION")
             
+    def add_to_ehr_lists(self, ehr_id, addition, adder = None):
+        meta = self.retrieve_db_metadata(ehr_id, reader=adder, record_audit=False)
+        if meta is None or meta.obj_type is None or meta.obj_type != "EHR":
+            raise ValueError(f"Cannot add items to lists in EHR \'{ehr_id.value}\' as it did not exist")
+        
+        ehr_collection = self._database.get_collection("EHR")
+        ehr : EHR = decode_json(ehr_collection.find_one(filter={"_id": ehr_id.value}), "EHR")
 
+        update_dict = None
+        if addition.ref_type == "CONTRIBUTION":
+            if ehr.contributions is None:
+                update_dict = {
+                    "$set" : {"contributions": [addition.as_json()]}
+                }
+            else:
+                update_dict = {
+                    "$push": {"contributions": addition.as_json()}
+                }
+        elif addition.ref_type == "VERSIONED_COMPOSITION":
+            if ehr.compositions is None:
+                update_dict = {
+                    "$set": {"compositions": [addition.as_json()]}
+                }
+            else:
+                update_dict = {
+                    "$push": {"compositions": addition.as_json()}
+                }
+        elif addition.ref_type == "VERSIONED_FOLDER":
+            if ehr.folders is None:
+                update_dict = {
+                    "$set": {"folders": [addition.as_json()]}
+                }
+            else:
+                update_dict = {
+                    "$push": {"folders": addition.as_json()}
+                }
+        else:
+            raise ValueError("Could not add reference as it was not of type CONTRIBUTION, VERSIONED_FOLDER or VERSIONED_COMPOSITION")
+        
+        ehr_collection.update_one(
+            filter = {"_id": ehr_id.value},
+            update=update_dict
+        )
+        
+        self._meta_add_db_action_item(ehr_id, DBActionItem(DBActionType.UPDATE, party=adder))
+        self._log.info(f"{ehr_id.value}:Added reference to {addition.ref_type} to EHR.")
 

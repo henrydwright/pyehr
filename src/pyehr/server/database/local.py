@@ -1,5 +1,6 @@
 from logging import getLogger, Logger
 import json
+from typing import Optional
 
 from pyehr.core.rm.common.archetyped import Locatable, PyehrInternalPathPredicateType, PyehrInternalProcessedPath
 from pyehr.core.rm.common.change_control import OriginalVersion, VersionedObject
@@ -9,7 +10,7 @@ from pyehr.core.rm.ehr import EHR
 from pyehr.utils import PYTHON_TYPE_TO_STRING_TYPE_MAP, get_openehr_type_str
 
 from pyehr.core.base.base_types.builtins import Env
-from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef
+from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef, PartyRef
 from pyehr.server.database import DBActionItem, DBActionType, IDatabaseEngine, DBMetadata, IncorrectVersionTypeError, ObjectAlreadyExistsError, ObjectDoesNotExistError
 
 from uuid import uuid4
@@ -311,3 +312,28 @@ class InMemoryDB(IDatabaseEngine):
         # then write the contribution itself
         self.create_uid_object(contrib, creator=committer)
         self._log.info(f"Committed CONTRIBUTION (uid={contrib.uid.value}) set of {len(versions)} VERSIONs")
+
+    def add_to_ehr_lists(self, ehr_id: HierObjectID, addition: ObjectRef, adder: Optional[PartyRef] = None):
+        meta = self.retrieve_db_metadata(ehr_id, reader=adder)
+        if meta is None or meta.obj_type is None or meta.obj_type != "EHR":
+            raise ValueError(f"Cannot add items to lists in EHR \'{ehr_id.value}\' as it did not exist")
+        
+        ehr : EHR = self._obj["EHR"][ehr_id.value]
+        if addition.ref_type == "CONTRIBUTION":
+            if ehr.contributions is None:
+                ehr.contributions = []
+            ehr.contributions.append(addition)
+        elif addition.ref_type == "VERSIONED_COMPOSITION":
+            if ehr.compositions is None:
+                ehr.compositions = []
+            ehr.compositions.append(addition)
+        elif addition.ref_type == "VERSIONED_FOLDER":
+            if ehr.folders is None:
+                ehr.folders = []
+            ehr.folders.append(addition)
+        else:
+            raise ValueError("Additional reference was not to type CONTRIBUTION, VERSIONED_FOLDER or VERSIONED_COMPOSITION so could not be added")
+        
+        meta.action_history.append(DBActionItem(DBActionType.UPDATE, party=adder))
+        self._log.info(f"{ehr_id.value}:Added reference to {addition.ref_type} to EHR.")
+        

@@ -1,4 +1,5 @@
 
+from enum import Enum
 import logging
 from typing import Optional, Union
 
@@ -12,7 +13,7 @@ from pyehr.core.rm.common.generic import PartyProxy, PartySelf
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus
-from pyehr.server.apps.rest.blueprints.shared import _add_headers_to_response, _add_location_headers_to_response, _create_error_response, _create_object_response, _get_committer, _parse_request_body, _process_headers, create_object, delete_object, get_object, get_versioned_object, get_versioned_object_revision_history, get_versioned_object_version_at_time, get_versioned_object_version_by_id, update_object
+from pyehr.server.apps.rest.blueprints.shared import _add_headers_to_response, _add_location_headers_to_response, _create_error_response, _create_object_response, _get_committer, _parse_request_body, _process_headers, commit_contribution_set, create_object, delete_object, get_contribution_by_id, get_object, get_versioned_object, get_versioned_object_revision_history, get_versioned_object_version_at_time, get_versioned_object_version_by_id, update_object
 from pyehr.server.apps.rest.meta import OpenEHRRequestHeaders
 from pyehr.server.change_control import VersionLifecycleState, VersionedStore
 from pyehr.server.database import IDatabaseEngine
@@ -133,7 +134,6 @@ def create_ehr_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine, vs: Ve
     
     @ehr_bp.route("/<ehr_id>/ehr_status", methods=['PUT'])
     def update_ehr_status(ehr_id: str):
-        log.error("MATCH!")
         hid = HierObjectID(ehr_id)
 
         ehr : EHR = _get_ehr_from_id(hid)
@@ -176,8 +176,12 @@ def create_ehr_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine, vs: Ve
     @ehr_bp.route("/<ehr_id>/composition", methods=['POST'])
     def create_composition(ehr_id: str):
         ehid = HierObjectID(ehr_id)
+        emeta = db.retrieve_db_metadata(ehid)
+        if emeta is None or emeta.obj_type is None or emeta.obj_type != "EHR":
+            return _create_error_response(f"404 Not Found: No EHR with ID \'{ehr_id}\' was found")
 
         resp, ovid = create_object(logged_in_user, vs, "COMPOSITION", ObjectRef("local", "EHR", ehid), log)
+        db.add_to_ehr_lists(ehid, ObjectRef("local", "VERSIONED_COMPOSITION", HierObjectID(ovid.object_id().value)))
 
         if ovid is not None:
             _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/composition/{ovid.value}", f"ehr://{ehr_id}/composition/{ovid.value}")
@@ -286,6 +290,19 @@ def create_ehr_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine, vs: Ve
         if resp.status_code == 200:
             _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/versioned_ehr_status", f"ehr://{ehr_id}/versioned_ehr_status")
         return resp
+
+    @ehr_bp.route("/<ehr_id>/contribution/<contribution_id>", methods=['GET'])
+    def get_ehr_contribution_by_id(ehr_id: str, contribution_id: str):
+        resp = get_contribution_by_id(logged_in_user, db, HierObjectID(contribution_id))
+        if resp.status_code == 200:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/contribution/{contribution_id}")
+        return resp
+
+    @ehr_bp.route("/<ehr_id>/contribution", methods=['POST'])
+    def commit_ehr_contribution_set(ehr_id: str):
+        owner_id = ObjectRef("local", "EHR", HierObjectID(ehr_id))
+
+        return commit_contribution_set(logged_in_user, db, owner_id, log)
 
     @ehr_bp.route("/<ehr_id>", methods=['GET'])
     def get_ehr_by_id(ehr_id: str):

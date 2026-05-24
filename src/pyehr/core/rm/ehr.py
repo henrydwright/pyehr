@@ -106,7 +106,7 @@ class EHR(AnyClass):
                     if oref.ref_type != "VERSIONED_FOLDER":
                         raise ValueError("All references in folders must be to type VERSIONED_FOLDER (invariant: folders_valid)")
         self.folders = folders
-        super().__init__(**kwargs)
+        super().__init__()
 
     def is_equal(self, other: 'EHR'):
         return (

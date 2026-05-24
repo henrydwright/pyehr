@@ -1,6 +1,9 @@
 """Provides a client for interacting with EHR REST API provided by OpenEHR
 compliant servers"""
 
+import json
+
+from pyehr.core.its.rest.additions import UpdateAudit, UpdateContribution, UpdateVersion
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState
 import requests
 from typing import Optional, Union
@@ -9,7 +12,7 @@ from pyehr.client import OpenEHRBaseRestClient, OpenEHRRestClientResponse
 from pyehr.core.base.base_types.identification import HierObjectID, ObjectVersionID
 from pyehr.core.base.foundation_types.primitive_types import Uri
 from pyehr.core.base.foundation_types.time import ISODateTime
-from pyehr.core.rm.common.change_control import ImportedVersion, OriginalVersion, Version
+from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion, Version
 from pyehr.core.rm.common.generic import PartyProxy, RevisionHistory
 from pyehr.core.rm.composition import Composition
 from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus, VersionedComposition, VersionedEHRStatus
@@ -28,6 +31,9 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
 
     composition: '_CompositionClient'
     """Management of COMPOSITION and VERSIONED_COMPOSITION resources."""
+
+    contribution: '_ContributionClient'
+    """Management of CONTRIBUTIONs relating to EHR-based objects."""
 
     class _EHRClient:
 
@@ -351,6 +357,48 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
             target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/versioned_composition/{versioned_object_uid.value}/version/{version_uid.value}")
             return self.outer._get_versioned_XXX_version_by_id(target_url, "COMPOSITION")
 
+    class _ContributionClient:
+        def __init__(self, outer: 'OpenEHREHRRestClient'):
+            self.outer = outer
+
+        def commit_contribution_set(self, ehr_id: HierObjectID, versions: list[UpdateVersion], audit: UpdateAudit, uid: Optional[HierObjectID] = None) -> OpenEHRRestClientResponse[Contribution]:
+            """Commit (in a database atomic operation) a set of versions to the server as a single CONTRIBUTION
+
+            Note, the version.commit_audit.time_committed and version.commit_audit.system_id 
+            will be ignored, not sent to the server, and replaced with server-generated content.
+            
+            :param versions: List of UPDATE_VERSIONs containing data to commit as part of the contribution
+            :param audit: UPDATE_AUDIT containing the audit details to submit alongside the contribution
+            :param uid: (Optional) HIER_OBJECT_ID for uid to use for the CONTRIBUTION. If omitted, the server will generate one"""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/contribution")
+
+            update_contrib = UpdateContribution(
+                versions=versions,
+                audit=audit,
+                uid=uid
+            )
+
+            result = requests.post(
+                url=target_url,
+                headers=self.outer._build_headers(),
+                json=update_contrib.as_json()
+            )
+
+            if result.status_code == 400:
+                raise ValueError(f"400 Bad Request: request had invalid content. Inner error {json.dumps(result.json(),indent=1)}")
+            elif result.status_code == 409:
+                raise RuntimeError("409 Conflict: the UID submitted was the same as an existing object in the database")
+            elif result.status_code != 201:
+                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation. Inner error {bytes.decode(result.content)}")
+            
+            obj = decode_json(result.json(), target="CONTRIBUTION", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
+            return OpenEHRRestClientResponse(obj, result, self.outer._get_metadata_from_result(result))
+        
+        def get_contribution_by_id(self, ehr_id: HierObjectID, contribution_uid: HierObjectID):
+            """Retrieves a CONTRIBUTION identified by `contribution_uid`"""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/contribution/{contribution_uid.value}")
+            return self.outer._get_XXX_by_version_id(target_url, "CONTRIBUTION")
+
     def __init__(self, base_url: Uri, flag_allow_resolved_references : bool = True):
         """
         Initialise a new client for communicating with a particular server.
@@ -370,4 +418,5 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
         self.ehr = self._EHRClient(self)
         self.ehr_status = self._EHRStatusClient(self)
         self.composition = self._CompositionClient(self)
+        self.contribution = self._ContributionClient(self)
         super().__init__(base_url, flag_allow_resolved_references)
