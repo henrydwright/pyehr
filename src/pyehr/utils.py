@@ -6,9 +6,10 @@ from pyehr.core.its.rest.additions import UpdateAttestation, UpdateAudit, Update
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.its.rest.additions import UpdateVersion
 from pyehr.core.rm.common.change_control import Contribution, OriginalVersion, VersionedObject
+from pyehr.core.rm.composition import Composition
 from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.demographic import Agent, Organisation, Party, Person
-from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus
+from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus, VersionedComposition
 from pyehr.core.base.base_types.identification import HierObjectID, InternetID, ObjectRef, ObjectVersionID, GenericID, PartyRef, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion, VersionedObject
@@ -35,7 +36,8 @@ PYTHON_TYPE_TO_STRING_TYPE_MAP : dict[type, str] = {
     EHR: "EHR",
     Organisation: "ORGANISATION",
     Agent: "AGENT",
-    EHRAccess: "EHR_ACCESS"
+    EHRAccess: "EHR_ACCESS",
+    Composition: "COMPOSITION"
 }
 """Mapping of pyehr type (Python type) to the openEHR type string (e.g. pyehr type
 of Party maps to 'PARTY')"""
@@ -87,7 +89,9 @@ OPENEHR_TYPE_MAP = {
     "TEMPLATE": OperationalTemplate,
     "ARCHETYPE": Archetype,
     "C_STRING": CString,
-    "AGENT": Agent
+    "AGENT": Agent,
+    "COMPOSITION": Composition,
+    "VERSIONED_COMPOSITION": VersionedComposition
 }
 """Map of OpenEHR string type names (e.g. as found in '_type' JSON) to pyehr Python types"""
 

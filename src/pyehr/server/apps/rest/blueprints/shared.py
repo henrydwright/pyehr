@@ -19,7 +19,7 @@ from pyehr.core.rm.data_types.text import DVText
 from pyehr.server.apps.rest.meta import OpenEHRFormat, OpenEHRRequestHeaders
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState, VersionedStore
 from pyehr.server.database import IDatabaseEngine
-from pyehr.utils import get_openehr_type_str
+from pyehr.utils import PYTHON_TYPE_TO_STRING_TYPE_MAP, get_openehr_type_str
 
 def commit_contribution_set(logged_in_user: PartyProxy, db: IDatabaseEngine, owner_id: ObjectRef, log: Logger):
     body_obj : UpdateContribution = _parse_request_body("UPDATE_CONTRIBUTION")
@@ -119,11 +119,18 @@ def update_object(logged_in_user: PartyProxy, vs: VersionedStore, typ: str, hier
     if isinstance(body_object, Response):
         return body_object
     
-    preceding_uid = g.processed_headers.preceding_version_uid
+    preceding_uid : ObjectVersionID = g.processed_headers.preceding_version_uid
     if preceding_uid is None:
         return (_create_error_response("400 Bad Request: No 'If-Match' header was provided.", 400), None)
     elif preceding_uid.object_id().value != hier_object_id:
-        return (_create_error_response("400 Bad Request: 'If-Match' hier object ID and URL hier object ID do not match.", 400), None)
+        return (_create_error_response(f"400 Bad Request: 'If-Match' hier object ID ({preceding_uid.object_id().value}) and URL hier object ID ({hier_object_id}) do not match.", 400), None)
+    
+    obj_type = PYTHON_TYPE_TO_STRING_TYPE_MAP[type(body_object)] if body_object is not None else None
+    latest_ver = vs.read(obj_type, HierObjectID(preceding_uid.object_id().value), user=_get_committer(log, logged_in_user).external_ref)
+    if latest_ver.uid().value != preceding_uid.value:
+        resp = _create_error_response(f"412 Precondition Failed: Provided 'If-Match' of \'{preceding_uid.value}\' did not match latest version uid of \'{latest_ver.uid().value}\'", 412)
+        _add_headers_to_response(resp, latest_ver.uid())
+        return (resp, None)
     
     d_ovid, d_contrib, _ = vs.update(
         obj=body_object,

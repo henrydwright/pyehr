@@ -212,6 +212,8 @@ def decode_json(json_obj: dict,
         arg_dict["terminology_service"] = terminology_service
     elif target_type == "UPDATE_VERSION":
         arg_dict["terminology_service"] = terminology_service
+    elif target_type == "COMPOSITION":
+        arg_dict["terminology_service"] = terminology_service
 
     instance_list = []
     if flag_allow_resolved_references:

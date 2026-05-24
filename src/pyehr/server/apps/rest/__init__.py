@@ -11,6 +11,7 @@ from pyehr.server.apps.rest.blueprints.demographic import create_demographic_blu
 from pyehr.server.apps.rest.blueprints.ehr import create_ehr_blueprint
 from pyehr.server.change_control import VersionedStore
 from pyehr.server.database.local import InMemoryDB
+from term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
 
 def create_app():
     logging.basicConfig(level=logging.DEBUG)
@@ -54,6 +55,8 @@ def create_app():
                 "vendor": "Eldon Health",
                 "restapi_specs_version": "1.0.3",
                 "endpoints": [
+                    "/",
+                    "/ehr",
                     "/demographic"
                 ]
             }))
