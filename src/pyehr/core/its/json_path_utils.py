@@ -34,6 +34,8 @@ def json_get_path(js_dict, path):
     if proc.is_self_path():
         return js_dict
 
+    if proc.current_node_attribute not in js_dict:
+        raise ValueError(f"Could not find node matching `{proc.current_node_attribute}`")
     next_el = js_dict[proc.current_node_attribute]
 
     if isinstance(next_el, list):

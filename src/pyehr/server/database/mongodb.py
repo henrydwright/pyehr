@@ -174,9 +174,11 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
 
         collection = self._database.get_collection(obj_type)
 
-        mongo_filter = {
-            "archetype_details.archetype_id.value" : archetype_id.value
-        }
+        mongo_filter = {}
+        if archetype_id is not None:
+            mongo_filter = {
+                "archetype_details.archetype_id.value" : archetype_id.value
+            }
 
         candidates = collection.find(mongo_filter).to_list()
 

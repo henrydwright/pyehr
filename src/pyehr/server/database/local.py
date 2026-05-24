@@ -167,16 +167,19 @@ class InMemoryDB(IDatabaseEngine):
     
     def retrieve_query_match_object(self, obj_type, archetype_id, query_dict, reader = None):
         # this method would be horrificly slow, but given lack of persistence it doesn't matter!
-        self._log.info(f"QUERY:Running query for {obj_type} archetyped with {archetype_id.value} matching parameters: {json.dumps(query_dict, indent=1)}")
+        self._log.info(f"QUERY:Running query for {obj_type} archetyped with {archetype_id.value if archetype_id is not None else '*'} matching parameters: {json.dumps(query_dict, indent=1)}")
         # step 1: check any objects of this type exist
         if obj_type not in self._obj:
             return []
         
         # step 2: if they do, then find ones which match the given archetype ID
         candidates = []
-        for obj in self._obj[obj_type].values():
-            if obj.archetype_node_id == archetype_id.value:
-                candidates.append(obj)
+        if archetype_id is not None:
+            for obj in self._obj[obj_type].values():
+                if obj.archetype_node_id == archetype_id.value:
+                    candidates.append(obj)
+        else:
+            candidates = self._obj[obj_type].values()
 
         # step 3: for each item in this list, go through each item in the query dict, and keep those which match all query params
         returns = []
@@ -185,8 +188,14 @@ class InMemoryDB(IDatabaseEngine):
             for (query_path, query_match_items) in query_dict.items():
                 self._log.debug(f"[query] Finding value at path \'{str(query_path)}\'")
                 candidate_dict = candidate.as_json()
+                val = None
+                try:
+                    val = self._nav_dict_path(candidate_dict, query_path)
+                except ValueError:
+                    candidate_matched = False
+                    self._log.debug(f"[query] Path does not exist in candidate, skipping")
+                    break
 
-                val = self._nav_dict_path(candidate_dict, query_path)
                 self._log.debug(f"[query] Value at path is \'{str(val)}\'")
 
                 match_found = False
@@ -203,7 +212,7 @@ class InMemoryDB(IDatabaseEngine):
 
         # step 4: for those we are returning, log that a read has happened
         for ret_item in returns:
-            ret_meta = self._meta[ret_item.uid.value]
+            ret_meta = self._meta[self._get_uid_from_uid_object_type(ret_item).value]
             ret_meta.action_history.append(DBActionItem(DBActionType.READ, party=reader, query=query_dict))
 
         self._log.info(f"QUERY:Query returned {len(returns)} results")

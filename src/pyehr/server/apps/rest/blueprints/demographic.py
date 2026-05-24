@@ -15,7 +15,7 @@ from pyehr.core.rm.common.change_control import Contribution, Version
 from pyehr.core.rm.common.generic import PartyIdentified, PartyProxy
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import DVText
-from pyehr.server.apps.rest.blueprints.shared import _add_headers_to_response, _create_empty_response, _create_error_response, _create_not_found_response, _create_object_response, _get_audit_change_type, _get_audit_description, _get_committer, _get_lifecycle_state, _parse_request_body 
+from pyehr.server.apps.rest.blueprints.shared import _add_headers_to_response, _add_location_headers_to_response, _create_empty_response, _create_error_response, _create_not_found_response, _create_object_response, _get_audit_change_type, _get_audit_description, _get_committer, _get_lifecycle_state, _parse_request_body, _process_headers, commit_contribution_set, create_object, delete_object, get_contribution_by_id, get_object, get_versioned_object, get_versioned_object_version_at_time, get_versioned_object_version_by_id, update_object 
 from pyehr.server.apps.rest.meta import OpenEHRFormat, OpenEHRRequestHeaders
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState, VersionedStore
 from pyehr.server.database import IDatabaseEngine
@@ -28,75 +28,16 @@ def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine
 
     @demo_bp.before_request
     def process_headers():
-        if not (request.path == "/" or request.path == "/favicon.ico"):
-            try:
-                g.processed_headers = OpenEHRRequestHeaders(log, request)
-            except ValueError as ve:
-                log.error("Invalid headers provided: " + str(ve))
-                return jsonify({"error":f"Invalid headers provided: {str(ve)}"}), 400
+        _process_headers(log)
 
     def _is_demographic_type(typ : str):
         return (typ in {"AGENT", "GROUP", "ORGANISATION", "PERSON", "ROLE"})
 
     @demo_bp.route("/contribution", methods=['POST'])
-    def commit_contribution_set():
-        body_obj : UpdateContribution = _parse_request_body("UPDATE_CONTRIBUTION")
-        if isinstance(body_obj, Response):
-            return body_obj
-        
+    def commit_demographic_contribution_set():
         owner_id = ObjectRef("null", "NULL", HierObjectID("00000000-0000-0000-0000-000000000000"))
         
-        commit_time = DVDateTime(Env.current_date_time())
-
-        contrib_audit = body_obj.audit._inner_audit_details
-        contrib_audit.system_id = current_app.config["SYSTEM_ID_STR"]
-        contrib_audit.time_committed = commit_time
-
-        contrib_id = body_obj.uid if body_obj.uid is not None else db.generate_hier_object_id()
-
-        orig_versions = []
-        orefs = []
-        for update_version in body_obj.versions:
-            orig_ver_uid = None
-            preceding_version_uid = update_version._inner_original_version.preceding_version_uid()
-            if preceding_version_uid is not None:
-                new_ver = str(int(preceding_version_uid.version_tree_id().trunk_version()) + 1)
-                orig_ver_uid = ObjectVersionID(preceding_version_uid.object_id().value + "::" + current_app.config["SYSTEM_ID_STR"] + "::" + new_ver)
-            else:
-                orig_ver_uid = ObjectVersionID(db.generate_hier_object_id().value + "::" + current_app.config["SYSTEM_ID_STR"] + "::1")
-            
-            #orefs.append(ObjectRef("local", "VERSION", orig_ver_uid))
-            orefs.append(ObjectRef("local", get_openehr_type_str(update_version), orig_ver_uid))
-
-            # add in the server generated details
-            orig_ver = update_version._inner_original_version
-            orig_ver.uid_var = orig_ver_uid
-
-            orig_ver_audit = update_version.commit_audit._inner_audit_details
-            orig_ver_audit.system_id = current_app.config["SYSTEM_ID_STR"]
-            orig_ver_audit.time_committed = commit_time
-            orig_ver.commit_audit = orig_ver_audit
-
-            orig_ver.contribution = ObjectRef("local", "CONTRIBUTION", contrib_id)
-
-            orig_versions.append(orig_ver)
-
-        contrib = Contribution(
-            uid=contrib_id,
-            versions=orefs,
-            audit=contrib_audit
-        )
-
-        db.commit_contribution_set(
-            contrib=contrib,
-            versions=orig_versions,
-            owner_id=owner_id,
-            committer=_get_committer(log, logged_in_user).external_ref
-        )
-
-        resp = _create_object_response(contrib, 201)
-        _add_headers_to_response(resp, contrib.uid, commit_time, f"{current_app.config["BASE_URL"]}/demographic/contribution/{contrib.uid.value}")
-        return resp
+        return commit_contribution_set(logged_in_user, db, owner_id, log)
 
     @demo_bp.route("/<demographic_type>", methods=['GET', 'POST'])
     def create_demographic_object(demographic_type: str):
@@ -104,77 +45,37 @@ def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine
         if not _is_demographic_type(typ):
             return _create_error_response("", 404)
         
-        body_obj = _parse_request_body(typ)
-        # if you get a Response back rather than an instance of AnyClass, there was an error
-        if isinstance(body_obj, Response):
-            return body_obj
-        d_ovid, d_contrib, d_vo = vs.create(
-            obj=body_obj,
-            owner_id=ObjectRef("null", "NULL", HierObjectID("00000000-0000-0000-0000-000000000000")),
-            committer=_get_committer(log, logged_in_user),
-            lifecycle_state=_get_lifecycle_state(VersionLifecycleState.COMPLETE, log),
-            description=_get_audit_description(log),
-            user=_get_committer(log, logged_in_user).external_ref)
-        new_obj = d_vo.all_versions()[0].data()
-        resp = _create_object_response(new_obj, 201)
-        _add_headers_to_response(resp, d_ovid, d_contrib.audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/{typ.lower()}/{d_ovid.value}", f"demographic://{d_ovid.object_id().value}")
+        owner_id = ObjectRef("null", "NULL", HierObjectID("00000000-0000-0000-0000-000000000000"))
+
+        resp, ovid = create_object(logged_in_user, vs, typ, owner_id, log)
+        if resp.status_code == 201:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/demographic/{typ.lower()}/{ovid.value}", f"demographic://{ovid.object_id().value}")
+
         return resp
 
     @demo_bp.route("/versioned_party/<hier_object_id>/version/<object_version_id>", methods=['GET'])
     def get_versioned_party_version_by_id(hier_object_id: str, object_version_id: str):
         ovid = ObjectVersionID(object_version_id)
         hid = HierObjectID(hier_object_id)
-        if ovid.object_id().value != hid.value:
-            return _create_error_response("400 Bad Request: Hier Object ID and Object Version ID -> Object ID did not match.")
-        meta = db.retrieve_db_metadata(ovid, logged_in_user.external_ref)
 
-        if meta is None:
-            return _create_not_found_response("VERSION<PARTY>", object_version_id)
-
-        obj_type = meta.obj_type
-        obj_type = obj_type.replace(">", "")
-        obj_type = obj_type.split("<")[1]
-
-        obj = vs.read_version(obj_type, ovid, logged_in_user.external_ref)
-        if obj is None:
-            return _create_not_found_response(obj_type, object_version_id)
-        
-        resp = _create_object_response(obj, 200)
-        _add_headers_to_response(resp, obj.uid(), obj.commit_audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/versioned_party/{hier_object_id}/version/{obj.uid().value}")
+        resp = get_versioned_object_version_by_id(logged_in_user, db, vs, "PARTY", hid, ovid)
+        if resp.status_code == 200:
+            _add_location_headers_to_response(resp,  f"{current_app.config["BASE_URL"]}/demographic/versioned_party/{hier_object_id}/version/{object_version_id}")
         return resp
 
     @demo_bp.route("/versioned_party/<hier_object_id>/version", methods=['GET'])
     def get_versioned_party_version_at_time(hier_object_id: str):
-        vo, revision_history = vs.retrieve_versioned_object(HierObjectID(hier_object_id), logged_in_user.external_ref)
-        if vo is None:
-            return _create_not_found_response("VERSION<PARTY>", hier_object_id)
-        most_recent_version_id = revision_history.items[0].version_id
-        meta = db.retrieve_db_metadata(most_recent_version_id, reader=logged_in_user.external_ref)
-        obj_type = meta.obj_type
-        obj_type = obj_type.replace(">", "")
-        obj_type = obj_type.split("<")[1]
-
-        version_at_time_arg = request.args.get("version_at_time")
-        version_at_time = None if version_at_time_arg is None else DVDateTime(version_at_time_arg)
-        obj = vs.read(obj_type, HierObjectID(hier_object_id), version_at_time, user=logged_in_user.external_ref)
-
-        if obj is not None:
-            resp = _create_object_response(obj, 200)
-            _add_headers_to_response(resp, obj.uid(), obj.commit_audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/versioned_party/{hier_object_id}/version/{obj.uid().value}")
-            return resp
-        else:
-            return _create_not_found_response(obj_type, hier_object_id)
+        resp, ovid = get_versioned_object_version_at_time(logged_in_user, db, vs, HierObjectID(hier_object_id), "PARTY")
+        if resp.status_code == 200:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/demographic/versioned_party/{hier_object_id}/version/{ovid.value}")
+        return resp
         
     @demo_bp.route("/versioned_party/<hier_object_id>", methods=['GET'])
     def get_versioned_party(hier_object_id: str):
-        versioned_party, _ = vs.retrieve_versioned_object(HierObjectID(hier_object_id), logged_in_user.external_ref)
-
-        if versioned_party is None:
-            return _create_not_found_response("VERSIONED_PARTY", hier_object_id)
-        else:
-            resp = _create_object_response(versioned_party, 200)
-            _add_headers_to_response(resp, HierObjectID(hier_object_id), versioned_party.time_created, f"{current_app.config["BASE_URL"]}/demographic/versioned_party/{hier_object_id}")
-            return resp
+        resp = get_versioned_object(logged_in_user, vs, HierObjectID(hier_object_id), "VERSIONED_PARTY")
+        if resp.status_code == 200:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/demographic/versioned_party/{hier_object_id}")
+        return resp
         
     @demo_bp.route("/versioned_party/<hier_object_id>/revision_history", methods=['GET'])
     def get_versioned_party_revision_history(hier_object_id: str):
@@ -188,15 +89,11 @@ def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine
             return resp
         
     @demo_bp.route("/contribution/<hier_object_id>", methods=['GET'])
-    def get_contribution_by_id(hier_object_id: str):
-        contrib : Contribution = db.retrieve_uid_object("CONTRIBUTION", HierObjectID(hier_object_id), logged_in_user.external_ref)
-
-        if contrib is None:
-            return _create_not_found_response("CONTRIBUTION", hier_object_id)
-        else:
-            resp = _create_object_response(contrib, 200)
-            _add_headers_to_response(resp, HierObjectID(hier_object_id), contrib.audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/contribution/{hier_object_id}")
-            return resp
+    def get_demographic_contribution_by_id(hier_object_id: str):
+        resp = get_contribution_by_id(logged_in_user, db, HierObjectID(hier_object_id))
+        if resp.status_code == 200:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/demographic/contribution/{hier_object_id}")
+        return resp
 
     @demo_bp.route("/<demographic_type>/<uid_based_id>", methods=['GET'])
     def get_demographic_object(demographic_type: str, uid_based_id: str):
@@ -204,24 +101,12 @@ def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine
         if not _is_demographic_type(typ):
             return _create_error_response("", 404)
 
-        object_version : Version = None
-        if "::" in uid_based_id:
-            object_version = vs.read_version(typ, ObjectVersionID(uid_based_id), _get_committer(log, logged_in_user).external_ref)
-        else:
-            version_at_time = request.args.get("version_at_time")
-            object_version = vs.read(typ, HierObjectID(uid_based_id), version_at_time, _get_committer(log, logged_in_user).external_ref)
-        
-        if object_version is None:
-            return _create_not_found_response(typ, uid_based_id)
-        else:
-            if object_version.data() is None:
-                # has been deleted
-                empty = _create_empty_response()
-                _add_headers_to_response(empty, object_version.uid(), object_version.commit_audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/{typ.lower()}/{object_version.uid().value}", f"demographic://{object_version.uid().value}")
-                return empty
-            resp = _create_object_response(object_version.data(), 200)
-            _add_headers_to_response(resp, object_version.uid(), object_version.commit_audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/{typ.lower()}/{object_version.uid().value}", f"demographic://{object_version.uid().value}")
-            return resp
+        resp, ovid = get_object(logged_in_user, vs, uid_based_id, typ, log)
+
+        if ovid is not None:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/demographic/{typ.lower()}/{ovid.value}", f"demographic://{ovid.value}")
+
+        return resp
         
     @demo_bp.route("/<demographic_type>/<hier_object_id>", methods=['PUT'])
     def update_demographic_object(demographic_type: str, hier_object_id: str):
@@ -229,28 +114,11 @@ def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine
         if not _is_demographic_type(typ):
             return _create_error_response("", 404)
         
-        body_object = _parse_request_body(typ)
-        if isinstance(body_object, Response):
-            return body_object
-        
-        preceding_uid = g.processed_headers.preceding_version_uid
-        if preceding_uid is None:
-            return _create_error_response("400 Bad Request: No 'If-Match' header was provided.", 400)
-        elif preceding_uid.object_id().value != hier_object_id:
-            return _create_error_response("400 Bad Request: 'If-Match' hier object ID and URL hier object ID do not match.", 400)
-        
-        d_ovid, d_contrib, _ = vs.update(
-            obj=body_object,
-            committer=_get_committer(log, logged_in_user),
-            lifecycle_state=_get_lifecycle_state(VersionLifecycleState.COMPLETE, log),
-            change_type=_get_audit_change_type(AuditChangeType.MODIFICATION, log),
-            preceding_version_uid=preceding_uid,
-            description=_get_audit_description(log),
-            user=_get_committer(log, logged_in_user).external_ref
-        )
+        resp, ovid = update_object(logged_in_user, vs, typ, hier_object_id, log)
 
-        resp = _create_object_response(body_object, 200)
-        _add_headers_to_response(resp, d_ovid, d_contrib.audit.time_committed, f"{current_app.config["BASE_URL"]}/demographic/{typ.lower()}/{d_ovid.value}", f"demographic://{d_ovid.value}")
+        if ovid is not None:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/demographic/{typ.lower()}/{ovid.value}", f"demographic://{ovid.value}")
+
         return resp
 
     @demo_bp.route("/<demographic_type>/<object_version_id>", methods=['DELETE'])
@@ -259,21 +127,6 @@ def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine
         if not _is_demographic_type(typ):
             return _create_error_response("", 404)
         
-        try:
-            preceding_uid = ObjectVersionID(object_version_id)
-        except ValueError as ve:
-            return _create_error_response(f"400 Bad Request: {object_version_id} is not a valid Object Version ID. Inner error: {str(ve)}", 400)
-        
-        d_ovid, d_contrib, _ = vs.delete(
-            obj_type=typ,
-            deleter=_get_committer(log, logged_in_user),
-            preceding_version_uid=preceding_uid,
-            description=_get_audit_description(log),
-            user=_get_committer(log, logged_in_user).external_ref
-        )
-
-        resp = make_response("", 204)
-        _add_headers_to_response(resp, d_ovid, d_contrib.audit.time_committed)
-        return resp
+        return delete_object(logged_in_user, vs, typ, object_version_id, log)
     
     return demo_bp

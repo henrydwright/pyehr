@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from pyehr.core.base.base_types.identification import HierObjectID, PartyRef
 from pyehr.core.rm.common.generic import PartyIdentified
 from pyehr.server.apps.rest.blueprints.demographic import create_demographic_blueprint
+from pyehr.server.apps.rest.blueprints.ehr import create_ehr_blueprint
 from pyehr.server.change_control import VersionedStore
 from pyehr.server.database.local import InMemoryDB
 
@@ -64,5 +65,8 @@ def create_app():
     log.info("Registering /demographic paths")
     app.register_blueprint(create_demographic_blueprint(logged_in_user, db, vs))
     
+    log.info("Registering /ehr paths")
+    app.register_blueprint(create_ehr_blueprint(logged_in_user, db, vs))
+
     return app
 

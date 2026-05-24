@@ -190,13 +190,13 @@ class IDatabaseEngine(ABC):
         pass
 
     @abstractmethod
-    def retrieve_query_match_object(self, obj_type: str, archetype_id: ArchetypeID, query_dict: dict[str, list[str]], reader: Optional[PartyRef] = None) -> list[UID_OBJECT_TYPE]:
+    def retrieve_query_match_object(self, obj_type: str, archetype_id: Optional[ArchetypeID], query_dict: dict[str, list[str]], reader: Optional[PartyRef] = None) -> list[UID_OBJECT_TYPE]:
         """Retrieve any archetype root LOCATABLE pyehr object archetyped with 
         `archetype_id` AND which has path values and attributes matching the
         `query_dict`.
         
         :param obj_type: OpenEHR type of object being retrieved (e.g. CONTRIBUTION, VERSIONED_OBJECT, etc.)
-        :param archetype_id: Archetype ID after which the object is modelled (e.g. 'pyEHR-DEMOGRAPHIC-PERSON.nhs_patient.v1')
+        :param archetype_id: Archetype ID after which the object is modelled (e.g. 'pyEHR-DEMOGRAPHIC-PERSON.nhs_patient.v1'). Leave as None only for EHR classes.
         :param query_dict: OpenEHR path for target attribute and list of possible values (e.g. {'details/items[at0002]/value/id': ['9449305552']})
         :param reader: If provided, this is stored in an audit trail of database actions associated with users."""
         pass

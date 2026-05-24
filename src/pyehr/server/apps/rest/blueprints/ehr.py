@@ -1,0 +1,160 @@
+
+import logging
+from typing import Optional, Union
+
+from flask import Blueprint, Response, current_app, jsonify, request
+
+from pyehr.core.base.base_types.builtins import Env
+from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectRef, ObjectVersionID
+from pyehr.core.rm.common.archetyped import Archetyped
+from pyehr.core.rm.common.change_control import Version
+from pyehr.core.rm.common.generic import PartyProxy, PartySelf
+from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
+from pyehr.core.rm.data_types.text import DVText
+from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus
+from pyehr.server.apps.rest.blueprints.shared import _add_headers_to_response, _create_error_response, _create_object_response, _get_committer, _parse_request_body, _process_headers
+from pyehr.server.apps.rest.meta import OpenEHRRequestHeaders
+from pyehr.server.change_control import VersionLifecycleState, VersionedStore
+from pyehr.server.database import IDatabaseEngine
+
+
+def create_ehr_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine, vs: VersionedStore):
+    ehr_bp = Blueprint("ehr", __name__, url_prefix="/ehr")
+
+    log = logging.getLogger("apps.rest.ehr")
+
+    @ehr_bp.before_request
+    def process_headers():
+        _process_headers(log)
+
+    def _create_ehr_status(owner_ehr_id: ObjectRef, status_obj: Optional[EHRStatus] = None) -> ObjectRef:
+        if status_obj is None:
+            status_obj = EHRStatus(
+                name=DVText("EHR status"),
+                archetype_node_id="openEHR-EHR-EHR_STATUS.generic.v1",
+                subject=PartySelf(),
+                is_queryable=True,
+                is_modifiable=True,
+                archetype_details=Archetyped(
+                    archetype_id=ArchetypeID("openEHR-EHR-EHR_STATUS.generic.v1"),
+                    rm_version="1.1.0"
+                )
+            )
+
+        es_ovid, es_contrib, es_vo = vs.create(
+            obj=status_obj,
+            owner_id=owner_ehr_id,
+            committer=_get_committer(log, logged_in_user),
+            lifecycle_state=VersionLifecycleState.COMPLETE,
+            user=_get_committer(log, logged_in_user).external_ref
+        )
+
+        return ObjectRef("local", "VERSIONED_EHR_STATUS", HierObjectID(es_ovid.object_id().value))
+
+    def _create_ehr_access(owner_ehr_id: ObjectRef) -> ObjectRef:
+        ea_ovid, ea_contrib, ea_vo = vs.create(
+            obj=EHRAccess(
+                name=DVText("EHR access"),
+                archetype_node_id="openEHR-EHR-EHR_ACCESS.generic.v1",
+                archetype_details=Archetyped(
+                    archetype_id=ArchetypeID("openEHR-EHR-EHR_ACCESS.generic.v1"),
+                    rm_version="1.1.0"
+                )
+            ),
+            owner_id=owner_ehr_id,
+            committer=_get_committer(log, logged_in_user),
+            lifecycle_state=VersionLifecycleState.COMPLETE,
+            user=_get_committer(log, logged_in_user).external_ref
+        )
+        return ObjectRef("local", "VERSIONED_EHR_ACCESS", HierObjectID(ea_ovid.object_id().value))
+
+    @ehr_bp.route("", methods=['POST'])
+    @ehr_bp.route("/<param_ehr_id>", methods=['PUT'])
+    def create_ehr(param_ehr_id: Optional[str] = None):
+        body_obj = request.get_json(silent=True)
+        if body_obj is not None:
+            body_obj = _parse_request_body("EHR_STATUS")
+        
+            # if you get a Response back rather than an instance of AnyClass, there was an error
+            if isinstance(body_obj, Response):
+                return body_obj
+        
+        ehr_id = None
+        if param_ehr_id is not None:
+            ehr_id = HierObjectID(param_ehr_id)
+            id_meta = db.retrieve_db_metadata(ehr_id)
+            if id_meta is not None and id_meta.obj_type is not None:
+                return _create_error_response(f"409 Conflict: Cannot create an EHR with id \'{ehr_id.value}\' as an object with that ID exists already in the database", 409)
+        else:
+            ehr_id = db.generate_hier_object_id(logged_in_user) 
+
+        try:
+            ehr_status_ref = _create_ehr_status(ObjectRef("local", "EHR", ehr_id), body_obj)
+        except ValueError:
+            return _create_error_response(f"409 Conflict: uid in provided EHR_STATUS already exists so cannot be created", 409)
+        
+        ehr_access_ref = _create_ehr_access(ObjectRef("local", "EHR", ehr_id))
+
+        create_time = DVDateTime(Env.current_date_time())
+        ehr_obj = EHR(
+            system_id=HierObjectID(current_app.config["SYSTEM_ID_HID"]),
+            ehr_id=ehr_id,
+            ehr_status=ehr_status_ref,
+            ehr_access=ehr_access_ref,
+            time_created=create_time
+        )
+
+        db.create_uid_object(ehr_obj, _get_committer(log, logged_in_user).external_ref)
+
+        resp = _create_object_response(ehr_obj, 201)
+        _add_headers_to_response(resp, ehr_id, create_time, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id.value}", f"ehr://{ehr_id.value}")
+        
+        return resp
+    
+    @ehr_bp.route("/<ehr_id>", methods=['GET'])
+    def get_ehr_by_id(ehr_id: str):
+        hid = HierObjectID(ehr_id)
+        met = db.retrieve_db_metadata(hid, logged_in_user.external_ref)
+
+        if met is None or met.obj_type != "EHR":
+            return _create_error_response(f"404 Not Found: No EHR exists with id \'{ehr_id}\'")
+        
+        ehr : EHR = db.retrieve_uid_object("EHR", hid, logged_in_user.external_ref)
+
+        resp = _create_object_response(ehr, 200)
+        _add_headers_to_response(resp, hid, ehr.time_created, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}", f"ehr://{ehr_id}")
+        return resp
+            
+    @ehr_bp.route("", methods=['GET'])
+    def get_ehr_by_subject_id():
+        subject_id = request.args.get("subject_id")
+        subject_namespace = request.args.get("subject_namespace")
+
+        if subject_id is None or subject_namespace is None:
+            return _create_error_response("400 Bad Request: Either subject_id or subject_namespace was missing", 400)
+        
+        ehr_status_results = db.retrieve_query_match_object("VERSION<EHR_STATUS>", 
+                                       None, 
+                                       {
+                                           "data/subject/external_ref/id/value": [subject_id],
+                                           "data/subject/external_ref/namespace": [subject_namespace]
+                                       },
+                                       logged_in_user.external_ref)
+
+        if len(ehr_status_results) < 1:
+            return _create_error_response("404 Not Found: EHR with supplied subject parameters could not be found", 404)
+        
+        ehr_status_version : Version[EHRStatus] = ehr_status_results[0]
+        esid = ehr_status_version.uid().object_id().value
+
+        ehr_results = db.retrieve_query_match_object("EHR", None, {"ehr_status/id/value" : [esid]}, logged_in_user.external_ref)
+
+        if len(ehr_results) != 1:
+            return _create_error_response("404 Not Found: EHR with supplied subject parameters could not be found", 404)
+        
+        ehr : EHR = ehr_results[0]
+        resp = _create_object_response(ehr, 200)
+        _add_headers_to_response(resp, ehr.ehr_id, ehr.time_created, f"{current_app.config["BASE_URL"]}/ehr/{ehr.ehr_id.value}", f"ehr://{ehr.ehr_id.value}")
+        return resp
+
+    return ehr_bp
