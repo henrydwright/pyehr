@@ -18,7 +18,7 @@ from pyehr.server.database import IDatabaseEngine, ObjectAlreadyExistsError
 from pyehr.server.database.local import InMemoryDB
 from pyehr.server.security.auth import IPyehrAuthProvider
 from pyehr.server.security.auth.noauth import AllowAllAuthProvider
-from term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
+from pyehr.term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
 
 def preload_content(root: Path, db: IDatabaseEngine, term_svc: TerminologyService, log: logging.Logger):
     """Preload all content under a given folder structure into the EHR, checking if it already

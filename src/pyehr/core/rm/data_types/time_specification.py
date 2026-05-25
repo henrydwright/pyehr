@@ -7,7 +7,7 @@ import re
 from typing import Optional, Union
 import warnings
 
-from term import PythonTerminologyService, ListCodeSetAccess
+from pyehr.term import PythonTerminologyService, ListCodeSetAccess
 
 from pyehr.core.base.base_types.identification import TerminologyID
 from pyehr.core.rm.data_types import DataValue

@@ -17,7 +17,7 @@ from pyehr.core.rm.demographic import Party, VersionedParty
 from pyehr.core.rm.support.terminology import TerminologyService
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState
 from pyehr.utils import PYTHON_TYPE_TO_STRING_TYPE_MAP
-from term import TERMINOLOGY_OPENEHR, PythonTerminologyService
+from pyehr.term import TERMINOLOGY_OPENEHR, PythonTerminologyService
 
 DEMOGRAPHIC_CLIENT_TYPE = {"AGENT", "GROUP", "ORGANISATION", "PERSON", "ROLE"}
 
