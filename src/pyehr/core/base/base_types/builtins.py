@@ -18,7 +18,7 @@ class Env():
     
     def current_date_time() -> ISODateTime:
         """Return current date/time in the current locale."""
-        return ISODateTime(datetime.now().isoformat())
+        return ISODateTime(datetime.now().astimezone().isoformat())
     
     def current_time_zone() -> ISOTimeZone:
         """Return the timezone of the current locale."""

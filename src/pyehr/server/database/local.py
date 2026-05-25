@@ -1,7 +1,8 @@
 from logging import getLogger, Logger
 import json
+from typing import Optional
 
-from pyehr.core.rm.common.archetyped import PyehrInternalPathPredicateType, PyehrInternalProcessedPath
+from pyehr.core.rm.common.archetyped import Locatable, PyehrInternalPathPredicateType, PyehrInternalProcessedPath
 from pyehr.core.rm.common.change_control import OriginalVersion, VersionedObject
 from pyehr.core.rm.common.generic import RevisionHistory, RevisionHistoryItem
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
@@ -9,7 +10,7 @@ from pyehr.core.rm.ehr import EHR
 from pyehr.utils import PYTHON_TYPE_TO_STRING_TYPE_MAP, get_openehr_type_str
 
 from pyehr.core.base.base_types.builtins import Env
-from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef
+from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef, PartyRef
 from pyehr.server.database import DBActionItem, DBActionType, IDatabaseEngine, DBMetadata, IncorrectVersionTypeError, ObjectAlreadyExistsError, ObjectDoesNotExistError
 
 from uuid import uuid4
@@ -46,7 +47,8 @@ class InMemoryDB(IDatabaseEngine):
             is_deleted=None,
             action_history=[
                 DBActionItem(DBActionType.GENERATE_HID, party=generator)
-            ]
+            ],
+            obj_archetype_id=None
         )
         self._log.info(f"{gen}:Generated")
         return ret_id
@@ -116,13 +118,15 @@ class InMemoryDB(IDatabaseEngine):
                 raise ObjectAlreadyExistsError(f"Item with UID of {uid.value} already exists in database so could not be created.")
 
         type_str = get_openehr_type_str(obj) if type_override is None else type_override
+        arch_id = self._get_archetype_node_id_from_object(obj)
 
         if uid.value not in self._meta:
             met = DBMetadata(
                 uid=uid,
                 obj_type=type_str,
                 is_deleted=False,
-                action_history=[]
+                action_history=[],
+                obj_archetype_id=arch_id
             )
             self._meta[uid.value] = met
         else:
@@ -164,16 +168,19 @@ class InMemoryDB(IDatabaseEngine):
     
     def retrieve_query_match_object(self, obj_type, archetype_id, query_dict, reader = None):
         # this method would be horrificly slow, but given lack of persistence it doesn't matter!
-        self._log.info(f"QUERY:Running query for {obj_type} archetyped with {archetype_id.value} matching parameters: {json.dumps(query_dict, indent=1)}")
+        self._log.info(f"QUERY:Running query for {obj_type} archetyped with {archetype_id.value if archetype_id is not None else '*'} matching parameters: {json.dumps(query_dict, indent=1)}")
         # step 1: check any objects of this type exist
         if obj_type not in self._obj:
             return []
         
         # step 2: if they do, then find ones which match the given archetype ID
         candidates = []
-        for obj in self._obj[obj_type].values():
-            if obj.archetype_node_id == archetype_id.value:
-                candidates.append(obj)
+        if archetype_id is not None:
+            for obj in self._obj[obj_type].values():
+                if obj.archetype_node_id == archetype_id.value:
+                    candidates.append(obj)
+        else:
+            candidates = self._obj[obj_type].values()
 
         # step 3: for each item in this list, go through each item in the query dict, and keep those which match all query params
         returns = []
@@ -182,8 +189,14 @@ class InMemoryDB(IDatabaseEngine):
             for (query_path, query_match_items) in query_dict.items():
                 self._log.debug(f"[query] Finding value at path \'{str(query_path)}\'")
                 candidate_dict = candidate.as_json()
+                val = None
+                try:
+                    val = self._nav_dict_path(candidate_dict, query_path)
+                except ValueError:
+                    candidate_matched = False
+                    self._log.debug(f"[query] Path does not exist in candidate, skipping")
+                    break
 
-                val = self._nav_dict_path(candidate_dict, query_path)
                 self._log.debug(f"[query] Value at path is \'{str(val)}\'")
 
                 match_found = False
@@ -200,7 +213,7 @@ class InMemoryDB(IDatabaseEngine):
 
         # step 4: for those we are returning, log that a read has happened
         for ret_item in returns:
-            ret_meta = self._meta[ret_item.uid.value]
+            ret_meta = self._meta[self._get_uid_from_uid_object_type(ret_item).value]
             ret_meta.action_history.append(DBActionItem(DBActionType.READ, party=reader, query=query_dict))
 
         self._log.info(f"QUERY:Query returned {len(returns)} results")
@@ -299,3 +312,28 @@ class InMemoryDB(IDatabaseEngine):
         # then write the contribution itself
         self.create_uid_object(contrib, creator=committer)
         self._log.info(f"Committed CONTRIBUTION (uid={contrib.uid.value}) set of {len(versions)} VERSIONs")
+
+    def add_to_ehr_lists(self, ehr_id: HierObjectID, addition: ObjectRef, adder: Optional[PartyRef] = None):
+        meta = self.retrieve_db_metadata(ehr_id, reader=adder)
+        if meta is None or meta.obj_type is None or meta.obj_type != "EHR":
+            raise ValueError(f"Cannot add items to lists in EHR \'{ehr_id.value}\' as it did not exist")
+        
+        ehr : EHR = self._obj["EHR"][ehr_id.value]
+        if addition.ref_type == "CONTRIBUTION":
+            if ehr.contributions is None:
+                ehr.contributions = []
+            ehr.contributions.append(addition)
+        elif addition.ref_type == "VERSIONED_COMPOSITION":
+            if ehr.compositions is None:
+                ehr.compositions = []
+            ehr.compositions.append(addition)
+        elif addition.ref_type == "VERSIONED_FOLDER":
+            if ehr.folders is None:
+                ehr.folders = []
+            ehr.folders.append(addition)
+        else:
+            raise ValueError("Additional reference was not to type CONTRIBUTION, VERSIONED_FOLDER or VERSIONED_COMPOSITION so could not be added")
+        
+        meta.action_history.append(DBActionItem(DBActionType.UPDATE, party=adder))
+        self._log.info(f"{ehr_id.value}:Added reference to {addition.ref_type} to EHR.")
+        

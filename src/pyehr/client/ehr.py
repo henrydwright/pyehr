@@ -1,6 +1,10 @@
 """Provides a client for interacting with EHR REST API provided by OpenEHR
 compliant servers"""
 
+import json
+
+from pyehr.core.its.rest.additions import UpdateAudit, UpdateContribution, UpdateVersion
+from pyehr.server.change_control import AuditChangeType, VersionLifecycleState
 import requests
 from typing import Optional, Union
 
@@ -8,10 +12,10 @@ from pyehr.client import OpenEHRBaseRestClient, OpenEHRRestClientResponse
 from pyehr.core.base.base_types.identification import HierObjectID, ObjectVersionID
 from pyehr.core.base.foundation_types.primitive_types import Uri
 from pyehr.core.base.foundation_types.time import ISODateTime
-from pyehr.core.rm.common.change_control import ImportedVersion, OriginalVersion
-from pyehr.core.rm.common.generic import RevisionHistory
+from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion, Version
+from pyehr.core.rm.common.generic import PartyProxy, RevisionHistory
 from pyehr.core.rm.composition import Composition
-from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus, VersionedEHRStatus
+from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus, VersionedComposition, VersionedEHRStatus
 
 from pyehr.core.its.json_tools import decode_json
 
@@ -27,6 +31,9 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
 
     composition: '_CompositionClient'
     """Management of COMPOSITION and VERSIONED_COMPOSITION resources."""
+
+    contribution: '_ContributionClient'
+    """Management of CONTRIBUTIONs relating to EHR-based objects."""
 
     class _EHRClient:
 
@@ -219,7 +226,7 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
 
 
         def get_versioned_ehr_status_version_at_time(self, ehr_id: HierObjectID, version_at_time: Optional[ISODateTime] = None) -> OpenEHRRestClientResponse[Union[OriginalVersion, ImportedVersion]]:
-            """Retrieves a VERSION\<EHR_STATUS\> from the VERSIONED_EHR_STATUS associated with the EHR identified by ehr_id.
+            """Retrieves a VERSION\\<EHR_STATUS\\> from the VERSIONED_EHR_STATUS associated with the EHR identified by ehr_id.
 
             If version_at_time is supplied, retrieves the VERSION extant at specified time, otherwise retrieves the latest VERSION.
             
@@ -247,9 +254,150 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
             self.outer = outer
 
         def create_composition(self, ehr_id: HierObjectID, new_composition: Composition) -> OpenEHRRestClientResponse[Composition]:
-            """Creates the first version of a new COMPOSITION in the EHR identified by ehr_id."""
+            """Creates the first version of a new COMPOSITION in the EHR identified by ehr_id.
+            
+            Executes: `POST` on /ehr/{ehr_id}/composition
+            
+            :param ehr_id: EHR identifier taken from EHR.ehr_id.value."""
             target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/composition")
             return self.outer._create_XXX(target_url, "COMPOSITION", new_composition)
+        
+        def get_composition(self, ehr_id: HierObjectID, uid_based_id: Union[ObjectVersionID, HierObjectID], version_at_time: Optional[ISODateTime] = None) -> OpenEHRRestClientResponse[Composition]:
+            """Retrieves a version of the COMPOSITION identified by uid_based_id and associated with 
+            the EHR identified by ehr_id.
+
+            The uid_based_id can take a form of an OBJECT_VERSION_ID identifier taken from 
+            VERSION.uid.value (i.e. a version_uid), or a form of a HIER_OBJECT_ID identifier taken 
+            from VERSIONED_OBJECT.uid.value (i.e. a versioned_object_uid). The former is used to 
+            retrieve a specific known version of the COMPOSITION (e.g. one identified by 
+            8849182c-82ad-4088-a07f-48ead4180515::openEHRSys.example.com::1), whereas the 
+            later (e.g. an identifier like 8849182c-82ad-4088-a07f-48ead4180515) is be used 
+            to retrieve a version from the version container whenever the version_tree_id is 
+            unknown or irrelevant (such as when most recent version is requested).
+
+            When the uid_based_id has the form of a HIER_OBJECT_ID, if the version_at_time is supplied, 
+            retrieves the version extant at specified time, otherwise retrieves the latest COMPOSITION 
+            version.
+            
+            :param ehr_id: EHR identifier taken from EHR.ehr_id.value.
+            :param uid_based_id: It can take a form of an OBJECT_VERSION_ID 
+            identifier taken from VERSION.uid.value (i.e. a version_uid), or a form of a HIER_OBJECT_ID 
+            identifier taken from VERSIONED_OBJECT.uid.value (i.e. a versioned_object_uid)."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/composition/{uid_based_id.value}")
+            return self.outer._get_XXX_by_version_id(target_url, "COMPOSITION", version_at_time)
+        
+        def update_composition(self, 
+                               ehr_id: HierObjectID, 
+                               composition_id: HierObjectID, 
+                               new_composition: Composition, 
+                               preceding_version_uid: ObjectVersionID,
+                                version_lifecycle_state: Optional[VersionLifecycleState] = None,
+                                version_audit_change_type: Optional[AuditChangeType] = None,
+                                version_audit_description: Optional[str] = None,
+                                version_committer: Optional[PartyProxy] = None) -> OpenEHRRestClientResponse[Composition]:
+            """Updates COMPOSITION identified by uid_based_id and associated with the EHR 
+            identified by ehr_id.
+
+            The uid_based_id can take only a form of an HIER_OBJECT_ID identifier taken from 
+            VERSIONED_OBJECT.uid.value (i.e. a versioned_object_uid).
+
+            If the request body already contains a COMPOSITION.uid.value, it must match the 
+            uid_based_id in the URL."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/composition/{composition_id.value}")
+            return self.outer._update_XXX(target_url, "COMPOSITION", preceding_version_uid, new_composition, version_lifecycle_state, version_audit_change_type, version_audit_description, version_committer)
+        
+        def delete_composition(self,
+                               ehr_id: HierObjectID,
+                               composition_version_id: ObjectVersionID,
+                               version_audit_description: Optional[str] = None,
+                                version_committer: Optional[PartyProxy] = None) -> OpenEHRRestClientResponse[None]:
+            """Deletes the COMPOSITION identified by uid_based_id and associated with the EHR 
+            identified by ehr_id.
+
+            The uid_based_id MUST be in a form of an OBJECT_VERSION_ID identifier taken from 
+            the last (most recent) VERSION.uid.value, representing the preceding_version_uid 
+            to be deleted."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/composition/{composition_version_id.value}")
+            return self.outer._delete_XXX(target_url, version_audit_description, version_committer)
+        
+        def get_versioned_composition(self,
+                                      ehr_id: HierObjectID,
+                                      versioned_object_uid: HierObjectID) -> OpenEHRRestClientResponse[VersionedComposition]:
+            """Retrieves a VERSIONED_COMPOSITION identified by versioned_object_uid and 
+            associated with the EHR identified by ehr_id."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/versioned_composition/{versioned_object_uid.value}")
+            return self.outer._get_versioned_XXX(target_url, "VERSIONED_COMPOSITION")
+        
+        def get_versioned_composition_revision_history(self,
+                                                       ehr_id: HierObjectID,
+                                                       versioned_object_uid: HierObjectID) -> OpenEHRRestClientResponse[RevisionHistory]:
+            """Retrieves revision history of the VERSIONED_COMPOSITION identified by 
+            versioned_object_uid and associated with the EHR identified by ehr_id."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/versioned_composition/{versioned_object_uid.value}/revision_history")
+            return self.outer._get_versioned_XXX_revision_history(target_url)
+        
+        def get_versioned_composition_version_at_time(self,
+                                                      ehr_id: HierObjectID,
+                                                      versioned_object_uid: HierObjectID,
+                                                      version_at_time: Optional[ISODateTime] = None) -> OpenEHRRestClientResponse[Version[Composition]]:
+            """Retrieves a VERSION from the VERSIONED_COMPOSITION identified by versioned_object_uid 
+            and associated with the EHR identified by ehr_id.
+
+            If version_at_time is supplied, retrieves the VERSION extant at specified time, otherwise 
+            retrieves the latest VERSION."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/versioned_composition/{versioned_object_uid.value}/version")
+            return self.outer._get_versioned_XXX_version_at_time_or_by_id(target_url, "COMPOSITION", versioned_object_uid, version_at_time)
+        
+        def get_versioned_composition_version_by_id(self,
+                                                    ehr_id: HierObjectID,
+                                                    versioned_object_uid: HierObjectID,
+                                                    version_uid: ObjectVersionID) -> OpenEHRRestClientResponse[Version[Composition]]:
+            """Retrieves a VERSION identified by version_uid of a VERSIONED_COMPOSITION identified by
+              versioned_object_uid and associated with the EHR identified by ehr_id."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/versioned_composition/{versioned_object_uid.value}/version/{version_uid.value}")
+            return self.outer._get_versioned_XXX_version_by_id(target_url, "COMPOSITION")
+
+    class _ContributionClient:
+        def __init__(self, outer: 'OpenEHREHRRestClient'):
+            self.outer = outer
+
+        def commit_contribution_set(self, ehr_id: HierObjectID, versions: list[UpdateVersion], audit: UpdateAudit, uid: Optional[HierObjectID] = None) -> OpenEHRRestClientResponse[Contribution]:
+            """Commit (in a database atomic operation) a set of versions to the server as a single CONTRIBUTION
+
+            Note, the version.commit_audit.time_committed and version.commit_audit.system_id 
+            will be ignored, not sent to the server, and replaced with server-generated content.
+            
+            :param versions: List of UPDATE_VERSIONs containing data to commit as part of the contribution
+            :param audit: UPDATE_AUDIT containing the audit details to submit alongside the contribution
+            :param uid: (Optional) HIER_OBJECT_ID for uid to use for the CONTRIBUTION. If omitted, the server will generate one"""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/contribution")
+
+            update_contrib = UpdateContribution(
+                versions=versions,
+                audit=audit,
+                uid=uid
+            )
+
+            result = requests.post(
+                url=target_url,
+                headers=self.outer._build_headers(),
+                json=update_contrib.as_json()
+            )
+
+            if result.status_code == 400:
+                raise ValueError(f"400 Bad Request: request had invalid content. Inner error {json.dumps(result.json(),indent=1)}")
+            elif result.status_code == 409:
+                raise RuntimeError("409 Conflict: the UID submitted was the same as an existing object in the database")
+            elif result.status_code != 201:
+                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation. Inner error {bytes.decode(result.content)}")
+            
+            obj = decode_json(result.json(), target="CONTRIBUTION", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
+            return OpenEHRRestClientResponse(obj, result, self.outer._get_metadata_from_result(result))
+        
+        def get_contribution_by_id(self, ehr_id: HierObjectID, contribution_uid: HierObjectID):
+            """Retrieves a CONTRIBUTION identified by `contribution_uid`"""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/contribution/{contribution_uid.value}")
+            return self.outer._get_XXX_by_version_id(target_url, "CONTRIBUTION")
 
     def __init__(self, base_url: Uri, flag_allow_resolved_references : bool = True):
         """
@@ -270,4 +418,5 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
         self.ehr = self._EHRClient(self)
         self.ehr_status = self._EHRStatusClient(self)
         self.composition = self._CompositionClient(self)
+        self.contribution = self._ContributionClient(self)
         super().__init__(base_url, flag_allow_resolved_references)

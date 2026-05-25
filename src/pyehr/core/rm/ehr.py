@@ -106,7 +106,7 @@ class EHR(AnyClass):
                     if oref.ref_type != "VERSIONED_FOLDER":
                         raise ValueError("All references in folders must be to type VERSIONED_FOLDER (invariant: folders_valid)")
         self.folders = folders
-        super().__init__(**kwargs)
+        super().__init__()
 
     def is_equal(self, other: 'EHR'):
         return (
@@ -267,7 +267,9 @@ class EHRAccess(Locatable):
                  uid : Optional[UIDBasedID] = None, 
                  links : Optional[list[Link]] = None,  
                  feeder_audit : Optional[FeederAudit] = None,
+                 settings: Optional[AccessControlSettings] = None,
                  **kwargs):
+        self.settings = settings
         super().__init__(name, archetype_node_id, uid, links, archetype_details, feeder_audit, None, None, **kwargs)
 
     def scheme(self):
@@ -284,6 +286,18 @@ class EHRAccess(Locatable):
         if self.settings is not None:
             draft["settings"] = self.settings.as_json()
         draft["_type"] = "EHR_ACCESS"
+
+    def item_at_path(self, a_path):
+        return super().item_at_path(a_path)
+    
+    def items_at_path(self, a_path):
+        return super().items_at_path(a_path)
+    
+    def path_exists(self, a_path):
+        return super().path_exists(a_path)
+    
+    def path_unique(self, a_path):
+        return super().path_unique(a_path)
 
 class VersionedEHRAccess(VersionedObject[EHRAccess]):
     """Version container for EHR_ACCESS instance."""

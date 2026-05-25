@@ -4,6 +4,7 @@ from typing import Optional
 from uuid import uuid4
 from warnings import warn
 
+from pyehr.core.rm.ehr import EHR
 from pymongo import MongoClient
 from pymongo.database import Database
 from pymongo.collection import Collection
@@ -11,7 +12,7 @@ from pymongo.collection import Collection
 from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import HierObjectID, UIDBasedID
 from pyehr.core.its.json_tools import decode_json
-from pyehr.core.rm.common.archetyped import PyehrInternalProcessedPath
+from pyehr.core.rm.common.archetyped import Locatable, PyehrInternalProcessedPath
 from pyehr.core.rm.common.change_control import OriginalVersion, VersionedObject
 from pyehr.core.rm.common.generic import RevisionHistoryItem
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
@@ -61,7 +62,8 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             is_deleted=None,
             action_history=[
                 DBActionItem(DBActionType.GENERATE_HID, party=generator)
-            ]
+            ],
+            obj_archetype_id=None
         )
 
         self._meta.insert_one(meta_ob.as_json())
@@ -100,13 +102,15 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             raise ObjectAlreadyExistsError(f"Item with UID of {uid.value} already exists in database so could not be created.")
         
         type_str = get_openehr_type_str(obj) if type_override is None else type_override
+        arch_id = self._get_archetype_node_id_from_object(obj)
 
         if meta is None:
             meta = DBMetadata(
                 uid=uid,
                 obj_type=type_str,
                 is_deleted=False,
-                action_history=[]
+                action_history=[],
+                obj_archetype_id=arch_id
             )
             self._meta.insert_one(meta.as_json())
         else:
@@ -171,9 +175,11 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
 
         collection = self._database.get_collection(obj_type)
 
-        mongo_filter = {
-            "archetype_details.archetype_id.value" : archetype_id.value
-        }
+        mongo_filter = {}
+        if archetype_id is not None:
+            mongo_filter = {
+                "archetype_details.archetype_id.value" : archetype_id.value
+            }
 
         candidates = collection.find(mongo_filter).to_list()
 
@@ -222,13 +228,15 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             raise ObjectAlreadyExistsError(f"Item with UID of {uid.value} already exists in database so could not be created.")
         
         type_str = get_openehr_type_str(vo)
+        arch_id = self._get_archetype_node_id_from_object(vo)
 
         if meta is None:
             meta = DBMetadata(
                 uid=uid,
                 obj_type=type_str,
                 is_deleted=False,
-                action_history=[]
+                action_history=[],
+                obj_archetype_id=arch_id
             )
             self._meta.insert_one(meta.as_json())
         else:
@@ -237,7 +245,8 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
                 update={
                     "$set": {
                         "type": type_str,
-                        "is_deleted": False
+                        "is_deleted": False,
+                        "archetype_id": arch_id
                     }
                 }
             )
@@ -426,5 +435,50 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             session.commit_transaction()
         self._log.info(f"{version_id.value}:Finished adding ATTESTATION")
             
+    def add_to_ehr_lists(self, ehr_id, addition, adder = None):
+        meta = self.retrieve_db_metadata(ehr_id, reader=adder, record_audit=False)
+        if meta is None or meta.obj_type is None or meta.obj_type != "EHR":
+            raise ValueError(f"Cannot add items to lists in EHR \'{ehr_id.value}\' as it did not exist")
+        
+        ehr_collection = self._database.get_collection("EHR")
+        ehr : EHR = decode_json(ehr_collection.find_one(filter={"_id": ehr_id.value}), "EHR")
 
+        update_dict = None
+        if addition.ref_type == "CONTRIBUTION":
+            if ehr.contributions is None:
+                update_dict = {
+                    "$set" : {"contributions": [addition.as_json()]}
+                }
+            else:
+                update_dict = {
+                    "$push": {"contributions": addition.as_json()}
+                }
+        elif addition.ref_type == "VERSIONED_COMPOSITION":
+            if ehr.compositions is None:
+                update_dict = {
+                    "$set": {"compositions": [addition.as_json()]}
+                }
+            else:
+                update_dict = {
+                    "$push": {"compositions": addition.as_json()}
+                }
+        elif addition.ref_type == "VERSIONED_FOLDER":
+            if ehr.folders is None:
+                update_dict = {
+                    "$set": {"folders": [addition.as_json()]}
+                }
+            else:
+                update_dict = {
+                    "$push": {"folders": addition.as_json()}
+                }
+        else:
+            raise ValueError("Could not add reference as it was not of type CONTRIBUTION, VERSIONED_FOLDER or VERSIONED_COMPOSITION")
+        
+        ehr_collection.update_one(
+            filter = {"_id": ehr_id.value},
+            update=update_dict
+        )
+        
+        self._meta_add_db_action_item(ehr_id, DBActionItem(DBActionType.UPDATE, party=adder))
+        self._log.info(f"{ehr_id.value}:Added reference to {addition.ref_type} to EHR.")
 

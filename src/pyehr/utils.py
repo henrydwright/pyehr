@@ -6,9 +6,11 @@ from pyehr.core.its.rest.additions import UpdateAttestation, UpdateAudit, Update
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.its.rest.additions import UpdateVersion
 from pyehr.core.rm.common.change_control import Contribution, OriginalVersion, VersionedObject
+from pyehr.core.rm.common.directory import Folder
+from pyehr.core.rm.composition import Composition
 from pyehr.core.rm.data_types.text import DVText
-from pyehr.core.rm.demographic import Agent, Organisation, Party, Person
-from pyehr.core.rm.ehr import EHR, EHRStatus
+from pyehr.core.rm.demographic import Agent, Organisation, Party, Person, Role
+from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus, VersionedComposition
 from pyehr.core.base.base_types.identification import HierObjectID, InternetID, ObjectRef, ObjectVersionID, GenericID, PartyRef, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion, VersionedObject
@@ -21,6 +23,7 @@ from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVDateTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText, DVUri
 from pyehr.core.rm.demographic import Address, Contact, Organisation, PartyIdentity, Person, VersionedParty
 from pyehr.core.rm.ehr import EHR, EHRStatus, VersionedEHRStatus
+from pyehr.server.security.access_control import PyehrAccessControlSettings, PyehrAccessPolicyItem
 
 
 PYTHON_TYPE_TO_STRING_TYPE_MAP : dict[type, str] = {
@@ -34,7 +37,13 @@ PYTHON_TYPE_TO_STRING_TYPE_MAP : dict[type, str] = {
     EHRStatus: "EHR_STATUS",
     EHR: "EHR",
     Organisation: "ORGANISATION",
-    Agent: "AGENT"
+    Agent: "AGENT",
+    EHRAccess: "EHR_ACCESS",
+    Composition: "COMPOSITION",
+    Folder: "FOLDER",
+    Role: "ROLE",
+    PyehrAccessControlSettings: "PYEHR_ACCESS_CONTROL_SETTINGS",
+    PyehrAccessPolicyItem: "PYEHR_ACCESS_POLICY_ITEM"
 }
 """Mapping of pyehr type (Python type) to the openEHR type string (e.g. pyehr type
 of Party maps to 'PARTY')"""
@@ -85,7 +94,13 @@ OPENEHR_TYPE_MAP = {
     "DV_DATE": DVDate,
     "TEMPLATE": OperationalTemplate,
     "ARCHETYPE": Archetype,
-    "C_STRING": CString
+    "C_STRING": CString,
+    "AGENT": Agent,
+    "COMPOSITION": Composition,
+    "VERSIONED_COMPOSITION": VersionedComposition,
+    "ROLE": Role,
+    "PYEHR_ACCESS_CONTROL_SETTINGS": PyehrAccessControlSettings,
+    "PYEHR_ACCESS_POLICY_ITEM": PyehrAccessPolicyItem
 }
 """Map of OpenEHR string type names (e.g. as found in '_type' JSON) to pyehr Python types"""
 

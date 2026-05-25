@@ -107,6 +107,14 @@ class VersionedStore():
             if callable(uid):
                 uid = uid()
         return uid
+    
+    def _try_add_contribution_to_ehr(self, owner_id: ObjectRef, contrib_id: HierObjectID, user : PartyRef):
+        # if the owner is an EHR, then attempt to create reference to the contribution in the EHR object (if it exists, else fail silently)
+        if owner_id.ref_type == "EHR":
+            try:
+                self.db.add_to_ehr_lists(HierObjectID(owner_id.id.value), ObjectRef("local", "CONTRIBUTION", contrib_id), adder=user)
+            except ValueError:
+                pass
 
     def create(self, 
                obj: AnyClass, 
@@ -186,6 +194,7 @@ class VersionedStore():
         self._log.info("Saving to database")
         self.db.create_versioned_object(vo, create_underlying_versions=True, creator=user)
         self.db.create_uid_object(contrib, creator=user)
+        self._try_add_contribution_to_ehr(owner_id, contrib_id, user=user)
 
         return (ver_id, contrib, vo)
     
@@ -195,7 +204,7 @@ class VersionedStore():
                         contrib_id: HierObjectID,
                         audit: AuditDetails,
                         preceding_version_uid: Optional[ObjectVersionID] = None,
-                        user: Optional[PartyRef] = None) -> tuple[str, OriginalVersion]:
+                        user: Optional[PartyRef] = None) -> tuple[str, OriginalVersion, ObjectRef]:
         # get UID from object if it exists
         uid = self._get_uid_from_object_if_exists(obj)
 
@@ -209,11 +218,14 @@ class VersionedStore():
                 raise ValueError(f"Cannot update/delete object as object did not have a UID and `preceding_version_uid` was not provided.")
             else:
                 uid = preceding_version_uid.object_id()
+
+        if isinstance(uid, ObjectVersionID):
+            uid = HierObjectID(uid.object_id().value)
             
+        vo_meta, rev_his = self.db.retrieve_versioned_object(uid, reader=user)
         # find the preceding version UID
         if preceding_version_uid is None:
             self._log.info("Preceding version not explicitly given, finding latest version")
-            vo_meta, rev_his = self.db.retrieve_versioned_object(uid, reader=user)
 
             prev_ver = rev_his.most_recent_version()
             self._log.info(f"Assuming this version based off {preceding_version_uid}")
@@ -240,7 +252,7 @@ class VersionedStore():
             terminology_service=self._ts,
             data=obj,
             preceding_version_uid=preceding_version_uid
-        ))
+        ), vo_meta.owner_id)
         
 
     def update(self, 
@@ -279,7 +291,7 @@ class VersionedStore():
         )
 
         # make the new version
-        obj_type, ov = self._update_version(
+        obj_type, ov, owner_ref = self._update_version(
             obj=obj,
             lifecycle_state=lifecycle_state,
             contrib_id=contrib_id,
@@ -318,6 +330,7 @@ class VersionedStore():
             self.db.create_uid_object(ov, creator=user)
         self.db.add_revision_history_item(uid, rhi, creator=user)
         self.db.create_uid_object(contrib, creator=user)
+        self._try_add_contribution_to_ehr(owner_ref, contrib_id, user=user)
 
         # if provided, update the versioned object
         if local_versioned_object is not None:
@@ -450,7 +463,7 @@ class VersionedStore():
                 self._log.info(f"Added creation of VERSION<{obj_type}> to commit (uid=\'{created_verid.value}\')")
             else:
                 # otherwise prepare a version for an update
-                obj_type, updated_version = self._update_version(
+                obj_type, updated_version, owner_ref = self._update_version(
                     obj=obj,
                     lifecycle_state=lifecycle_state,
                     contrib_id=contrib_id,
@@ -494,6 +507,7 @@ class VersionedStore():
             owner_id=owner_id,
             committer=user
         )
+        self._try_add_contribution_to_ehr(owner_id, contrib_id, user=user)
 
         return (versions_id_list, contrib, local_versioned_object_list)
     

@@ -84,24 +84,29 @@ class DBMetadata():
     obj_type: Optional[str]
     """OpenEHR object type of the object"""
 
+    obj_archetype_id: Optional[str]
+    """OpenEHR archetype_id of the object, if it is a 'top-level' object with archetype_node_id"""
+
     is_deleted: Optional[bool]
     """Whether or not this object should be treated as deleted"""
 
     action_history: list[DBActionItem]
     """List of actions carried out on this item"""
 
-    def __init__(self, uid: UIDBasedID, obj_type: Optional[str], is_deleted: Optional[bool], action_history: list[DBActionItem]):
+    def __init__(self, uid: UIDBasedID, obj_type: Optional[str], is_deleted: Optional[bool], action_history: list[DBActionItem], obj_archetype_id: Optional[str]):
         self.uid = uid
         self.obj_type = obj_type
         self.is_deleted = is_deleted
         self.action_history = action_history
+        self.obj_archetype_id = obj_archetype_id
 
     def as_json(self):
         return {
             "_id": self.uid.value,
             "type": self.obj_type,
             "is_deleted": self.is_deleted,
-            "action_history": [a.as_json() for a in self.action_history]
+            "action_history": [a.as_json() for a in self.action_history],
+            "archetype_id": self.obj_archetype_id
         }
     
     def from_json(js_dict: dict):
@@ -110,7 +115,7 @@ class DBMetadata():
             uid = ObjectVersionID(uid)
         else:
             uid = HierObjectID(uid)
-        draft = DBMetadata(uid, js_dict.get("type"), js_dict.get("is_deleted"), [])
+        draft = DBMetadata(uid, js_dict.get("type"), js_dict.get("is_deleted"), [], js_dict.get("archetype_id"))
         draft_ah = []
         for ah_dict in js_dict["action_history"]:
             draft_ah.append(DBActionItem.from_json(ah_dict))
@@ -132,6 +137,17 @@ class IDatabaseEngine(ABC):
         if callable(uid):
             uid = obj.uid()
         return uid
+    
+    def _get_archetype_node_id_from_object(self, obj) -> Optional[str]:
+        """Extract the archetype_node_id from an object, if it has one"""
+        if hasattr(obj, "archetype_node_id"):
+            return obj.archetype_node_id
+        elif isinstance(obj, Version) and hasattr(obj.data(), "archetype_node_id"):
+            return obj.data().archetype_node_id
+        elif isinstance(obj, VersionedObject) and obj.latest_version() is not None and hasattr(obj.latest_version().data(), "archetype_node_id"):
+            return obj.latest_version().data().archetype_node_id
+        else:
+            return None
     
     def _nav_dict_path(self, js_dict, path):
         """Navigate to a pyehr path within an as_json() dict output"""
@@ -185,13 +201,13 @@ class IDatabaseEngine(ABC):
         pass
 
     @abstractmethod
-    def retrieve_query_match_object(self, obj_type: str, archetype_id: ArchetypeID, query_dict: dict[str, list[str]], reader: Optional[PartyRef] = None) -> list[UID_OBJECT_TYPE]:
+    def retrieve_query_match_object(self, obj_type: str, archetype_id: Optional[ArchetypeID], query_dict: dict[str, list[str]], reader: Optional[PartyRef] = None) -> list[UID_OBJECT_TYPE]:
         """Retrieve any archetype root LOCATABLE pyehr object archetyped with 
         `archetype_id` AND which has path values and attributes matching the
         `query_dict`.
         
         :param obj_type: OpenEHR type of object being retrieved (e.g. CONTRIBUTION, VERSIONED_OBJECT, etc.)
-        :param archetype_id: Archetype ID after which the object is modelled (e.g. 'pyEHR-DEMOGRAPHIC-PERSON.nhs_patient.v1')
+        :param archetype_id: Archetype ID after which the object is modelled (e.g. 'pyEHR-DEMOGRAPHIC-PERSON.nhs_patient.v1'). Leave as None only for EHR classes.
         :param query_dict: OpenEHR path for target attribute and list of possible values (e.g. {'details/items[at0002]/value/id': ['9449305552']})
         :param reader: If provided, this is stored in an audit trail of database actions associated with users."""
         pass
@@ -226,6 +242,15 @@ class IDatabaseEngine(ABC):
         """Adds a new ATTESTATION to given VERSION (only if it is an ORIGINAL_VERSION) and updates the relevant REVISION_HISTORY_ITEM.
         
         :param attester: If provided, this is stored in an audit trail of database actions for the VERSIONED_OBJECT and VERSION altered by adding this attestation."""
+        pass
+
+    @abstractmethod
+    def add_to_ehr_lists(self, ehr_id: HierObjectID, addition: ObjectRef, adder: Optional[PartyRef] = None):
+        """Add a new reference to a CONTRIBUTION, VERSIONED_COMPOSITION or VERSIONED_FOLDER to an existing EHR.
+        
+        Reference must have the correct reference type set.
+
+        :param adder: If provided, this is stored in an audit trail of database actions for the EHR associated with users."""
         pass
 
     @abstractmethod

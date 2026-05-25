@@ -486,7 +486,7 @@ class ItemTree(ItemStructure):
         if items is not None:
             self._archid_item_dict = dict()
         for item in items:
-            self._archid_item_dict[item.name.value] = item
+            self._archid_item_dict[item.archetype_node_id] = item
         super().__init__(name, archetype_node_id, uid, links, archetype_details, feeder_audit, parent, parent_container_attribute_name, **kwargs)
 
     def as_hierarchy(self):
