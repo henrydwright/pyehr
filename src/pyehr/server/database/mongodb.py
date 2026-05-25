@@ -102,7 +102,7 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             raise ObjectAlreadyExistsError(f"Item with UID of {uid.value} already exists in database so could not be created.")
         
         type_str = get_openehr_type_str(obj) if type_override is None else type_override
-        arch_id = obj.archetype_node_id if isinstance(obj, Locatable) else None
+        arch_id = self._get_archetype_node_id_from_object(obj)
 
         if meta is None:
             meta = DBMetadata(
@@ -228,8 +228,7 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             raise ObjectAlreadyExistsError(f"Item with UID of {uid.value} already exists in database so could not be created.")
         
         type_str = get_openehr_type_str(vo)
-        ver = vo.latest_version().data()
-        arch_id = ver.archetype_node_id if isinstance(ver, Locatable) else None
+        arch_id = self._get_archetype_node_id_from_object(vo)
 
         if meta is None:
             meta = DBMetadata(

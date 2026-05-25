@@ -138,6 +138,17 @@ class IDatabaseEngine(ABC):
             uid = obj.uid()
         return uid
     
+    def _get_archetype_node_id_from_object(self, obj) -> Optional[str]:
+        """Extract the archetype_node_id from an object, if it has one"""
+        if hasattr(obj, "archetype_node_id"):
+            return obj.archetype_node_id
+        elif isinstance(obj, Version) and hasattr(obj.data(), "archetype_node_id"):
+            return obj.data().archetype_node_id
+        elif isinstance(obj, VersionedObject) and obj.latest_version() is not None and hasattr(obj.latest_version().data(), "archetype_node_id"):
+            return obj.latest_version().data().archetype_node_id
+        else:
+            return None
+    
     def _nav_dict_path(self, js_dict, path):
         """Navigate to a pyehr path within an as_json() dict output"""
         return json_get_path(js_dict, path)

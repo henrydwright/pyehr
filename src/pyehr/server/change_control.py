@@ -218,6 +218,9 @@ class VersionedStore():
                 raise ValueError(f"Cannot update/delete object as object did not have a UID and `preceding_version_uid` was not provided.")
             else:
                 uid = preceding_version_uid.object_id()
+
+        if isinstance(uid, ObjectVersionID):
+            uid = HierObjectID(uid.object_id().value)
             
         vo_meta, rev_his = self.db.retrieve_versioned_object(uid, reader=user)
         # find the preceding version UID

@@ -173,7 +173,10 @@ class PyehrAccessControlSettings(AccessControlSettings):
             draft["base_upon"] = self.base_upon.as_json()
         if self.policies is not None:
             draft["policies"] = [policy.as_json() for policy in self.policies]
+        if self.uid is not None:
+            draft["uid"] = self.uid.as_json()
         draft["_type"] = "PYEHR_ACCESS_CONTROL_SETTINGS"
+        return draft
 
     def is_equal(self, other: 'PyehrAccessControlSettings'):
         return (type(self) == type(other) and

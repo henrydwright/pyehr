@@ -21,4 +21,11 @@ This is a record for those developing pyehr as to which ranges have been reserve
 |Range|Purpose|
 |-|-|
 |`d0000000-0000-0000-FF00-FFFFFFFFXXXX`|System demographics objects (placeholder subject, staff member, organisation, repository AGENT, etc.)|
+|`d0000000-0000-0000-FF00-FFFFFFFF1000`|Default EHR access policy|
 |`d0000000-0000-0000-FF02-FFFFFFFFXXXX`|NHS National RBAC roles, where XXXX is the numeric part of the job role code|
+
+#### System EHR objects
+
+|Range|Purpose|
+|-|-|
+|`e0000000-0000-0000-FF00-FFFFFFFF1000`|Default EHR access policy|
