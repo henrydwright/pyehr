@@ -6,6 +6,7 @@ from typing import Union, Optional
 from pyehr.core.its.rest.additions import UpdateAttestation, UpdateAudit, UpdateContribution, UpdateVersion
 from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion, VersionedObject
 from pyehr.core.rm.common.generic import Attestation, AuditDetails, PartyIdentified, PartySelf, RevisionHistory, RevisionHistoryItem
+from pyehr.server.security.access_control import PyehrAccessPolicyEndpoint, PyehrAccessPolicyEndpointAction
 from pyehr.utils import OPENEHR_TYPE_MAP
 from term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
 from pyehr.core.base.base_types.identification import HierObjectID, InternetID, ObjectID, ObjectRef, ObjectVersionID, GenericID, PartyRef, TerminologyID
@@ -163,6 +164,16 @@ def decode_json(json_obj: dict,
                 type_hint = "ARCHETYPE_ID"
             arg_dict[param_name] = decode_json(param, target=type_hint, terminology_service=terminology_service)
         elif type(param) == list:
+            if target_type == "PYEHR_ACCESS_POLICY_ITEM":
+                if param_name == "actions":
+                    arg_dict["actions"] = [PyehrAccessPolicyEndpointAction(action) for action in param]
+                    return
+                elif param_name == "endpoints":
+                    arg_dict["endpoints"] = [PyehrAccessPolicyEndpoint(endpoint) for endpoint in param]
+                    return
+                elif param_name == "archetype_ids":
+                    arg_dict["archetype_ids"] = param
+                    return
             arg_dict[param_name] = [decode_json(list_item, terminology_service=terminology_service) for list_item in param]
         else:
             raise RuntimeError(f"Could not decode object: unknown type of parameter \'{type(param)}\' encountered during parsing")

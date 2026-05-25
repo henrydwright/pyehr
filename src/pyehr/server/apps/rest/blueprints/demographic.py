@@ -28,9 +28,8 @@ def create_demographic_blueprint(auth: IPyehrAuthProvider, db: IDatabaseEngine, 
 
     log = logging.getLogger("apps.rest.demographic")
 
-    auth_policy = PyehrAccessControlSettings(policies=[
-        PyehrAccessPolicyItem(True)
-    ])
+    default_access_policy = db.retrieve_uid_object("PYEHR_ACCESS_CONTROL_SETTINGS", HierObjectID("e0000000-0000-0000-FF00-FFFFFFFF1000"))
+    auth_policy = default_access_policy if default_access_policy is not None else PyehrAccessControlSettings(policies=[PyehrAccessPolicyItem(True)])
 
     @demo_bp.before_request
     def process_headers():

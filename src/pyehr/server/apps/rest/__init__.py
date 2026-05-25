@@ -23,19 +23,18 @@ from term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALG
 def preload_content(root: Path, db: IDatabaseEngine, term_svc: TerminologyService, log: logging.Logger):
     """Preload all content under a given folder structure into the EHR, checking if it already
     exists in the database"""
+    jsons = root.glob("*.json")
+    for json_f in jsons:
+        log.info(f"Preloading... {json_f.as_posix()}")
+        with json_f.open("r") as json_fh:
+            py_obj = decode_json(json.load(json_fh), terminology_service=term_svc)
+            try:
+                db.create_uid_object(py_obj)
+            except ObjectAlreadyExistsError:
+                log.info(f"Object already existed, skipping.")
     for child in root.iterdir():
         if child.is_dir():
             preload_content(child, db, term_svc, log)
-        jsons = child.glob("*.json")
-        for json_f in jsons:
-            log.info(f"Preloading... {json_f.as_posix()}")
-            with json_f.open("r") as json_fh:
-                py_obj = decode_json(json.load(json_fh), terminology_service=term_svc)
-                try:
-                    db.create_uid_object(py_obj)
-                except ObjectAlreadyExistsError:
-                    log.info(f"Object already existed, skipping.")
-
 
 def create_app():
     logging.basicConfig(level=logging.DEBUG)
@@ -59,7 +58,7 @@ def create_app():
     term_svc = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES], [TERMINOLOGY_OPENEHR])
 
     if "CONTENT_PRELOAD_FOLDER" in app.config:
-        log.info("Preloading content")
+        log.info(f"Preloading content from {app.config["CONTENT_PRELOAD_FOLDER"]}")
         preload_content(Path(app.config["CONTENT_PRELOAD_FOLDER"]), db, term_svc, log)
 
     log.info("Initialising versioned store")

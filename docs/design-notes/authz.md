@@ -303,6 +303,8 @@ Access control settings choices:
 
 ### Access control design
 
+**Note:** This documentation represents the originally proposed design. For the latest design, please consult the codebase and documentation as this page is not kept up to date. It is left here as a reference for design thinking at time of inception.
+
 #### VERSIONED_PYEHR_ACCESS_CONTROL_SETTINGS
 
 Inherits: VERSIONED_OBJECT[PYEHR_ACCESS_CONTROL_SETTINGS]

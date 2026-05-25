@@ -108,7 +108,7 @@ def create_ehr_blueprint(auth: IPyehrAuthProvider, db: IDatabaseEngine, vs: Vers
     @ehr_bp.route("/<param_ehr_id>", methods=['PUT'])
     def create_ehr(param_ehr_id: Optional[str] = None):
         if default_access_policy is not None:
-            if not auth.action_authorised_for_authenticated_actor(default_access_policy, PyehrAccessPolicyEndpointAction.CREATE, PyehrAccessPolicyEndpoint.EHR):
+            if not auth.action_authorised_for_authenticated_actor(default_access_policy, {PyehrAccessPolicyEndpointAction.CREATE}, PyehrAccessPolicyEndpoint.EHR):
                 return _create_unauthorised_response()
         body_obj = request.get_json(silent=True)
         if body_obj is not None:
