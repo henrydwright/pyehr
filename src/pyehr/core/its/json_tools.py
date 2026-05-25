@@ -199,6 +199,10 @@ def decode_json(json_obj: dict,
         # pyehr library used 'purpose' to clarify meaning of inherited 'name' field
         arg_dict["purpose"] = arg_dict["name"]
         del arg_dict["name"]
+    elif target_type == "ROLE":
+        # pyehr library used 'role_type' to clarify meaning of inherited 'name' field
+        arg_dict["role_type"] = arg_dict["name"]
+        del arg_dict["name"]
     elif target_type == "DV_TEXT":
         if flag_replace_empty_dv_text_with_null and not "value" in json_obj:
             return None

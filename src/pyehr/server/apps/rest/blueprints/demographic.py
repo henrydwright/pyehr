@@ -19,10 +19,13 @@ from pyehr.server.apps.rest.blueprints.shared import _add_headers_to_response, _
 from pyehr.server.apps.rest.meta import OpenEHRFormat, OpenEHRRequestHeaders
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState, VersionedStore
 from pyehr.server.database import IDatabaseEngine
+from pyehr.server.security.auth import IPyehrAuthProvider
 from pyehr.utils import get_openehr_type_str
 
-def create_demographic_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine, vs: VersionedStore):
+def create_demographic_blueprint(auth: IPyehrAuthProvider, db: IDatabaseEngine, vs: VersionedStore):
     demo_bp = Blueprint("demographic", __name__, url_prefix="/demographic")
+
+    logged_in_user, _ = auth.authenticated_actor()
 
     log = logging.getLogger("apps.rest.demographic")
 

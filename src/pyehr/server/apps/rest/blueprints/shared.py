@@ -19,6 +19,7 @@ from pyehr.core.rm.data_types.text import DVText
 from pyehr.server.apps.rest.meta import OpenEHRFormat, OpenEHRRequestHeaders
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState, VersionedStore
 from pyehr.server.database import IDatabaseEngine
+from pyehr.server.security.auth import IPyehrAuthProvider
 from pyehr.utils import PYTHON_TYPE_TO_STRING_TYPE_MAP, get_openehr_type_str
 
 def commit_contribution_set(logged_in_user: PartyProxy, db: IDatabaseEngine, owner_id: ObjectRef, log: Logger):

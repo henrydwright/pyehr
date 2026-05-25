@@ -17,10 +17,13 @@ from pyehr.server.apps.rest.blueprints.shared import _add_headers_to_response, _
 from pyehr.server.apps.rest.meta import OpenEHRRequestHeaders
 from pyehr.server.change_control import VersionLifecycleState, VersionedStore
 from pyehr.server.database import IDatabaseEngine
+from pyehr.server.security.auth import IPyehrAuthProvider
 
 
-def create_ehr_blueprint(logged_in_user: PartyProxy, db: IDatabaseEngine, vs: VersionedStore):
+def create_ehr_blueprint(auth: IPyehrAuthProvider, db: IDatabaseEngine, vs: VersionedStore):
     ehr_bp = Blueprint("ehr", __name__, url_prefix="/ehr")
+
+    logged_in_user, _ = auth.authenticated_actor()
 
     log = logging.getLogger("apps.rest.ehr")
 
