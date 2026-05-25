@@ -14,6 +14,59 @@ pyehr is formed of three parts:
 ## pyehr.core
 pyehr provides an implementation of the following parts of the specification which are used by both the client and the server, and many users may wish to use in a standalone manner.
 
+Features:
+
+* Work in the RM natively in Python with validation of invariants
+
+```python
+from pyehr.core.rm.data_types.text import DVText
+from pyehr.term import CodePhrase, PythonTerminologyService, CODELIST_OPENEHR_LANGUAGES, TERMINOLOGY_OPENEHR, TerminologyID
+
+terminology_service = PythonTerminologyService(code_sets=[CODELIST_OPENEHR_LANGUAGES], terminologies=[TERMINOLOGY_OPENEHR])
+text = DVText(
+    value="Hello, world!",
+    language=CodePhrase(
+        terminology_id=TerminologyID("ISO_639-1"),
+        code_string="en-gb",
+        preferred_term="English (United Kingdom)"
+    ),
+    terminology_service=terminology_service
+)
+```
+
+* Serialise all classes to spec-compliant JSON (with '_type' markers)
+
+```python
+print(json.dumps(text.as_json(), indent=1))
+```
+```json
+{
+ "_type": "DV_TEXT",
+ "value": "Hello, world!",
+ "language": {
+  "_type": "CODE_PHRASE",
+  "terminology_id": {
+   "_type": "TERMINOLOGY_ID",
+   "value": "ISO_639-1"
+  },
+  "code_string": "en-gb",
+  "preferred_term": "English (United Kingdom)"
+ }
+}
+```
+
+* Use methods as described in the spec across classes
+```python
+from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVDuration
+
+start_date = DVDate("2026-05-07")
+duration = DVDuration("P1Y2M6D")
+new_date = start_date + duration
+print(str(new_date)) 
+```
+
+### Support level
+
 |Specification part|Status|
 |-|-|
 |Base model (BASE)|✅ Complete |
@@ -26,6 +79,41 @@ pyehr provides an implementation of the following parts of the specification whi
 
 ## pyehr.client
 pyehr provides both a transactional REST API client as well as a more sophisticated client for working more easily with versioned objects.
+
+Features:
+* Transactional clients for /ehr and /demographic endpoints.
+
+```python
+from pyehr.client.ehr import OpenEHREHRRestClient, OpenEHRRestClientResponse
+
+client = OpenEHREHRRestClient(
+    base_url="https://sandbox.ehrbase.org/ehrbase/rest/openehr/v1"
+)
+
+response : OpenEHRRestClientResponse = client.ehr.create_ehr()
+
+print(response.pyehr_obj[0].as_json())
+```
+
+* More object-oriented client for working with versioned objects more natively
+
+```python
+from pyehr.client.change_control import VersionedStoreClient
+
+store = VersionedStoreClient(
+    base_url="http://localhost:5000"
+)
+
+p1 = ...
+
+log.info("Create PERSON in store")
+object_version_id, contribution, versioned_object = store.create(
+    obj=p1,
+    owner_id=ObjectRef("local", "EHR", GenericID("null", "null")),
+    committer=PartySelf(),
+    lifecycle_state=VersionLifecycleState.INCOMPLETE
+)
+```
 
 ## pyehr.server
 pyehr provides an under-development Flask-based server with accompanying database and authentication backends.
