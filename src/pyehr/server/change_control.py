@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Optional
 from logging import Logger, getLogger
 
-from term import TERMINOLOGY_OPENEHR, PythonTerminologyService
+from pyehr.term import TERMINOLOGY_OPENEHR, PythonTerminologyService
 from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import UUID, ArchetypeID, HierObjectID, ObjectID, ObjectRef, ObjectVersionID, PartyRef, UIDBasedID
 from pyehr.core.base.foundation_types.any import AnyClass

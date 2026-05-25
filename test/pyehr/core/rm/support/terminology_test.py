@@ -1,6 +1,6 @@
 import pytest
 
-from src.pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers, OpenEHRTerminologyGroupIdentifiers
+from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers, OpenEHRTerminologyGroupIdentifiers
 
 def test_valid_code_set_id_returns_true_for_valid_ids():
     valid_ids = [

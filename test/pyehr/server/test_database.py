@@ -19,7 +19,7 @@ from pyehr.server.change_control import AuditChangeType, VersionLifecycleState
 from pyehr.server.database import IDatabaseEngine
 from pyehr.server.database.local import InMemoryDB
 from pyehr.server.database.mongodb import MongoDBDatabaseEngine
-from term import TERMINOLOGY_OPENEHR, PythonTerminologyService
+from pyehr.term import TERMINOLOGY_OPENEHR, PythonTerminologyService
 
 USE_REAL_MONGODB = False
 
