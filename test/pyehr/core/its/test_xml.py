@@ -22,9 +22,10 @@ from pyehr.core.rm.data_types.quantity import DVCount, DVInterval, DVOrdinal, DV
 from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVDateTime, DVDuration, DVTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, TermMapping
 from pyehr.core.rm.data_types.uri import DVUri
-from pyehr.term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
 
-test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES], [TERMINOLOGY_OPENEHR])
+from pyehr.term import PyehrGlobalTerminologyService
+
+test_ts = PyehrGlobalTerminologyService.get_global_terminology_service()
 
 def get_single_element_schema(schema_path: str, data_type: str):
     # this generates a single element schema to allow us to test a single element at a time

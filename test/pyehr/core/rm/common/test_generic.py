@@ -1,6 +1,6 @@
 import pytest
 
-from pyehr.term import PythonTerminologyService, TERMINOLOGY_OPENEHR
+from pyehr.term import PythonTerminologyService, PyehrGlobalTerminologyService
 from pyehr.core.base.base_types.identification import PartyRef, ObjectID, TerminologyID, ObjectVersionID
 from pyehr.core.rm.common.generic import PartyIdentified, PartyRelated, Participation, AuditDetails, Attestation, RevisionHistory, RevisionHistoryItem
 from pyehr.core.rm.data_types.basic import DVIdentifier
@@ -9,7 +9,7 @@ from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.uri import DVEHRUri
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
-ts_ok = PythonTerminologyService(code_sets=[], terminologies=[TERMINOLOGY_OPENEHR])
+ts_ok = PyehrGlobalTerminologyService.get_global_terminology_service()
 ts_empty = PythonTerminologyService(code_sets=[], terminologies=[])
 
 def test_party_identified_basic_validity():
@@ -79,11 +79,6 @@ def test_participation_function_valid():
             function=DVCodedText("unknown", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "253", "unknown")),
             performer=PartyIdentified(name="MRS J TEST"),
             terminology_service=ts_empty)
-    # not OK (no term svc)
-    with pytest.raises(ValueError):
-        Participation(
-            function=DVCodedText("unknown", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "253", "unknown")),
-            performer=PartyIdentified(name="MRS J TEST"))
         
 def test_participation_mode_valid():
     # OK (coded text, uses right coding, provides ts)
@@ -106,12 +101,7 @@ def test_participation_mode_valid():
             performer=PartyIdentified(name="Ms. A Student"),
             mode=DVCodedText("physically present", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "219", "physically present")),
             terminology_service=ts_empty)
-    # not OK (no termsvc)
-    with pytest.raises(ValueError):
-        Participation(
-            function=DVText("observer"), 
-            performer=PartyIdentified(name="Ms. A Student"),
-            mode=DVCodedText("physically present", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "219", "physically present")))
+
         
 def test_audit_details_system_id_valid():
     # OK

@@ -3,7 +3,6 @@ from enum import Enum
 from typing import Optional
 from logging import Logger, getLogger
 
-from pyehr.term import TERMINOLOGY_OPENEHR, PythonTerminologyService
 from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import UUID, ArchetypeID, HierObjectID, ObjectID, ObjectRef, ObjectVersionID, PartyRef, UIDBasedID
 from pyehr.core.base.foundation_types.any import AnyClass
@@ -17,6 +16,8 @@ from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
 from pyehr.core.rm.support.terminology import TerminologyService
 from pyehr.server.database import IDatabaseEngine
 from pyehr.utils import PYTHON_TYPE_TO_STRING_TYPE_MAP
+
+from pyehr.term import PyehrGlobalTerminologyService
 
 class AuditChangeType(Enum):
     """Enum of coded audit change types to use with VersionedStore methods for ease."""
@@ -94,7 +95,7 @@ class VersionedStore():
         self.system_id = system_id
         self._log = getLogger("VersionedStore")
         if terminology_service is None:
-            self._ts = PythonTerminologyService([], [TERMINOLOGY_OPENEHR])
+            self._ts = PyehrGlobalTerminologyService.get_global_terminology_service()
         else:
             self._ts = terminology_service
         

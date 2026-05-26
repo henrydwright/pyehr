@@ -17,7 +17,8 @@ from pyehr.core.rm.demographic import Party, VersionedParty
 from pyehr.core.rm.support.terminology import TerminologyService
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState
 from pyehr.utils import PYTHON_TYPE_TO_STRING_TYPE_MAP
-from pyehr.term import TERMINOLOGY_OPENEHR, PythonTerminologyService
+
+from pyehr.term import PyehrGlobalTerminologyService
 
 DEMOGRAPHIC_CLIENT_TYPE = {"AGENT", "GROUP", "ORGANISATION", "PERSON", "ROLE"}
 
@@ -38,7 +39,7 @@ class VersionedStoreClient():
         self.base_url = base_url
         self._log = getLogger("client.versionedStoreClient")
         if terminology_service is None:
-            self._ts = PythonTerminologyService([], [TERMINOLOGY_OPENEHR])
+            self._ts = PyehrGlobalTerminologyService.get_global_terminology_service()
         else:
             self._ts = terminology_service
 

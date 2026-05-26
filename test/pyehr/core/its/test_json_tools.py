@@ -4,8 +4,6 @@ import json
 import jsonschema
 import numpy as np
 
-from pyehr.term import CODESET_OPENEHR_COUNTRIES, PythonTerminologyService, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR
-
 from pyehr.core.base.foundation_types.time import ISODate, ISOTime, ISODuration, ISODateTime
 from pyehr.core.base.foundation_types.interval import PointInterval, ProperInterval, MultiplicityInterval
 from pyehr.core.base.foundation_types.primitive_types import Uri
@@ -43,8 +41,6 @@ from pyehr.core.rm.ehr import EHR
 
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
-
-test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES], [TERMINOLOGY_OPENEHR])
 
 def validate(json_obj):
     _schema = json.loads(open("test/pyehr/core/its/schemas/openehr_rm_1.1.0_alltypes_strict.json").read())
@@ -292,7 +288,7 @@ def test_its_json_rm_data_type_dv_parsable():
     t_dvp = DVParsable("{\"val\":\"test\"}", 
                        formalism="json",
                        charset=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
-                       terminology_service=test_ts).as_json()
+                       ).as_json()
 
     validate(t_dvp)
 
@@ -331,7 +327,7 @@ def test_its_json_rm_data_type_dv_multimedia():
     t_dvmi = DVMultimedia(
         media_type=CodePhrase(TerminologyID("IANA_media-types"), "application/json"), 
         size=len(test_json_bytes),
-        terminology_service=test_ts,
+        
         data=test_json_bytes).as_json()
     
     validate(t_dvmi)
@@ -340,7 +336,7 @@ def test_its_json_rm_data_type_dv_multimedia():
     t_dvme = DVMultimedia(
         media_type=CodePhrase(TerminologyID("IANA_media-types"), "application/pdf"),
         size=549453,
-        terminology_service=test_ts,
+        
         uri=DVUri("https://ruh.nhs.uk/patients/patient_information/HTH024_Wrist_Exercises.pdf")
     ).as_json()
 
@@ -364,7 +360,7 @@ def test_its_json_rm_data_type_dv_duration():
     t_dvd = DVDuration("P3D",
                        magnitude_status="~",
                        normal_status=CodePhrase(TerminologyID("openehr_normal_statuses"), "L"),
-                       terminology_service=test_ts).as_json()
+                       ).as_json()
     
     validate(t_dvd)
 
@@ -433,7 +429,7 @@ def test_its_json_rm_common_attestation():
         committer=PartyIdentified(name="Dr T Test"),
         reason=DVText("Initial version created"),
         is_pending=False,
-        terminology_service=test_ts).as_json()
+        ).as_json()
     
     validate(t_att)
 
@@ -448,7 +444,7 @@ def test_its_json_rm_common_contribution():
             time_committed=DVDateTime("2025-09-22T15:41:00Z"),
             change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
             committer=PartyIdentified(name="Mr A Example"),
-            terminology_service=test_ts)
+            )
     ).as_json()
 
     validate(t_con)
@@ -480,10 +476,10 @@ def test_its_json_rm_common_original_version():
             time_committed=DVDateTime("2025-09-22T15:41:00Z"),
             change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
             committer=PartyIdentified(name="Mr A Example"),
-            terminology_service=test_ts),
+            ),
         uid=ObjectVersionID("154b1047-23aa-4d4d-8713-df848fd4d60a::net.example.ehr::1"),
         lifecycle_state=DVCodedText("complete", CodePhrase(TerminologyID("openehr"), "532")),
-        terminology_service=test_ts,
+        
         data=DVText("Hello, world! This is some example text")
     ).as_json()
 
@@ -509,7 +505,7 @@ def test_its_json_rm_common_archetyped():
 def test_its_json_rm_common_party_related():
     t_pr = PartyRelated(
         relationship=DVCodedText("brother", CodePhrase(TerminologyID("openehr"), "23")),
-        terminology_service=test_ts,
+        
         name="Brian Bloggs"
     ).as_json()
 
@@ -523,7 +519,7 @@ def test_its_json_rm_common_revision_history_item():
                          time_committed=DVDateTime("2025-11-04T20:49:02Z"), 
                          change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
                          committer=PartySelf(),
-                         terminology_service=test_ts)
+                         )
         ]
     ).as_json()
 
@@ -572,7 +568,7 @@ def test_its_json_rm_common_participation():
         function=DVText("observer"), 
         performer=PartyIdentified(name="Ms. A Student"),
         mode=DVCodedText("physically present", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "219", "physically present")),
-        terminology_service=test_ts).as_json()
+        ).as_json()
     
     validate(t_ptc)
 
@@ -584,10 +580,10 @@ def test_its_json_rm_common_imported_version():
             time_committed=DVDateTime("2025-09-22T15:41:00Z"),
             change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
             committer=PartyIdentified(name="Mr A Example"),
-            terminology_service=test_ts),
+            ),
         uid=ObjectVersionID("154b1047-23aa-4d4d-8713-df848fd4d60a::net.example.ehr::1"),
         lifecycle_state=DVCodedText("complete", CodePhrase(TerminologyID("openehr"), "532")),
-        terminology_service=test_ts,
+        
         data=DVText("Hello, world! This is some example text")
     )
     t_iv = ImportedVersion[DVText](
@@ -597,7 +593,7 @@ def test_its_json_rm_common_imported_version():
             time_committed=DVDateTime("2025-11-09T11:58:02Z"),
             change_type=DVCodedText("format conversion", CodePhrase(TerminologyID("openehr"), "817")),
             committer=PartyIdentified(name="Anytown NHS Trust ehrBridge"),
-            terminology_service=test_ts
+            
         ),
         item=ov
     ).as_json()
@@ -619,7 +615,7 @@ def test_its_json_rm_common_revision_history():
                             time_committed=DVDateTime("2025-11-04T20:49:02Z"), 
                             change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
                             committer=PartySelf(),
-                            terminology_service=test_ts)
+                            )
             ]
         )
     ]).as_json()
@@ -631,7 +627,7 @@ def test_its_json_rm_common_audit_details():
                             time_committed=DVDateTime("2025-11-04T20:49:02Z"), 
                             change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
                             committer=PartySelf(),
-                            terminology_service=test_ts).as_json()
+                            ).as_json()
     
     validate(t_ad)
 
@@ -664,7 +660,7 @@ def test_its_json_rm_data_structures_interval_event():
         ),
         width=DVDuration("PT12H"),
         math_function=DVCodedText("mean", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "146")),
-        terminology_service=test_ts,
+        
         parent=hs
     ).as_json()
 
@@ -893,7 +889,7 @@ def test_its_json_rm_data_structures_element():
         name=DVText("test_element"),
         archetype_node_id="at0007",
         null_flavour=DVCodedText("not applicable", CodePhrase(TerminologyID("openehr"), "273")),
-        terminology_service=test_ts
+        
     ).as_json()
 
     validate(t_e)
@@ -938,7 +934,7 @@ def test_its_json_rm_composition_ism_transition():
     t_ism = ISMTransition(
         current_state=DVCodedText("planned", CodePhrase(TerminologyID("openehr"), "526")),
         transition=DVCodedText("initiate", CodePhrase(TerminologyID("openehr"), "535")),
-        terminology_service=test_ts
+        
     ).as_json()
     
     validate(t_ism)
@@ -985,7 +981,7 @@ def test_its_json_rm_composition_instruction():
         encoding=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
         subject=PartySelf(),
         narrative=DVText("500mg paracetamol tablets to be taken orally 4 times a day"),
-        terminology_service=test_ts,
+        
         activities=[
             act
         ]
@@ -1026,7 +1022,7 @@ def test_its_json_rm_composition_admin_entry():
         encoding=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
         subject=PartySelf(),
         data=it_lst,
-        terminology_service=test_ts,
+        
         other_participations=[
             Participation(DVText("observer"), PartyIdentified(name="Miss M Student"))
         ]
@@ -1079,7 +1075,7 @@ def test_its_json_rm_composition_composition():
         category=DVCodedText("episodic", CodePhrase(TerminologyID("openehr"), "451")),
         composer=PartyIdentified(name="Dr Test General-Practitioner"),
         archetype_details=Archetyped(ArchetypeID("openEHR-EHR-COMPOSITION.gp_appointment.v0"), "1.1.0"),
-        terminology_service=test_ts
+        
     ).as_json()
 
     validate(t_c)
@@ -1111,7 +1107,7 @@ def test_its_json_rm_composition_evaluation():
                 )
             ]
         ),
-        terminology_service=test_ts
+        
     ).as_json()
 
     validate(t_ev)
@@ -1122,7 +1118,7 @@ def test_its_json_rm_composition_event_context():
     t_ec = EventContext(
         start_time=DVDateTime("2025-12-29"),
         setting=DVCodedText("home", CodePhrase(TerminologyID("openehr"), "225")),
-        terminology_service=test_ts,
+        
         participations=[Participation(DVText("observer"), PartyIdentified(name="Miss M Student"))]
     ).as_json()
 
@@ -1170,7 +1166,7 @@ def test_its_json_rm_composition_observation():
         subject=PartySelf(),
         archetype_details=Archetyped(ArchetypeID("openEHR-EHR-OBSERVATION.body_weight.v2"), "1.1.0"),
         data=his,
-        terminology_service=test_ts
+        
     ).as_json()
 
     validate(t_obs)
@@ -1185,7 +1181,7 @@ def test_its_json_rm_composition_action():
         current_state=DVCodedText("active", CodePhrase(TerminologyID("openehr"), "245")),
         transition=DVCodedText("start", CodePhrase(TerminologyID("openehr"), "540")),
         careflow_step=DVCodedText("Dose administered", CodePhrase(TerminologyID("local"), "at0006")),
-        terminology_service=test_ts
+        
     )
 
     ad_desc = ItemTree(
@@ -1217,7 +1213,7 @@ def test_its_json_rm_composition_action():
         ism_transition=ism,
         instruction_details=insd,
         description=ad_desc,
-        terminology_service=test_ts
+        
     ).as_json()
 
     validate(t_act)

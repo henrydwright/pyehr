@@ -1,6 +1,6 @@
 import pytest
 
-from pyehr.term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_LANGUAGES, TERMINOLOGY_OPENEHR, PythonTerminologyService
+from pyehr.term import PyehrGlobalTerminologyService
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, LocatableRef, TerminologyID, UIDBasedID
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.common.archetyped import Archetyped
@@ -16,7 +16,7 @@ from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
 from pyehr.core.rm.composition.content.entry import Action, Activity, AdminEntry, Evaluation, ISMTransition, Instruction, InstructionDetails, Observation
 from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers
 
-test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS], [TERMINOLOGY_OPENEHR])
+test_ts = PyehrGlobalTerminologyService.get_global_terminology_service()
 
 it0 = Element(
                 name=DVText("hospital provider spell identifier"),

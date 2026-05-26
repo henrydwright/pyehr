@@ -6,11 +6,11 @@ from pyehr.core.rm.data_structures.representation import Element, Cluster
 from pyehr.core.rm.data_types.text import DVText, DVCodedText, CodePhrase
 from pyehr.core.rm.common.archetyped import Archetyped
 from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
-from pyehr.term import PythonTerminologyService, TERMINOLOGY_OPENEHR
+from pyehr.term import PythonTerminologyService, PyehrGlobalTerminologyService
 
 OPENEHR_TID = TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR)
 
-ts_ok = PythonTerminologyService(code_sets=[], terminologies=[TERMINOLOGY_OPENEHR])
+ts_ok = PyehrGlobalTerminologyService.get_global_terminology_service()
 ts_empty = PythonTerminologyService([], [])
 
 postal_code = Element(DVText("postal code"),

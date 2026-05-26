@@ -14,6 +14,8 @@ from pyehr.core.its.xml import IXMLSupport
 from pyehr.core.rm.data_types import DataValue
 from pyehr.core.rm.data_types.uri import DVUri
 
+from pyehr.term import PyehrGlobalTerminologyService
+
 class CodePhrase(AnyClass, IXMLSupport):
     """A fully coordinated (i.e. all coordination has been performed) term from a terminology service (as distinct from a particular terminology)."""
     
@@ -227,7 +229,10 @@ class DVText(DataValue, IXMLSupport):
     def __init__(self, value: str, hyperlink: Optional[DVUri] = None, formatting: Optional[str] = None, mappings: Optional[list[TermMapping]] = None, language : Optional[CodePhrase] = None, encoding: Optional[CodePhrase] = None, terminology_service = None):
         # import here to avoid circular reference
         from pyehr.core.rm.support.terminology import TerminologyService, OpenEHRCodeSetIdentifiers, OpenEHRTerminologyGroupIdentifiers
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         ts : TerminologyService = terminology_service
+        
 
         self.value = value
         self.hyperlink = hyperlink

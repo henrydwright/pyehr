@@ -13,6 +13,8 @@ from pyehr.core.rm.data_types.text import DVCodedText, DVText
 from pyehr.core.rm.data_types.uri import DVEHRUri
 from pyehr.core.rm.support.terminology import TerminologyService
 
+from pyehr.term import PyehrGlobalTerminologyService
+
 class UpdateAudit(AnyClass):
     """Similar to AUDIT_DETAILS but with reduced fields, used for clients
     to commit new ORIGINAL_VERSIONs to remote host (i.e. without certain audit details
@@ -23,9 +25,11 @@ class UpdateAudit(AnyClass):
     def __init__(self, 
                  change_type: DVCodedText, 
                  committer: PartyProxy, 
-                 terminology_service: TerminologyService,
+                 terminology_service: Optional[TerminologyService] = None,
                  description: Optional[DVText] = None, 
                  **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         self._inner_audit_details = AuditDetails(
             system_id="NULL",
             time_committed=DVDateTime("1970-01-01T00:00:00Z"),
@@ -60,12 +64,14 @@ class UpdateAttestation(AnyClass):
                  committer: PartyProxy, 
                  reason: DVText,
                  is_pending: bool,
-                 terminology_service: TerminologyService,
+                 terminology_service: Optional[TerminologyService] = None,
                  description: Optional[DVText] = None, 
                  attested_view: Optional[DVMultimedia] = None,
                  proof: Optional[str] = None,
                  items: Optional[list[DVEHRUri]] = None,
                  **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         self._inner_attestation = Attestation(
             system_id="NULL",
             time_committed=DVDateTime("1970-01-01T00:00:00Z"),
@@ -106,11 +112,14 @@ class UpdateVersion[T](AnyClass):
     def __init__(self, 
                 commit_audit: UpdateAudit, 
                 lifecycle_state: DVCodedText,
-                terminology_service: TerminologyService,
+                terminology_service: Optional[TerminologyService] = None,
                 data: Optional[T] = None,
                 preceding_version_uid: Optional[ObjectVersionID] = None,
                 attestations: Optional[list[UpdateAttestation]] = None,
                 signature: Optional[str] = None, **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
+        
         dummy_contribution = ObjectRef("null", "CONTRIBUTION", GenericID("None", "python"))
 
         self.commit_audit = commit_audit

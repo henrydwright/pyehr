@@ -8,7 +8,6 @@ from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, O
 from pyehr.core.rm.common.generic import Attestation, AuditDetails, PartyIdentified, PartySelf, RevisionHistory, RevisionHistoryItem
 from pyehr.server.security.access_control import PyehrAccessPolicyEndpoint, PyehrAccessPolicyEndpointAction
 from pyehr.utils import OPENEHR_TYPE_MAP
-from pyehr.term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
 from pyehr.core.base.base_types.identification import HierObjectID, InternetID, ObjectID, ObjectRef, ObjectVersionID, GenericID, PartyRef, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID
@@ -20,6 +19,8 @@ from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText, DVUri
 from pyehr.core.rm.demographic import Address, Agent, Contact, Organisation, PartyIdentity, Person, VersionedParty
 from pyehr.core.rm.ehr import EHR, EHRStatus, VersionedEHRStatus
 from pyehr.core.rm.support.terminology import TerminologyService
+
+from pyehr.term import PyehrGlobalTerminologyService
 
 _type_map = {
     "OBJECT_VERSION_ID": ObjectVersionID,
@@ -131,7 +132,7 @@ def decode_json(json_obj: dict,
                                                                           and replace it with `None` in any relevant object. Sometimes EHRBase does this."""
 
     if terminology_service is None:
-        terminology_service = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES], [TERMINOLOGY_OPENEHR])
+        terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
 
     #print(dumps(json_obj, indent=1))
 

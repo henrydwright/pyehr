@@ -4,7 +4,7 @@ from typing import Optional, Union
 import xml.etree.ElementTree as ET
 
 from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
-from pyehr.term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
+from pyehr.term import PyehrGlobalTerminologyService
 
 
 def from_arbitrary_xml(root: ET.Element,
@@ -48,7 +48,7 @@ def decode_xml(xml_str: str,
     :type terminology_service: TerminologyService"""
 
     if terminology_service is None:
-        terminology_service = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES], [TERMINOLOGY_OPENEHR])
+        terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
 
     # remove namespace to avoid a world of pain...
     xmlstring = re.sub(' xmlns="[^"]+"', '', xml_str, count=1)

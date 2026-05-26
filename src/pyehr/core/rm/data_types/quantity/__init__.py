@@ -20,6 +20,8 @@ from pyehr.core.rm.data_types import DataValue
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
 from pyehr.core.rm.support.terminology import TerminologyService, util_verify_code_in_openehr_codeset_or_error, OpenEHRCodeSetIdentifiers
 
+from pyehr.term import PyehrGlobalTerminologyService
+
 # wrapper around an 'ordered' datatype
 class DVOrdered(DataValue, IXMLSupport):
     """Abstract class defining the concept of ordered values, which includes ordinals 
@@ -64,7 +66,8 @@ class DVOrdered(DataValue, IXMLSupport):
     def __init__(self, value: ordered, normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, terminology_service: Optional[TerminologyService] = None):
         """Instantiate new DVOrdered with type conversion from native Python types of 
         float (convered to np.float64) and int (converted to np.integer64)"""
-
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         converted_value = value
         if isinstance(value, int):
             converted_value = np.int64(value)
@@ -544,6 +547,8 @@ class DVQuantified(DVOrdered):
 
     @abstractmethod
     def __init__(self, value: Union[ordered_numeric, ISOType], normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[MagnitudeStatus, str]] = None, accuracy : Optional[AnyClass] = None, terminology_service: Optional[TerminologyService] = None):        
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         if (magnitude_status is not None) and (not DVQuantified.valid_magnitude_status(magnitude_status)):
             raise ValueError("Provided magnitude status was not one of the valid values (invariant: magnitude_status_valid)")
         
@@ -627,6 +632,8 @@ class DVAmount(DVQuantified):
         return (number >= 0) and (number <= 100)
 
     def __init__(self, value: Union[ordered_numeric, ISODuration], normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, accuracy : Optional[np.float32] = None, accuracy_is_percent: Optional[bool] = None, terminology_service: Optional[TerminologyService] = None):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         if not (isinstance(value, ordered_numeric) or isinstance(value, float) or isinstance(value, int) or isinstance(value, ISODuration)):
             raise TypeError("DVAmount value must be of an ordered_numeric type or ISODuration")
         
@@ -818,6 +825,8 @@ class DVQuantity(DVAmount):
                  accuracy_is_percent: Optional[bool] = None, 
                  precision: Optional[np.int32] = None,
                  terminology_service: Optional[TerminologyService] = None):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         converted_value = value
         if not (isinstance(value, np.float32) or isinstance(value, float)):
             raise TypeError("Value/magnitude must be a Real")
@@ -969,6 +978,8 @@ class DVCount(DVAmount):
     # n.B: normal_range and other_reference_ranges must now have DVQuantity, not DVOrdered
 
     def __init__(self, value: np.int64, normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, accuracy : Optional[np.float32] = None, accuracy_is_percent: Optional[bool] = None, terminology_service: Optional[TerminologyService] = None):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         converted_value = value
         if not (isinstance(value, np.int64) or isinstance(value, int)):
             raise TypeError("Value/magnitude must be a Integer64")
@@ -1069,6 +1080,8 @@ class DVProportion(DVAmount):
         return self.precision == 0
     
     def __init__(self, numerator: np.float32, denominator: np.float32, proportion_type: Union[ProportionKind, np.int32], precision : Optional[np.int32] = None, normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, accuracy : Optional[np.float32] = None, accuracy_is_percent: Optional[bool] = None, terminology_service: Optional[TerminologyService] = None):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         self.numerator = numerator
 
         if (denominator == 0.0):
@@ -1266,6 +1279,8 @@ class DVAbsoluteQuantity(DVQuantified):
                  magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, 
                  accuracy : Optional[DVAmount] = None, 
                  terminology_service: Optional[TerminologyService] = None):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, None, terminology_service)
         if not (accuracy is None or isinstance(accuracy, DVAmount)):
             raise TypeError(f"Accuracy must be of type DVAmount but \'{type(accuracy)}\' was given")

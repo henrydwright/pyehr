@@ -1,7 +1,7 @@
 import pytest
 import json
 
-from pyehr.term import PythonTerminologyService, TERMINOLOGY_OPENEHR
+from pyehr.term import PythonTerminologyService, PyehrGlobalTerminologyService
 from pyehr.core.base.base_types.identification import ObjectRef, TerminologyID, ObjectVersionID, HierObjectID
 from pyehr.core.rm.common.change_control import OriginalVersion, ImportedVersion, VersionedObject
 from pyehr.core.rm.common.generic import AuditDetails, PartyIdentified, Attestation, RevisionHistory, RevisionHistoryItem
@@ -12,7 +12,7 @@ from pyehr.core.base.foundation_types.structure import is_equal_value
 
 OPENEHR_TID = TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR)
 
-ts_ok = PythonTerminologyService(code_sets=[], terminologies=[TERMINOLOGY_OPENEHR])
+ts_ok = PyehrGlobalTerminologyService.get_global_terminology_service()
 ts_empty = PythonTerminologyService([], [])
 
 ov = OriginalVersion[DVText](

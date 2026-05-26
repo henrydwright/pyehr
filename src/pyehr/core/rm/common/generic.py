@@ -18,6 +18,8 @@ from pyehr.core.rm.data_types.text import DVCodedText, DVText
 from pyehr.core.rm.data_types.uri import DVEHRUri
 from pyehr.core.rm.support.terminology import TerminologyService, util_verify_code_in_openehr_terminology_group_or_error, OpenEHRTerminologyGroupIdentifiers
 
+from pyehr.term import PyehrGlobalTerminologyService
+
 class PartyProxy(AnyClass):
     """Abstract concept of a proxy description of a party, including an optional link 
     to data for this party in a demographic or other identity management system. Sub-typed 
@@ -121,10 +123,12 @@ class PartyRelated(PartyIdentified):
 
     def __init__(self,
                  relationship: DVCodedText,
-                 terminology_service: TerminologyService, 
+                 terminology_service: Optional[TerminologyService] = None, 
                  external_ref : Optional[PartyRef] = None, 
                  name : Optional[str] = None, 
                  identifiers : Optional[list[DVIdentifier]] = None, **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         self._terminology_service = terminology_service
 
         util_verify_code_in_openehr_terminology_group_or_error(
@@ -169,6 +173,8 @@ class Participation(AnyClass):
     of the participation when used in future contexts, such as EHR Instructions."""
 
     def __init__(self, function: DVText, performer: PartyProxy, mode: Optional[DVCodedText] = None, time: DVInterval[DVDateTime] = None, terminology_service: Optional[TerminologyService] = None, **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         if (isinstance(function, DVCodedText)):
             if terminology_service is None:
                 raise ValueError("If provided function is DV_CODED_TEXT, then a terminology service must also be provided (invariant: function_valid)")
@@ -243,9 +249,11 @@ class AuditDetails(AnyClass):
                  time_committed: DVDateTime, 
                  change_type: DVCodedText, 
                  committer: PartyProxy, 
-                 terminology_service: TerminologyService,
+                 terminology_service: Optional[TerminologyService] = None,
                  description: Optional[DVText] = None, 
                  **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         if len(system_id) == 0:
             raise ValueError("system_id cannot be empty (invariant: system_id_valid)")
         self.system_id = system_id
@@ -317,12 +325,14 @@ class Attestation(AuditDetails):
                  committer: PartyProxy, 
                  reason: DVText,
                  is_pending: bool,
-                 terminology_service: TerminologyService,
+                 terminology_service: Optional[TerminologyService] = None,
                  description: Optional[DVText] = None, 
                  attested_view: Optional[DVMultimedia] = None,
                  proof: Optional[str] = None,
                  items: Optional[list[DVEHRUri]] = None,
                  **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         if (isinstance(reason, DVCodedText)):
             util_verify_code_in_openehr_terminology_group_or_error(
                 code=reason.defining_code,

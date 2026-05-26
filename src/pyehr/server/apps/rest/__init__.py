@@ -18,7 +18,8 @@ from pyehr.server.database import IDatabaseEngine, ObjectAlreadyExistsError
 from pyehr.server.database.local import InMemoryDB
 from pyehr.server.security.auth import IPyehrAuthProvider
 from pyehr.server.security.auth.noauth import AllowAllAuthProvider
-from pyehr.term import CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_NORMAL_STATUSES, TERMINOLOGY_OPENEHR, PythonTerminologyService
+
+from pyehr.term import PyehrGlobalTerminologyService
 
 def preload_content(root: Path, db: IDatabaseEngine, term_svc: TerminologyService, log: logging.Logger):
     """Preload all content under a given folder structure into the EHR, checking if it already
@@ -55,7 +56,7 @@ def create_app():
     db = InMemoryDB()
 
     log.info("Initialising OpenEHR terminology")
-    term_svc = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, CODESET_OPENEHR_NORMAL_STATUSES], [TERMINOLOGY_OPENEHR])
+    term_svc = PyehrGlobalTerminologyService.get_global_terminology_service()
 
     if "CONTENT_PRELOAD_FOLDER" in app.config:
         log.info(f"Preloading content from {app.config["CONTENT_PRELOAD_FOLDER"]}")

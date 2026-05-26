@@ -4,9 +4,9 @@ from pyehr.core.base.foundation_types.interval import ProperInterval
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
 from pyehr.core.rm.data_types.quantity import DVOrdered, DVInterval, ReferenceRange, DVOrdinal, DVScale, DVQuantified, DVAmount, DVQuantity, DVCount, ProportionKind, DVProportion, DVAbsoluteQuantity
 from pyehr.core.base.base_types.identification import TerminologyID
-from pyehr.term import PythonTerminologyService, CODESET_OPENEHR_NORMAL_STATUSES
+from pyehr.term import PythonTerminologyService, PyehrGlobalTerminologyService
 
-test_ts = PythonTerminologyService([CODESET_OPENEHR_NORMAL_STATUSES], [])
+test_ts = PyehrGlobalTerminologyService.get_global_terminology_service()
 test_ts_empty = PythonTerminologyService([], [])
 
 class _TstDVOrderedImpl(DVOrdered):
@@ -78,10 +78,6 @@ def test_normal_status_validity():
     # should be OK
     dvo = _TstDVOrderedImpl(4)
     dvo = _TstDVOrderedImpl(4, normal_status=CodePhrase(TerminologyID("openehr_normal_statuses"), "N"), terminology_service=test_ts)
-
-    # not OK (missing terminology service)
-    with pytest.raises(ValueError):
-        dvo = _TstDVOrderedImpl(4, normal_status=CodePhrase(TerminologyID("openehr_normal_statuses"), "N"))
 
     # not OK (terminology service has no openehr)
     with pytest.raises(ValueError):

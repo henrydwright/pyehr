@@ -19,7 +19,7 @@ from pyehr.server.change_control import AuditChangeType, VersionLifecycleState
 from pyehr.server.database import IDatabaseEngine
 from pyehr.server.database.local import InMemoryDB
 from pyehr.server.database.mongodb import MongoDBDatabaseEngine
-from pyehr.term import TERMINOLOGY_OPENEHR, PythonTerminologyService
+from pyehr.term import PyehrGlobalTerminologyService
 
 USE_REAL_MONGODB = False
 
@@ -141,7 +141,7 @@ def _get_test_person_updated(uid: HierObjectID) -> Person:
     )
 
 def _get_versioned_object_contribution() -> tuple[VersionedObject, Contribution]:
-    ts = PythonTerminologyService([], [TERMINOLOGY_OPENEHR])
+    ts = PyehrGlobalTerminologyService.get_global_terminology_service()
 
     id2 = HierObjectID(str(uuid4()))
     vid2 = ObjectVersionID(id2.value + "::net.example.demographics::1")
