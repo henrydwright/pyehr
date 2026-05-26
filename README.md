@@ -19,18 +19,14 @@ Features:
 * Work in the RM natively in Python with validation of invariants
 
 ```python
-from pyehr.core.rm.data_types.text import DVText
-from pyehr.term import CodePhrase, PythonTerminologyService, CODELIST_OPENEHR_LANGUAGES, TERMINOLOGY_OPENEHR, TerminologyID
 
-terminology_service = PythonTerminologyService(code_sets=[CODELIST_OPENEHR_LANGUAGES], terminologies=[TERMINOLOGY_OPENEHR])
 text = DVText(
     value="Hello, world!",
     language=CodePhrase(
         terminology_id=TerminologyID("ISO_639-1"),
         code_string="en-gb",
         preferred_term="English (United Kingdom)"
-    ),
-    terminology_service=terminology_service
+    )
 )
 ```
 
