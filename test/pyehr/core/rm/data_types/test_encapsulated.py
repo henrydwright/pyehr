@@ -3,7 +3,7 @@ import zlib
 
 import pytest
 
-from pyehr.term import PythonTerminologyService, CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS, TERMINOLOGY_OPENEHR
+from pyehr.term import PythonTerminologyService, PyehrGlobalTerminologyService
 from pyehr.core.base.base_types.identification import TerminologyID
 from pyehr.core.rm.data_types.text import CodePhrase
 from pyehr.core.rm.data_types.encapsulated import DVEncapsulated, DVMultimedia, DVParsable
@@ -13,7 +13,7 @@ class _DVEncapsulatedImpl(DVEncapsulated):
     def __init__(self, charset = None, language = None, terminology_service = None):
         super().__init__(charset, language, terminology_service)
 
-test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_MEDIA_TYPES, CODESET_OPENEHR_INTEGRITY_CEHCK_ALGORITHMS, CODESET_OPENEHR_COMPRESSION_ALGORITHMS], [TERMINOLOGY_OPENEHR])
+test_ts = PyehrGlobalTerminologyService.get_global_terminology_service()
 test_ts_empty = PythonTerminologyService([], [])
 
 
@@ -21,10 +21,6 @@ def test_dv_encapsulated_language_valid():
     # should be OK
     dvei = _DVEncapsulatedImpl()
     dvei = _DVEncapsulatedImpl(language=CodePhrase(TerminologyID("ISO_639-1"), "fr", "French"), terminology_service=test_ts)
-
-    # not OK (missing terminology service)
-    with pytest.raises(ValueError):
-        dvei = _DVEncapsulatedImpl(language=CodePhrase(TerminologyID("ISO_639-1"), "fr", "French"))
 
     # not OK (terminology service has no openehr)
     with pytest.raises(ValueError):
@@ -39,9 +35,6 @@ def test_dv_encapsulated_charset_valid():
     dvei = _DVEncapsulatedImpl()
     dvei = _DVEncapsulatedImpl(charset=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"), terminology_service=test_ts)
 
-    # not OK (missing terminology service)
-    with pytest.raises(ValueError):
-        dvei = _DVEncapsulatedImpl(charset=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"))
 
     # not OK (terminology service has no openehr)
     with pytest.raises(ValueError):

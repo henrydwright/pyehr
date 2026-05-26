@@ -14,6 +14,8 @@ from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
 from pyehr.core.rm.composition.content import ContentItem
 from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers, OpenEHRTerminologyGroupIdentifiers, TerminologyService, util_verify_code_in_openehr_codeset_or_error, util_verify_code_in_openehr_terminology_group_or_error
 
+from pyehr.term import PyehrGlobalTerminologyService
+
 class EventContext(Pathable):
     """Documents the context information of a healthcare event involving the 
     subject of care and the health system. The context information recorded 
@@ -61,7 +63,7 @@ class EventContext(Pathable):
     def __init__(self, 
                  start_time: DVDateTime,
                  setting: DVCodedText,
-                 terminology_service: TerminologyService,
+                 terminology_service: Optional[TerminologyService] = None,
                  end_time: Optional[DVDateTime] = None,
                  location: Optional[str] = None,
                  other_context: Optional[ItemStructure] = None,
@@ -70,6 +72,8 @@ class EventContext(Pathable):
                  parent: Optional[Pathable] = None,
                  parent_container_attribute_name: Optional[str] = None,
                  **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         self.start_time = start_time
         util_verify_code_in_openehr_terminology_group_or_error(
             code=setting.defining_code,
@@ -205,7 +209,7 @@ class Composition(Locatable):
                 category: DVCodedText,
                 composer: PartyProxy,
                 archetype_details : Archetyped,
-                terminology_service: TerminologyService,
+                terminology_service: Optional[TerminologyService] = None,
                 context: Optional[EventContext] = None,
                 content: Optional[list[ContentItem]] = None,
                 uid : Optional[UIDBasedID] = None, 
@@ -214,6 +218,8 @@ class Composition(Locatable):
                 parent: Optional[Pathable] = None,
                 parent_container_attribute_name: Optional[str] = None,
                 **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         util_verify_code_in_openehr_codeset_or_error(
             code=language,
             codeset_name=OpenEHRCodeSetIdentifiers.CODE_SET_ID_LANGUAGES,

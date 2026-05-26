@@ -10,6 +10,8 @@ from pyehr.core.rm.data_types.text import CodePhrase
 from pyehr.core.rm.data_types.quantity import DVAmount, DVAbsoluteQuantity, DVInterval, DVQuantified, ReferenceRange
 from pyehr.core.rm.support.terminology import TerminologyService
 
+from pyehr.term import PyehrGlobalTerminologyService
+
 class DVDuration(DVAmount):
     """Represents a period of time with respect to a notional point in time, which is not specified. A sign 
     may be used to indicate the duration is backwards in time rather than forwards.
@@ -35,6 +37,8 @@ class DVDuration(DVAmount):
 
     # assume that accuracy is in seconds here as magnitude is
     def __init__(self, value: Union[ISODuration, str], normal_status: Optional[CodePhrase] = None, normal_range: Optional[DVInterval] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, accuracy : Optional[np.float32] = None, accuracy_is_percent: Optional[bool] = None, terminology_service: Optional[TerminologyService] = None):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         converted_value = value
         if isinstance(value, str):
             converted_value = ISODuration(value)
@@ -212,6 +216,8 @@ class DVTemporal(DVAbsoluteQuantity):
                  magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, 
                  accuracy : Optional[DVDuration] = None, 
                  terminology_service: Optional[TerminologyService] = None):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         if accuracy is not None and not isinstance(accuracy, DVDuration):
             raise TypeError(f"Accuracy must be DVDuration for subclasses of DVTemporal but \'{type(accuracy)}\' was given")
         super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, terminology_service)
@@ -261,6 +267,8 @@ class DVDate(DVTemporal):
                  magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, 
                  accuracy : Optional[DVDuration] = None, 
                  terminology_service: Optional[TerminologyService] = None):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         converted_value = value
         if isinstance(value, str):
             converted_value = ISODate(value)
@@ -413,6 +421,8 @@ class DVTime(DVTemporal):
                  magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, 
                  accuracy : Optional[DVDuration] = None, 
                  terminology_service: Optional[TerminologyService] = None):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         converted_value = value
         if isinstance(value, str):
             converted_value = ISOTime(value)
@@ -595,6 +605,8 @@ class DVDateTime(DVTemporal):
                  magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, 
                  accuracy : Optional[DVDuration] = None, 
                  terminology_service: Optional[TerminologyService] = None):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         converted_value = value
         if isinstance(value, str):
             converted_value = ISODateTime(value)

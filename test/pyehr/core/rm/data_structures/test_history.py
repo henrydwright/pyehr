@@ -1,6 +1,6 @@
 import pytest
 
-from pyehr.term import TERMINOLOGY_OPENEHR, PythonTerminologyService
+from pyehr.term import PyehrGlobalTerminologyService
 from pyehr.core.base.base_types.identification import TerminologyID
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.data_structures.history import PointEvent, IntervalEvent, History
@@ -13,7 +13,7 @@ from pyehr.core.rm.support.terminology import OpenEHRTerminologyGroupIdentifiers
 
 import json
 
-test_ts = PythonTerminologyService([], [TERMINOLOGY_OPENEHR])
+test_ts = PyehrGlobalTerminologyService.get_global_terminology_service()
 
 su = ItemSingle(
         DVText("@ internal @"),

@@ -18,6 +18,8 @@ from pyehr.core.rm.data_types.quantity.date_time import DVDateTime, DVDuration
 from pyehr.core.rm.data_types.text import DVCodedText, DVText
 from pyehr.core.rm.support.terminology import TerminologyService, util_verify_code_in_openehr_terminology_group_or_error, OpenEHRTerminologyGroupIdentifiers
 
+from pyehr.term import PyehrGlobalTerminologyService
+
 class Event[T : ItemStructure](Locatable):
     """Defines the abstract notion of a single event in a series. This class 
     is generic, allowing types to be generated which are locked to particular 
@@ -186,8 +188,8 @@ class IntervalEvent[T: ItemStructure](Event[T]):
                 data: T,
                 width: DVDuration,
                 math_function: DVCodedText,
-                terminology_service: TerminologyService,
                 parent: 'History',
+                terminology_service: Optional[TerminologyService] = None,
                 sample_count: Optional[np.int32] = None,
                 state: Optional[ItemStructure] = None,
                 uid : Optional[UIDBasedID] = None, 
@@ -196,6 +198,8 @@ class IntervalEvent[T: ItemStructure](Event[T]):
                 feeder_audit : Optional[FeederAudit] = None,
                 parent_container_attribute_name: Optional[str] = None,
                 **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         self.width = width
         util_verify_code_in_openehr_terminology_group_or_error(
             code=math_function.defining_code,

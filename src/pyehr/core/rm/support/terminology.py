@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from pyehr.core.rm.data_types.text import CodePhrase
-
 class OpenEHRCodeSetIdentifiers:
     """List of identifiers for code sets in the openEHR terminology."""
 
@@ -82,8 +80,10 @@ class ICodeSetAccess(ABC):
         pass
 
     @abstractmethod
-    def all_codes(self) -> list[CodePhrase]:
-        """Return all codes known in this code set."""
+    def all_codes(self) -> list:
+        """Return all codes known in this code set.
+
+        :returns: list of CODE_PHRASE"""
         pass
 
     @abstractmethod
@@ -109,18 +109,24 @@ class ITerminologyAccess(ABC):
 
     # TODO: specification says single CodePhrase but should be a list clearly - https://specifications.openehr.org/releases/RM/Release-1.1.0/support.html#_terminology_package
     @abstractmethod
-    def all_codes(self) -> list[CodePhrase]:
-        """Return all codes known in this terminology."""
+    def all_codes(self) -> list:
+        """Return all codes known in this terminology.
+
+        :return: List of CODE_PHRASE"""
         pass
 
     @abstractmethod
-    def codes_for_group_id(self, a_group_id : str) -> list[CodePhrase]:
-        """Return all codes under grouper 'a_group_id' from this terminology."""
+    def codes_for_group_id(self, a_group_id : str) -> list:
+        """Return all codes under grouper 'a_group_id' from this terminology.
+        
+        :return: List of CODE_PHRASE"""
         pass
 
     @abstractmethod
-    def codes_for_group_name(self, a_lang: str, a_name: str) -> list[CodePhrase]:
-        """Return all codes under grouper whose name in 'a_lang' is 'a_name' from this terminology."""
+    def codes_for_group_name(self, a_lang: str, a_name: str) -> list:
+        """Return all codes under grouper whose name in 'a_lang' is 'a_name' from this terminology.
+        
+        :return: List of CODE_PHRASE"""
         pass
 
     # TODO: This looks like it's an error in definition so assuming it should have an a_code and group_id argument. Report to fix https://specifications.openehr.org/releases/RM/Release-1.1.0/support.html#_openehr_code_set_identifiers_class
@@ -192,7 +198,8 @@ class TerminologyService(ABC):
         """Set of all code set identifiers known in the terminology service."""
         pass
     
-def util_verify_code_in_openehr_codeset_or_error(code: CodePhrase, codeset_name: str, terminology_service: TerminologyService, invariant_name_for_error : Optional[str] = None):
+def util_verify_code_in_openehr_codeset_or_error(code, codeset_name: str, terminology_service: TerminologyService, invariant_name_for_error : Optional[str] = None):
+    from pyehr.core.rm.data_types.text import CodePhrase
     if (not terminology_service.has_code_set(codeset_name)):
         raise ValueError(f"Provided terminology service did not contain OpenEHR \'{codeset_name}\' codeset needed to validate charset {"(invariant: " + invariant_name_for_error + ")" if invariant_name_for_error else ""}")
     else:
@@ -200,7 +207,8 @@ def util_verify_code_in_openehr_codeset_or_error(code: CodePhrase, codeset_name:
         if not codeset.has_code(code.code_string):
             raise ValueError(f"Code \'{code.code_string}\' was not valid as not found in \'{codeset_name}\' codeset {"(invariant: " + invariant_name_for_error + ")" if invariant_name_for_error else ""}")
 
-def util_verify_code_in_openehr_terminology_group_or_error(code: CodePhrase, terminology_group_id: str, terminology_service: TerminologyService, invariant_name_for_error: Optional[str] = None):
+def util_verify_code_in_openehr_terminology_group_or_error(code, terminology_group_id: str, terminology_service: TerminologyService, invariant_name_for_error: Optional[str] = None):
+    from pyehr.core.rm.data_types.text import CodePhrase
     if (not terminology_service.has_terminology(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR)):
         raise ValueError(f"Access to a TerminologyService with OpenEHR terminology must also be given to check validity {"(invariant: " + invariant_name_for_error + ")" if invariant_name_for_error else ""}")
     else:

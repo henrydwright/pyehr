@@ -13,6 +13,8 @@ from pyehr.core.rm.data_types.text import CodePhrase
 from pyehr.core.rm.data_types.uri import DVUri
 from pyehr.core.rm.support.terminology import TerminologyService, OpenEHRCodeSetIdentifiers, util_verify_code_in_openehr_codeset_or_error
 
+from pyehr.term import PyehrGlobalTerminologyService
+
 class DVEncapsulated(DataValue):
     """Abstract class defining the common meta-data of all types of encapsulated data."""
 
@@ -28,6 +30,8 @@ class DVEncapsulated(DataValue):
 
     @abstractmethod
     def __init__(self, charset : Optional[CodePhrase] = None, language : Optional[CodePhrase] = None, terminology_service: Optional[TerminologyService] = None):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         if ((charset is not None) or (language is not None)) and terminology_service is None:
             raise ValueError("If language or charset provided, a terminology service must be provided to check their validity (invariant: language_valid, charset_valid)")
 
@@ -93,7 +97,7 @@ class DVMultimedia(DVEncapsulated):
     def __init__(self, 
                  media_type : CodePhrase, 
                  size : np.int32, 
-                 terminology_service : TerminologyService,
+                 terminology_service : Optional[TerminologyService] = None,
                  data : Optional[bytes] = None,
                  uri : Optional[DVUri] = None,
                  charset : Optional[CodePhrase] = None, 
@@ -104,6 +108,8 @@ class DVMultimedia(DVEncapsulated):
                  integrity_check_algorithm: Optional[CodePhrase] = None,
                  thumbnail: Optional['DVMultimedia'] = None
                  ):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
 
         if (data is None and uri is None):
             raise ValueError("Either data should be provided (inline) or uri (external) (invariant: not_empty)")

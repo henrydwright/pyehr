@@ -12,6 +12,8 @@ from pyehr.core.rm.data_types.text import DVText, DVCodedText
 from pyehr.core.rm.data_types import DataValue
 from pyehr.core.rm.support.terminology import TerminologyService, util_verify_code_in_openehr_terminology_group_or_error, OpenEHRTerminologyGroupIdentifiers
 
+from pyehr.term import PyehrGlobalTerminologyService
+
 class Item(Locatable):
     """The abstract parent of CLUSTER and ELEMENT representation classes."""
 
@@ -173,7 +175,8 @@ class Element(Item):
                 parent_container_attribute_name: Optional[str] = None,
                 terminology_service: Optional[TerminologyService] = None,
                 **kwargs):
-        
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         if value is not None:
             if null_flavour is not None or null_reason is not None:
                 raise ValueError("If value is provided, null_flavour and null_reason must not be given (invariant: null_flavour_indicated, null_reason_valid)")

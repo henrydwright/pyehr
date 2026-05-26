@@ -1,6 +1,6 @@
 import pytest
 
-from pyehr.term import CODESET_OPENEHR_COUNTRIES, CODESET_OPENEHR_LANGUAGES, TERMINOLOGY_OPENEHR, PythonTerminologyService
+from pyehr.term import PyehrGlobalTerminologyService
 from pyehr.core.base.base_types.identification import ArchetypeID, TerminologyID
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.common.archetyped import Archetyped
@@ -11,7 +11,7 @@ from pyehr.core.rm.composition import Composition, EventContext
 from pyehr.core.rm.composition.content import ContentItem
 from pyehr.core.rm.composition.content.navigation import Section
 
-test_ts = PythonTerminologyService([CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_COUNTRIES], [TERMINOLOGY_OPENEHR])
+test_ts = PyehrGlobalTerminologyService.get_global_terminology_service()
 
 s0 = Section(
     name=DVText("subjective"),

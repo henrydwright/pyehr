@@ -3,9 +3,9 @@ import pytest
 from pyehr.core.rm.data_types.text import CodePhrase, DVText, DVCodedText, TermMapping, DVParagraph
 from pyehr.core.base.base_types.identification import TerminologyID
 
-from pyehr.term import CODESET_OPENEHR_LANGUAGES, CODESET_OPENEHR_CHARACTER_SETS, TERMINOLOGY_OPENEHR, PythonTerminologyService
+from pyehr.term import PythonTerminologyService, PyehrGlobalTerminologyService
 
-test_ts = PythonTerminologyService([CODESET_OPENEHR_CHARACTER_SETS, CODESET_OPENEHR_LANGUAGES], [TERMINOLOGY_OPENEHR])
+test_ts = PyehrGlobalTerminologyService.get_global_terminology_service()
 test_ts_empty = PythonTerminologyService([], [])
 
 def test_code_phrase_code_string_valid():
@@ -71,10 +71,6 @@ def test_dv_text_language_valid():
     txt = DVText("Er hat Krebs")
     txt = DVText("Er hat Krebs", language=CodePhrase(TerminologyID("ISO_639-1"), "de"), terminology_service=test_ts)
 
-    # not OK (no terminology service provided)
-    with pytest.raises(ValueError):
-        txt = DVText("Er hat Krebs", language=CodePhrase(TerminologyID("ISO_639-1"), "de"))
-
     # not OK (terminology service doesn't have languages set)
     with pytest.raises(ValueError):
         txt = DVText("Er hat Krebs", language=CodePhrase(TerminologyID("ISO_639-1"), "de"), terminology_service=test_ts_empty)
@@ -87,10 +83,6 @@ def test_dv_text_encoding_valid():
     # should be OK
     txt = DVText("o/e found lump 2cm diameter")
     txt = DVText("o/e found lump 2cm diameter", encoding=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"), terminology_service=test_ts)
-
-    # not OK (no terminology service provided)
-    with pytest.raises(ValueError):
-        txt = DVText("o/e found lump 2cm diameter", encoding=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"))
 
     # not OK (terminology service doesn't have character sets set)
     with pytest.raises(ValueError):

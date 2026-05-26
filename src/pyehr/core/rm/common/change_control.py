@@ -21,6 +21,8 @@ from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import DVCodedText
 from pyehr.core.rm.support.terminology import TerminologyService, util_verify_code_in_openehr_terminology_group_or_error, OpenEHRTerminologyGroupIdentifiers
 
+from pyehr.term import PyehrGlobalTerminologyService
+
 class Version[T: AnyClass](AnyClass):
     """Abstract model of one Version within a Version container, containing data, commit audit 
     trail, and the identifier of its Contribution."""
@@ -130,12 +132,14 @@ class OriginalVersion[T: AnyClass](Version[T]):
                  commit_audit: AuditDetails, 
                  uid: ObjectVersionID,
                  lifecycle_state: DVCodedText,
-                 terminology_service: TerminologyService,
+                 terminology_service: Optional[TerminologyService] = None,
                  data: Optional[T] = None,
                  preceding_version_uid: Optional[ObjectVersionID] = None,
                  other_input_version_uids: Optional[list[ObjectVersionID]] = None,
                  attestations: Optional[list[Attestation]] = None,
                  signature: Optional[str] = None, **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         self.uid_var = uid
 
         util_verify_code_in_openehr_terminology_group_or_error(
@@ -417,10 +421,11 @@ class VersionedObject[T: AnyClass](AnyClass):
                                     an_audit: AuditDetails,
                                     a_lifecycle_state: DVCodedText,
                                     a_data: T,
-                                    terminology_service: TerminologyService,
+                                    terminology_service: Optional[TerminologyService] = None,
                                     an_other_input_uids: Optional[list[ObjectVersionID]] = None,
                                     signing_key: Optional[str] = None) -> OriginalVersion:
-        
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         self._pre_version_commit_checks(a_new_version_uid, a_preceding_version_id)
         ov = OriginalVersion(
             contribution=a_contribution,
@@ -449,9 +454,11 @@ class VersionedObject[T: AnyClass](AnyClass):
                                 an_audit: AuditDetails,
                                 a_lifecycle_state: DVCodedText,
                                 a_data: T,
-                                terminology_service: TerminologyService,
+                                terminology_service: Optional[TerminologyService] = None,
                                 signing_key: Optional[str] = None) -> OriginalVersion:
         """Add a new original version."""
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         return self._commit_original_version_all(a_contribution, a_new_version_uid, a_preceding_version_id, an_audit, a_lifecycle_state, a_data, terminology_service, signing_key=signing_key)
 
     def commit_original_merged_version(self,
@@ -462,10 +469,12 @@ class VersionedObject[T: AnyClass](AnyClass):
                                 a_lifecycle_state: DVCodedText,
                                 a_data: Optional[T],
                                 an_other_input_uids: list[ObjectVersionID],
-                                terminology_service: TerminologyService,
+                                terminology_service: Optional[TerminologyService] = None,
                                 signing_key: Optional[str] = None) -> OriginalVersion:
         """Add a new original merged version. This commit function adds a 
         parameter containing the ids of other versions merged into the current one."""
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         return self._commit_original_version_all(a_contribution, a_new_version_uid, a_preceding_version_id, an_audit, a_lifecycle_state, a_data, terminology_service, an_other_input_uids=an_other_input_uids, signing_key=signing_key)
 
     def commit_imported_version(self,

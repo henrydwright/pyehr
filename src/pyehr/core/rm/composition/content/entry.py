@@ -17,6 +17,8 @@ from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
 from pyehr.core.rm.composition.content import ContentItem
 from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers, OpenEHRTerminologyGroupIdentifiers, TerminologyService, util_verify_code_in_openehr_codeset_or_error, util_verify_code_in_openehr_terminology_group_or_error
 
+from pyehr.term import PyehrGlobalTerminologyService
+
 
 class Entry(ContentItem):
     """The abstract parent of all ENTRY subtypes. An ENTRY is the root of a 
@@ -75,7 +77,7 @@ class Entry(ContentItem):
             encoding: CodePhrase,
             subject: PartyProxy,
             archetype_details : Archetyped,
-            terminology_service: TerminologyService,
+            terminology_service: Optional[TerminologyService] = None,
             other_participations : Optional[list[Participation]] = None,
             workflow_id : Optional[ObjectRef] = None,
             provider: Optional[PartyProxy] = None, 
@@ -85,6 +87,8 @@ class Entry(ContentItem):
             parent: Optional[Pathable] = None,
             parent_container_attribute_name: Optional[str] = None,
             **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         util_verify_code_in_openehr_codeset_or_error(
             code=language,
             codeset_name=OpenEHRCodeSetIdentifiers.CODE_SET_ID_LANGUAGES,
@@ -158,8 +162,8 @@ class AdminEntry(Entry):
         encoding: CodePhrase,
         subject: PartyProxy,
         archetype_details : Archetyped,
-        terminology_service: TerminologyService,
         data: ItemStructure,
+        terminology_service: Optional[TerminologyService] = None,
         other_participations : Optional[list[Participation]] = None,
         workflow_id : Optional[ObjectRef] = None,
         provider: Optional[PartyProxy] = None, 
@@ -169,6 +173,8 @@ class AdminEntry(Entry):
         parent: Optional[Pathable] = None,
         parent_container_attribute_name: Optional[str] = None,
         **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         self.data = data
         super().__init__(name, archetype_node_id, language, encoding, subject, archetype_details, terminology_service, other_participations, workflow_id, provider, uid, links, feeder_audit, parent, parent_container_attribute_name, **kwargs)
 
@@ -240,7 +246,7 @@ class CareEntry(Entry):
         encoding: CodePhrase,
         subject: PartyProxy,
         archetype_details : Archetyped,
-        terminology_service: TerminologyService,
+        terminology_service: Optional[TerminologyService] = None,
         protocol: Optional[ItemStructure] = None,
         guideline_id: Optional[ObjectRef] = None,
         other_participations : Optional[list[Participation]] = None,
@@ -252,6 +258,8 @@ class CareEntry(Entry):
         parent: Optional[Pathable] = None,
         parent_container_attribute_name: Optional[str] = None,
         **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         self.protocol = protocol
         self.guideline_id = guideline_id
         super().__init__(name, archetype_node_id, language, encoding, subject, archetype_details, terminology_service, other_participations, workflow_id, provider, uid, links, feeder_audit, parent, parent_container_attribute_name, **kwargs)
@@ -300,7 +308,7 @@ class Observation(CareEntry):
         subject: PartyProxy,
         archetype_details : Archetyped,
         data: History[ItemStructure],
-        terminology_service: TerminologyService,
+        terminology_service: Optional[TerminologyService] = None,
         state: Optional[History[ItemStructure]] = None,
         protocol: Optional[ItemStructure] = None,
         guideline_id: Optional[ObjectRef] = None,
@@ -313,6 +321,8 @@ class Observation(CareEntry):
         parent: Optional[Pathable] = None,
         parent_container_attribute_name: Optional[str] = None,
         **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         self.data = data
         self.state = state
         super().__init__(name, archetype_node_id, language, encoding, subject, archetype_details, terminology_service, protocol, guideline_id, other_participations, workflow_id, provider, uid, links, feeder_audit, parent, parent_container_attribute_name, **kwargs)
@@ -388,7 +398,7 @@ class Evaluation(CareEntry):
         subject: PartyProxy,
         archetype_details : Archetyped,
         data: ItemStructure,
-        terminology_service: TerminologyService,
+        terminology_service: Optional[TerminologyService] = None,
         protocol: Optional[ItemStructure] = None,
         guideline_id: Optional[ObjectRef] = None,
         other_participations : Optional[list[Participation]] = None,
@@ -400,6 +410,8 @@ class Evaluation(CareEntry):
         parent: Optional[Pathable] = None,
         parent_container_attribute_name: Optional[str] = None,
         **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         self.data = data
         super().__init__(name, archetype_node_id, language, encoding, subject, archetype_details, terminology_service, protocol, guideline_id, other_participations, workflow_id, provider, uid, links, feeder_audit, parent, parent_container_attribute_name, **kwargs)
 
@@ -573,7 +585,7 @@ class Instruction(CareEntry):
         subject: PartyProxy,
         archetype_details : Archetyped,
         narrative: DVText,
-        terminology_service: TerminologyService,
+        terminology_service: Optional[TerminologyService] = None,
         expiry_time: Optional[DVDateTime] = None,
         wf_definition: Optional[DVParsable] = None,
         activities: Optional[list[Activity]] = None,
@@ -588,6 +600,8 @@ class Instruction(CareEntry):
         parent: Optional[Pathable] = None,
         parent_container_attribute_name: Optional[str] = None,
         **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         self.narrative = narrative
         self.expiry_time = expiry_time
         self.wf_definition = wf_definition
@@ -755,13 +769,15 @@ class ISMTransition(Pathable):
 
     def __init__(self, 
                  current_state: DVCodedText,
-                 terminology_service: TerminologyService,
+                 terminology_service: Optional[TerminologyService] = None,
                  transition: Optional[DVCodedText] = None,
                  careflow_step: Optional[DVCodedText] = None,
                  reason: Optional[list[DVText]] = None,
                 parent: Optional['Pathable'] = None,
                 parent_container_attribute_name: Optional[str] = None,
                 **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         util_verify_code_in_openehr_terminology_group_or_error(
             code=current_state.defining_code,
             terminology_group_id=OpenEHRTerminologyGroupIdentifiers.GROUP_ID_INSTRUCTION_STATES,
@@ -849,7 +865,7 @@ class Action(CareEntry):
         time: DVDateTime,
         ism_transition: ISMTransition,
         description: ItemStructure,
-        terminology_service: TerminologyService,
+        terminology_service: Optional[TerminologyService] = None,
         instruction_details: Optional[InstructionDetails] = None,
         protocol: Optional[ItemStructure] = None,
         guideline_id: Optional[ObjectRef] = None,
@@ -862,6 +878,8 @@ class Action(CareEntry):
         parent: Optional[Pathable] = None,
         parent_container_attribute_name: Optional[str] = None,
         **kwargs):
+        if terminology_service is None:
+            terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
         self.time = time
         self.ism_transition = ism_transition
         self.description = description
