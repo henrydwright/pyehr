@@ -7361,10 +7361,10 @@
             ],
             "properties": {
                 "lower": {
-                    "type": "object"
+                    "type": ["object", "number", "integer", "string"]
                 },
                 "upper": {
-                    "type": "object"
+                    "type": ["object", "number", "integer", "string"]
                 },
                 "lower_unbounded": {
                     "type": "boolean"

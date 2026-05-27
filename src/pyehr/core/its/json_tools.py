@@ -4,6 +4,9 @@ from json import JSONEncoder
 import json
 from typing import Union, Optional
 
+import numpy as np
+from pyehr.core.base.foundation_types.interval import PointInterval, ProperInterval
+from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.its.rest.additions import UpdateAttestation, UpdateAudit, UpdateContribution, UpdateVersion
 from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion, VersionedObject
 from pyehr.core.rm.common.generic import Attestation, AuditDetails, PartyIdentified, PartySelf, RevisionHistory, RevisionHistoryItem
@@ -155,7 +158,17 @@ def decode_json(json_obj: dict,
     for (param_name, param) in json_obj.items():
         if type(param) == str or type(param) == bool:
             arg_dict[param_name] = param
+        elif type(param) == int:
+            arg_dict[param_name] = np.int32(param)
+        elif type(param) == float:
+            arg_dict[param_name] = np.float32(param)
         elif type(param) == dict:
+            if target_type == "TRANSLATION_DETAILS" and param_name == "author":
+                arg_dict[param_name] = param
+                continue
+            elif target_type == "RESOURCE_DESCRIPTION" and param_name in ["original_author", "ip_acknowledgements", "references", "conversion_details", "other_details"]:
+                arg_dict[param_name] = param
+                continue
             type_hint = None
             # TODO: replace this with proper hinting and lookups from the schema
             if flag_infer_missing_type_details and target_type == "EHR_STATUS" and param_name == "archetype_details":
@@ -164,6 +177,11 @@ def decode_json(json_obj: dict,
                 type_hint = "ARCHETYPE_ID"
             arg_dict[param_name] = decode_json(param, target=type_hint, terminology_service=terminology_service)
         elif type(param) == list:
+            if len(param) > 0:
+                item = param[0]
+                if isinstance(item, str):
+                    arg_dict[param_name] = param
+                    continue
             if target_type == "PYEHR_ACCESS_POLICY_ITEM":
                 if param_name == "actions":
                     arg_dict["actions"] = [PyehrAccessPolicyEndpointAction(action) for action in param]
@@ -178,11 +196,26 @@ def decode_json(json_obj: dict,
         else:
             raise RuntimeError(f"Could not decode object: unknown type of parameter \'{type(param)}\' encountered during parsing")
         
+    # change the target type here if needed
+    if target_type == "INTERVAL":
+        if arg_dict["lower_included"] == arg_dict["upper_included"] and "lower" in arg_dict and "upper" in arg_dict and is_equal_value(arg_dict["lower"], arg_dict["upper"]):
+            target_type = "POINT_INTERVAL"
+            target_cls = PointInterval
+        else:
+            target_type = "PROPER_INTERVAL"
+            target_cls = ProperInterval
+
+    # perform any modifications to the arg_dict here depending on the target type
     if target_type == "OBJECT_REF":
         if "type" in arg_dict:
             # pyehr uses 'ref_type' to avoid collision with Python 'type'
             arg_dict["ref_type"] = arg_dict["type"]
             del arg_dict["type"]
+    elif target_type == "POINT_INTERVAL":
+        arg_dict["point_value"] = arg_dict["lower"]
+    elif target_type == "PROPER_INTERVAL":
+        del arg_dict["lower_unbounded"]
+        del arg_dict["upper_unbounded"]
     elif target_type == "EHR_STATUS":
         if flag_ignore_missing_archetype_details_on_ehr_status and not "archetype_details" in json_obj:
             arg_dict["archetype_details"] = Archetyped(ArchetypeID(json_obj["archetype_node_id"]), "1.1.0")

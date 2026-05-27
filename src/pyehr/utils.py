@@ -1,7 +1,11 @@
 from pyehr.core.am.aom14.archetype import Archetype
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CString
 from pyehr.core.am.opt14 import OperationalTemplate
-from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectRef, ObjectVersionID
+from pyehr.core.base.base_types.identification import ISOOID, UUID, ArchetypeID, HierObjectID, LocatableRef, ObjectRef, ObjectVersionID, TemplateID, VersionTreeID
+from pyehr.core.base.foundation_types.interval import Interval
+from pyehr.core.base.foundation_types.terminology import TerminologyCode, TerminologyTerm
+from pyehr.core.base.foundation_types.time import ISODate, ISODateTime, ISODuration, ISOTime
+from pyehr.core.base.resource import ResourceDescription, ResourceDescriptionItem, TranslationDetails
 from pyehr.core.its.rest.additions import UpdateAttestation, UpdateAudit, UpdateContribution, UpdateVersion
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.its.rest.additions import UpdateVersion
@@ -50,9 +54,32 @@ PYTHON_TYPE_TO_STRING_TYPE_MAP : dict[type, str] = {
 of Party maps to 'PARTY')"""
 
 OPENEHR_TYPE_MAP = {
-    "OBJECT_VERSION_ID": ObjectVersionID,
+    # FOUNDATION
+    "DATE": ISODate,
+    "DATE_TIME": ISODateTime,
+    "DURATION": ISODuration,
+    "INTERVAL": Interval,
+    "TERMINOLOGY_CODE": TerminologyCode,
+    "TERMINOLOGY_TERM": TerminologyTerm,
+    "TIME": ISOTime,
+    # BASE
+    "INTERNET_ID": InternetID,
     "OBJECT_REF": ObjectRef,
+    "PARTY_REF": PartyRef,
+    "TEMPLATE_ID": TemplateID,
+    "OBJECT_VERSION_ID": ObjectVersionID,
+    "VERSION_TREE_ID": VersionTreeID,
+    "LOCATABLE_REF": LocatableRef,
+    "GENERIC_ID": GenericID,
+    "ARCHETYPE_ID": ArchetypeID,
     "HIER_OBJECT_ID" : HierObjectID,
+    "UUID": UUID,
+    "ISO_OID": ISOOID,
+    "TERMINOLOGY_ID": TerminologyID,
+    "TRANSLATION_DETAILS": TranslationDetails,
+    "RESOURCE_DESCRIPTION_ITEM": ResourceDescriptionItem,
+    "RESOURCE_DESCRIPTION": ResourceDescription,
+    # RM : datatypes
     "DV_TEXT": DVText,
     "DV_URI": DVUri,
     "DV_DATE_TIME": DVDateTime,
@@ -60,9 +87,6 @@ OPENEHR_TYPE_MAP = {
     "EHR": EHR,
     "EHR_STATUS": EHRStatus,
     "ARCHETYPED": Archetyped,
-    "ARCHETYPE_ID": ArchetypeID,
-    "PARTY_REF": PartyRef,
-    "GENERIC_ID": GenericID,
     "PERSON": Person,
     "PARTY_IDENTITY": PartyIdentity,
     "ITEM_TREE": ItemTree,
@@ -71,7 +95,6 @@ OPENEHR_TYPE_MAP = {
     "CLUSTER": Cluster,
     "DV_CODED_TEXT": DVCodedText,
     "CODE_PHRASE": CodePhrase,
-    "TERMINOLOGY_ID": TerminologyID,
     "VERSIONED_EHR_STATUS": VersionedEHRStatus,
     "REVISION_HISTORY": RevisionHistory,
     "REVISION_HISTORY_ITEM": RevisionHistoryItem,
@@ -83,7 +106,6 @@ OPENEHR_TYPE_MAP = {
     "ITEM_SINGLE": ItemSingle,
     "VERSIONED_PARTY": VersionedParty,
     "VERSIONED_OBJECT": VersionedObject,
-    "INTERNET_ID": InternetID,
     "ATTESTATION": Attestation,
     "UPDATE_CONTRIBUTION": UpdateContribution,
     "UPDATE_VERSION": UpdateVersion,
