@@ -248,7 +248,7 @@ class InMemoryDB(IDatabaseEngine):
     def retrieve_versioned_object(self, uid, reader = None, metadata_only_versioned_object = True):
         if uid.value not in self._meta:
             self._log.info(f"{uid.value}:Read of VERSIONED_OBJECT attempted, but did not exist")
-            return None
+            return (None, None)
         
         met = self._meta[uid.value]
         met.action_history.append(DBActionItem(DBActionType.READ, party=reader))

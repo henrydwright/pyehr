@@ -559,6 +559,8 @@ class VersionedStore():
         """Retrieves the latest version of the object of the given type, or the version extant at `version_at_time` if this is provided."""
         # get the versioned object with list of versions
         vo, revs = self.db.retrieve_versioned_object(obj_id, user)
+        if vo is None:
+            return None
 
         ver_id_to_get = None
 
