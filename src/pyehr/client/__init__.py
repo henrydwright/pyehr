@@ -152,12 +152,19 @@ class OpenEHRBaseRestClient():
             last_modified = result.headers["Last-Modified"]
         return OpenEHRRestOperationMetadata(location=location, openEHR_uri=openEHR_uri, etag=etag, last_modified=last_modified)
 
-    def _get_XXX_by_version_id(self, target_url: str, target_type: str, version_at_time: Optional[ISODateTime] = None):
+    def _get_XXX_by_version_id(self, target_url: str, target_type: str, version_at_time: Optional[ISODateTime] = None, path: Optional[str] = None):
         params = None
         if version_at_time is not None:
             params = {
                 "version_at_time": version_at_time.as_string()
             }
+        if path is not None:
+            if params is not None:
+                params["path"] = path
+            else:
+                params = {
+                    "path": path
+                }
         result = requests.get(
             url=target_url,
             headers=self._build_headers(),
@@ -234,10 +241,14 @@ class OpenEHRBaseRestClient():
     def _delete_XXX(self, 
                     target_url: str,
                     version_audit_description: Optional[str] = None,
-                    version_committer: Optional[PartyProxy] = None) -> OpenEHRRestClientResponse[NoneType]:
+                    version_committer: Optional[PartyProxy] = None,
+                    version_uid: Optional[ObjectVersionID] = None) -> OpenEHRRestClientResponse[NoneType]:
+        headers = None if version_uid is None else {"If-Match": version_uid.value}
         result = requests.delete(
             url=target_url,
-            headers=self._build_headers(version_audit_description=version_audit_description, version_committer=version_committer)
+            headers=self._build_headers(version_audit_description=version_audit_description, 
+                                        version_committer=version_committer,
+                                        extra_headers=headers)
         )
         if result.status_code == 400:
             raise ValueError("400 Bad Request: request could not be parsed or is invalid")

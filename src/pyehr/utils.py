@@ -43,7 +43,8 @@ PYTHON_TYPE_TO_STRING_TYPE_MAP : dict[type, str] = {
     Folder: "FOLDER",
     Role: "ROLE",
     PyehrAccessControlSettings: "PYEHR_ACCESS_CONTROL_SETTINGS",
-    PyehrAccessPolicyItem: "PYEHR_ACCESS_POLICY_ITEM"
+    PyehrAccessPolicyItem: "PYEHR_ACCESS_POLICY_ITEM",
+    Folder: "FOLDER"
 }
 """Mapping of pyehr type (Python type) to the openEHR type string (e.g. pyehr type
 of Party maps to 'PARTY')"""
@@ -100,7 +101,8 @@ OPENEHR_TYPE_MAP = {
     "VERSIONED_COMPOSITION": VersionedComposition,
     "ROLE": Role,
     "PYEHR_ACCESS_CONTROL_SETTINGS": PyehrAccessControlSettings,
-    "PYEHR_ACCESS_POLICY_ITEM": PyehrAccessPolicyItem
+    "PYEHR_ACCESS_POLICY_ITEM": PyehrAccessPolicyItem,
+    "FOLDER": Folder
 }
 """Map of OpenEHR string type names (e.g. as found in '_type' JSON) to pyehr Python types"""
 

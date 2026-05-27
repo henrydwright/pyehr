@@ -1,6 +1,7 @@
 """Functions and classes for creating and reading OpenEHR JSON files"""
 
 from json import JSONEncoder
+import json
 from typing import Union, Optional
 
 from pyehr.core.its.rest.additions import UpdateAttestation, UpdateAudit, UpdateContribution, UpdateVersion
@@ -133,8 +134,6 @@ def decode_json(json_obj: dict,
 
     if terminology_service is None:
         terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
-
-    #print(dumps(json_obj, indent=1))
 
     if target is not None:
         target_type = target

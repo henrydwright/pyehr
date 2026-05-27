@@ -8,11 +8,12 @@ from typing import Optional, Union
 from flask import Response, current_app, g, jsonify, make_response, request
 
 from pyehr.core.base.base_types.builtins import Env
-from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef, ObjectVersionID
+from pyehr.core.base.base_types.identification import HierObjectID, ObjectID, ObjectRef, ObjectVersionID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.its.json_tools import decode_json
 from pyehr.core.its.rest.additions import UpdateContribution
 from pyehr.core.rm.common.change_control import Contribution, Version
+from pyehr.core.rm.common.directory import Folder
 from pyehr.core.rm.common.generic import PartyIdentified, PartyProxy
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import DVText
@@ -163,7 +164,15 @@ def get_object(auth: IPyehrAuthProvider, vs: VersionedStore, uid_based_id: str, 
             empty = _create_empty_response()
             _add_headers_to_response(empty, object_version.uid(), object_version.commit_audit.time_committed)
             return (empty, object_version.uid())
-        resp = _create_object_response(object_version.data(), 200)
+        obj = object_version.data()
+        if typ == "FOLDER":
+            path_arg = request.args.get("path")
+            if path_arg is not None:
+                try:
+                    obj : Version[Folder] = object_version.data().item_at_path(path_arg)
+                except ValueError:
+                    return (_create_error_response("404 Not Found: Provided path does not exist within directory", 404), None)
+        resp = _create_object_response(obj, 200)
         _add_headers_to_response(resp, object_version.uid(), object_version.commit_audit.time_committed)
         return (resp, object_version.uid())
 
@@ -300,10 +309,21 @@ def get_versioned_object_version_at_time(auth: IPyehrAuthProvider, db:IDatabaseE
     version_at_time = None if version_at_time_arg is None else DVDateTime(version_at_time_arg)
     obj = vs.read(obj_type, hier_object_id, version_at_time, user=auth_party.external_ref)
 
+    time_committed = obj.commit_audit.time_committed
+    uid = obj.uid()
+
+    if obj_type == "FOLDER":
+        path_arg = request.args.get("path")
+        if path_arg is not None:
+            try:
+                obj : Version[Folder] = obj.data().item_at_path(path_arg)
+            except ValueError:
+                return (_create_error_response("404 Not Found: Provided path does not exist within directory", 404), None)
+
     if obj is not None:
         resp = _create_object_response(obj, 200)
-        _add_headers_to_response(resp, obj.uid(), obj.commit_audit.time_committed)
-        return (resp, obj.uid())
+        _add_headers_to_response(resp, uid, time_committed)
+        return (resp, uid)
     else:
         return (_create_not_found_response(obj_type, hier_object_id), None)
 
@@ -413,6 +433,16 @@ def _create_unauthorised_response():
 def _create_not_found_response(obj_type: str, uid_based_id: str):
     return _create_error_response(f"404 Not Found: Could not find {obj_type} with uid of \'{uid_based_id}\'", 404)
 
+def _get_uid_from_object_if_exists(obj: Optional[AnyClass]) -> Optional[ObjectID]:
+    if obj is None:
+        return None
+    uid = None
+    if hasattr(obj, "uid"):
+        uid = obj.uid
+        if callable(uid):
+            uid = uid()
+    return uid
+
 def _parse_request_body(target_type: str):
     parse_format = g.processed_headers.provided_content_format
     if parse_format is None:
@@ -421,7 +451,8 @@ def _parse_request_body(target_type: str):
     if parse_format != OpenEHRFormat.JSON:
         return _create_error_response(f"415 Unsupported Media Type: Server cannot parse the OpenEHR \'{str(parse_format)}\' format", 415)
     else:
-        return decode_json(request.get_json(), target_type)
+        # the loads, dumps series is to make a deep copy
+        return decode_json(json.loads(json.dumps(request.get_json())), target_type)
 
 def _get_lifecycle_state(fallback_value: VersionLifecycleState, log: Logger):
     header_state : VersionLifecycleState = g.processed_headers.version_lifecycle_state

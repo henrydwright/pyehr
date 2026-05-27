@@ -3,19 +3,20 @@ from enum import Enum
 import logging
 from typing import Optional, Union
 
-from flask import Blueprint, Response, current_app, jsonify, request
+from flask import Blueprint, Response, current_app, g, jsonify, request
 
 from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectRef, ObjectVersionID
 from pyehr.core.rm.common.archetyped import Archetyped
 from pyehr.core.rm.common.change_control import Version
+from pyehr.core.rm.common.directory import Folder
 from pyehr.core.rm.common.generic import PartyProxy, PartySelf
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus
 from pyehr.server.apps.rest.blueprints.shared import _add_headers_to_response, _add_location_headers_to_response, _create_error_response, _create_object_response, _create_unauthorised_response, _get_committer, _parse_request_body, _process_headers, commit_contribution_set, create_object, delete_object, get_contribution_by_id, get_object, get_versioned_object, get_versioned_object_revision_history, get_versioned_object_version_at_time, get_versioned_object_version_by_id, update_object
 from pyehr.server.apps.rest.meta import OpenEHRRequestHeaders
-from pyehr.server.change_control import VersionLifecycleState, VersionedStore
+from pyehr.server.change_control import AuditChangeType, VersionLifecycleState, VersionedStore
 from pyehr.server.database import IDatabaseEngine
 from pyehr.server.security.access_control import PyehrAccessControlSettings, PyehrAccessPolicyEndpoint, PyehrAccessPolicyEndpointAction
 from pyehr.server.security.auth import IPyehrAuthProvider
@@ -220,6 +221,163 @@ def create_ehr_blueprint(auth: IPyehrAuthProvider, db: IDatabaseEngine, vs: Vers
             _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/composition/{ovid.value}", f"ehr://{ehr_id}/composition/{ovid.value}")
 
         return resp
+    
+    @ehr_bp.route("/<ehr_id>/directory/<object_id>", methods=['GET'])
+    def get_folder_in_directory(ehr_id: str, object_id: str):
+        ehid = HierObjectID(ehr_id)
+        policy = _get_access_control_settings(ehid)
+
+        resp, ovid = get_object(auth, vs, object_id, "FOLDER", log, (policy, PyehrAccessPolicyEndpoint.EHR_DIRECTORY))
+        if ovid is not None:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/directory/{ovid.value}", f"ehr://{ehr_id}/directory/{ovid.value}")
+            path_arg = request.args.get("path")
+            if path_arg is None:
+                _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/directory/{ovid.value}", f"ehr://{ehr_id}/directory/{ovid.value}")
+            else:
+                _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/directory/{ovid.value}?path={path_arg}", f"ehr://{ehr_id}/directory/{ovid.value}/{path_arg}")
+        
+        return resp
+
+    @ehr_bp.route("/<ehr_id>/directory", methods=['GET'])
+    def get_folder_in_directory_version_at_time(ehr_id: str):
+        ehid = HierObjectID(ehr_id)
+        policy = _get_access_control_settings(ehid)
+
+        ehr : EHR = _get_ehr_from_id(ehid)
+        if isinstance(ehr, Response):
+            return ehr
+
+        if ehr.directory is None:
+            return _create_error_response("404 Not Found: The given EHR did not have a directory to return")
+        else:
+            dir_uid = ehr.directory.id
+            resp, ovid = get_versioned_object_version_at_time(auth, db, vs, dir_uid, "FOLDER", (policy, PyehrAccessPolicyEndpoint.EHR_DIRECTORY))
+            if ovid is not None:
+                path_arg = request.args.get("path")
+                if path_arg is None:
+                    _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/directory/{ovid.value}", f"ehr://{ehr_id}/directory/{ovid.value}")
+                else:
+                    _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/directory/{ovid.value}?path={path_arg}", f"ehr://{ehr_id}/directory/{ovid.value}/{path_arg}")
+            return resp
+
+    def _get_subfolders_with_uids(f: Folder, sfl: list[Folder]):
+        if f.folders is not None:
+            for folder in f.folders:
+                if folder.uid is not None:
+                    sfl.append(folder)
+                _get_subfolders_with_uids(folder, sfl)
+
+    @ehr_bp.route("/<ehr_id>/directory", methods=['DELETE'])
+    def delete_directory(ehr_id: str):
+        ehid = HierObjectID(ehr_id)
+        policy = _get_access_control_settings(ehid)
+
+        if g.processed_headers.preceding_version_uid is None:
+            return _create_error_response("400 Bad Request: If-Match header was not provided for preceding version uid", 400)
+        
+        ovid : ObjectVersionID = g.processed_headers.preceding_version_uid
+        return delete_object(auth, vs, "FOLDER", ovid.value, log, (policy, PyehrAccessPolicyEndpoint.EHR_DIRECTORY))
+
+    @ehr_bp.route("/<ehr_id>/directory", methods=['PUT'])
+    def update_directory(ehr_id: str):
+        ehid = HierObjectID(ehr_id)
+        policy = _get_access_control_settings(ehid)
+
+        if g.processed_headers.preceding_version_uid is None:
+            return _create_error_response("400 Bad Request: If-Match header was not provided for preceding version uid", 400)
+
+        # This has been removed for now, as updating subfolders could allow a "top-level" folder to become out
+        #  of sync if part of the tree underneath the top-level is updated
+        # body_folder = _parse_request_body("FOLDER")
+        # if isinstance(body_folder, Response):
+        #     return body_folder
+        #
+        # subfolders_with_uids : list[Folder] = []
+        # _get_subfolders_with_uids(body_folder, subfolders_with_uids)
+        # creations = []
+        # updates = []
+        # for subfolder_with_uid in subfolders_with_uids:
+        #     sf_meta = db.retrieve_db_metadata(subfolder_with_uid.uid)
+        #     if sf_meta is None or sf_meta.obj_type is None:
+        #         creations.append(subfolder_with_uid)
+        #     else:
+        #         updates.append(subfolder_with_uid)
+        # log.info(f"{len(updates)} subfolders (with UIDs) to be updated and {len(creations)} to be created")
+        # actions = {PyehrAccessPolicyEndpointAction.UPDATE}
+        # if len(creations) > 0:
+        #     actions.add(PyehrAccessPolicyEndpointAction.CREATE)
+        #
+        # if not auth.action_authorised_for_authenticated_actor(
+        #     policy,
+        #     actions,
+        #     PyehrAccessPolicyEndpoint.EHR_DIRECTORY,
+        #     body_folder.archetype_node_id
+        # ):
+        #     return _create_unauthorised_response()
+        
+        ovid : ObjectVersionID = g.processed_headers.preceding_version_uid
+        resp, ovid = update_object(auth, vs, "FOLDER", ovid.object_id().value, log, (policy, PyehrAccessPolicyEndpoint.EHR_DIRECTORY))
+
+        if ovid is not None:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/directory/{ovid.value}", f"ehr://{ehr_id}/directory/{ovid.value}")
+
+            # removed for reasons listed above
+            #
+            # for creation in creations:
+            #     vs.create(creation, ObjectRef("local", "EHR", ehid), auth.authenticated_actor()[0], VersionLifecycleState.COMPLETE, DVText(f"Created subfolder as part of updating folder {ovid.object_id().value}"), auth.authenticated_actor()[0].external_ref)
+            # for update in updates:
+            #     chg_type = g.processed_headers.version_audit_change_type if g.processed_headers.version_audit_change_type is not None else AuditChangeType.UNKNOWN
+            #     vs.update(update, auth.authenticated_actor()[0], VersionLifecycleState.COMPLETE, chg_type, ovid, DVText(f"Created subfolder as part of updating folder {ovid.object_id().value}"), auth.authenticated_actor()[0].external_ref)
+
+        return resp
+
+
+
+    @ehr_bp.route("/<ehr_id>/directory", methods=['POST'])
+    def create_directory(ehr_id: str):
+        ehid = HierObjectID(ehr_id)
+        policy = _get_access_control_settings(ehid)
+        emeta = db.retrieve_db_metadata(ehid)
+        if emeta is None or emeta.obj_type is None or emeta.obj_type != "EHR":
+            return _create_error_response(f"404 Not Found: No EHR with ID \'{ehr_id}\' was found")
+
+        body_folder = _parse_request_body("FOLDER")
+        if isinstance(body_folder, Response):
+            return body_folder
+
+        # removed for now as creating subfolders could allow them to be subsequently updated directly
+        #  which would result in a version clash between the folder within the "top-level" object
+        #  and any folder beneath it
+        # subfolders_with_uids = []
+        # _get_subfolders_with_uids(body_folder, subfolders_with_uids)
+        #
+        # if not auth.action_authorised_for_authenticated_actor(
+        #     policy,
+        #     {PyehrAccessPolicyEndpointAction.CREATE},
+        #     PyehrAccessPolicyEndpoint.EHR_DIRECTORY,
+        #     body_folder.archetype_node_id
+        # ):
+        #     return _create_unauthorised_response()
+        #
+        # log.info(f"{len(subfolders_with_uids)} subfolders (with UIDs) to be created")
+        # for uid_subfolder in subfolders_with_uids:
+        #     meta = db.retrieve_db_metadata(uid_subfolder.uid)
+        #     if meta is not None and meta.obj_type is not None:
+        #         return _create_error_response(f"400 Bad Request: Subfolder with UID \'{uid_subfolder.uid.value}\' has UID that already exists in database")
+        
+        resp, ovid = create_object(auth, vs, "FOLDER", ObjectRef("local", "EHR", ehid), log)
+
+        if ovid is not None:
+            _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/directory/{ovid.value}", f"ehr://{ehr_id}/directory/{ovid.value}")
+
+            # removed for reasons listed above
+            # for uid_subfolder in subfolders_with_uids:
+            #     vs.create(uid_subfolder, ObjectRef("local", "EHR", ehid), auth.authenticated_actor()[0], VersionLifecycleState.COMPLETE, DVText(f"Created subfolder as part of creating top-level folder {ovid.object_id().value}"), auth.authenticated_actor()[0].external_ref)
+
+            db.add_to_ehr_lists(ehid, ObjectRef("local", "VERSIONED_FOLDER", HierObjectID(ovid.object_id().value)))
+
+        return resp
+        
     
     @ehr_bp.route("/<ehr_id>/composition/<uid_based_id>", methods=['PUT'])
     def update_composition(ehr_id: str, uid_based_id: str):

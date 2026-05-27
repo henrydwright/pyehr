@@ -4,6 +4,7 @@ compliant servers"""
 import json
 
 from pyehr.core.its.rest.additions import UpdateAudit, UpdateContribution, UpdateVersion
+from pyehr.core.rm.common.directory import Folder
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState
 import requests
 from typing import Optional, Union
@@ -32,6 +33,9 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
     composition: '_CompositionClient'
     """Management of COMPOSITION and VERSIONED_COMPOSITION resources."""
 
+    directory: '_DirectoryClient'
+    """Management of FOLDER resources."""
+
     contribution: '_ContributionClient'
     """Management of CONTRIBUTIONs relating to EHR-based objects."""
 
@@ -51,7 +55,7 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
             target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}")
             return self.outer._get_XXX_by_version_id(target_url, "EHR")
         
-        def get_ehr_by_subject_id(self, subject_id: str, subject_namespace: str) -> Union[EHR, list[Union[EHR, EHRAccess, EHRStatus]]]:
+        def get_ehr_by_subject_id(self, subject_id: str, subject_namespace: str) -> OpenEHRRestClientResponse[Union[EHR, list[Union[EHR, EHRAccess, EHRStatus]]]]:
             """Retrieve the EHR with the specified subject_id and subject_namespace.
 
             These subject parameters will be matched against EHR's EHR_STATUS.subject.external_ref.id.value and EHR_STATUS.subject.external_ref.namespace values.
@@ -77,7 +81,7 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
             obj = decode_json(result.json(), target="EHR", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
             return OpenEHRRestClientResponse(obj, result, self.outer._get_metadata_from_result(result))
 
-        def create_ehr(self, ehr_status: Optional[EHRStatus] = None) -> Union[EHR, list[Union[EHR, EHRAccess, EHRStatus]]]:
+        def create_ehr(self, ehr_status: Optional[EHRStatus] = None) -> OpenEHRRestClientResponse[Union[EHR, list[Union[EHR, EHRAccess, EHRStatus]]]]:
             """Create a new EHR with an auto-generated identifier.
 
             An EHR_STATUS resource needs to be always created and committed in the new EHR. This resource MAY be also supplied by the client as the request body. If not supplied, a default EHR_STATUS will be used by the service with following attributes:
@@ -108,7 +112,7 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
             obj = decode_json(result.json(), target="EHR", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
             return OpenEHRRestClientResponse(obj, result, self.outer._get_metadata_from_result(result))
         
-        def create_ehr_with_id(self, ehr_id: HierObjectID, ehr_status: Optional[EHRStatus] = None):
+        def create_ehr_with_id(self, ehr_id: HierObjectID, ehr_status: Optional[EHRStatus] = None) -> OpenEHRRestClientResponse[EHR]:
             """Create a new EHR with the specified ehr_id identifier.
 
             The value of the ehr_id unique identifier MUST be valid HIER_OBJECT_ID value. It is strongly RECOMMENDED that an UUID always be used for this.
@@ -357,6 +361,78 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
             target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/versioned_composition/{versioned_object_uid.value}/version/{version_uid.value}")
             return self.outer._get_versioned_XXX_version_by_id(target_url, "COMPOSITION")
 
+    class _DirectoryClient:
+        def __init__(self, outer: 'OpenEHREHRRestClient'):
+            self.outer = outer
+
+        def create_directory(self, ehr_id: HierObjectID, new_folder: Folder) -> OpenEHRRestClientResponse[Folder]:
+            """Creates a new directory FOLDER associated with the EHR identified by ehr_id.
+            
+            Executes: `POST` on /ehr/{ehr_id}/directory
+            
+            :param ehr_id: EHR identifier taken from EHR.ehr_id.value."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/directory")
+            return self.outer._create_XXX(target_url, "FOLDER", new_folder)
+        
+        def get_folder_in_directory_version_at_time(self, ehr_id: HierObjectID, version_at_time: Optional[ISODateTime] = None, path: Optional[str] = None) -> OpenEHRRestClientResponse[Folder]:
+            """Retrieves the version of the directory FOLDER associated with the EHR identified 
+            by ehr_id. If version_at_time is supplied, retrieves the version extant at specified 
+            time, otherwise retrieves the latest directory FOLDER version.
+
+            If path is supplied, retrieves from the directory only the sub-FOLDER that is 
+            associated with that path.
+            
+            :param ehr_id: EHR identifier taken from EHR.ehr_id.value.
+            :param version_at_time: A given time in the extended ISO 8601 format. 
+            :param path: A path to a sub-folder; consists of slash-separated values of the name 
+            attribute of FOLDERs in the directory."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/directory")
+            return self.outer._get_XXX_by_version_id(target_url, "FOLDER", version_at_time, path)
+        
+        def get_folder(self, ehr_id: HierObjectID, folder_version_id: Union[ObjectVersionID, HierObjectID], path: Optional[str] = None) -> OpenEHRRestClientResponse[Folder]:
+            """Retrieves a particular version of the directory FOLDER identified by version_uid 
+            and associated with the EHR identified by ehr_id.
+
+            If path is supplied, retrieves from the directory only the sub-FOLDER that is 
+            associated with that path.
+
+            :param ehr_id: EHR identifier taken from EHR.ehr_id.value.
+            :param folder_version_id: Per the spec, this MUST be the object version ID of the folder
+                                      you wish to retrieve. However, some servers may support fetching
+                                      the latest version by using the object ID for the folder so the
+                                      client does not restrict this.
+            :param path: A path to a sub-folder; consists of slash-separated values of the name 
+            attribute of FOLDERs in the directory."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/directory/{folder_version_id.value}")
+            return self.outer._get_XXX_by_version_id(target_url, "FOLDER", None, path)
+
+        def update_directory(self, 
+                               ehr_id: HierObjectID, 
+                               new_folder: Folder, 
+                               preceding_folder_version_uid: ObjectVersionID,
+                                version_lifecycle_state: Optional[VersionLifecycleState] = None,
+                                version_audit_change_type: Optional[AuditChangeType] = None,
+                                version_audit_description: Optional[str] = None,
+                                version_committer: Optional[PartyProxy] = None) -> OpenEHRRestClientResponse[Composition]:
+            """Updates directory FOLDER associated with the EHR identified by ehr_id.
+
+            The existing latest version_uid of directory FOLDER resource (i.e. the preceding_version_uid) 
+            must be specified in the If-Match header."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/directory")
+            return self.outer._update_XXX(target_url, "FOLDER", preceding_folder_version_uid, new_folder, version_lifecycle_state, version_audit_change_type, version_audit_description, version_committer)
+        
+        def delete_directory(self,
+                               ehr_id: HierObjectID,
+                               folder_version_id: ObjectVersionID,
+                               version_audit_description: Optional[str] = None,
+                                version_committer: Optional[PartyProxy] = None) -> OpenEHRRestClientResponse[None]:
+            """Deletes directory FOLDER associated with the EHR identified by ehr_id.
+
+            The existing latest version_uid of directory FOLDER resource (i.e. the 
+            preceding_version_uid) must be specified."""
+            target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/directory")
+            return self.outer._delete_XXX(target_url, version_audit_description, version_committer, folder_version_id)
+
     class _ContributionClient:
         def __init__(self, outer: 'OpenEHREHRRestClient'):
             self.outer = outer
@@ -419,4 +495,5 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
         self.ehr_status = self._EHRStatusClient(self)
         self.composition = self._CompositionClient(self)
         self.contribution = self._ContributionClient(self)
+        self.directory = self._DirectoryClient(self)
         super().__init__(base_url, flag_allow_resolved_references)
