@@ -1,5 +1,6 @@
 """Functions and classes for creating and reading OpenEHR JSON files"""
 
+import base64
 from json import JSONEncoder
 import json
 from typing import Union, Optional
@@ -160,6 +161,8 @@ def decode_json(json_obj: dict,
             arg_dict[param_name] = param
         elif type(param) == int:
             arg_dict[param_name] = np.int32(param)
+            if target_type == "DV_COUNT":
+                arg_dict[param_name] = np.int64(param)
         elif type(param) == float:
             arg_dict[param_name] = np.float32(param)
         elif type(param) == dict:
@@ -262,6 +265,16 @@ def decode_json(json_obj: dict,
         arg_dict["terminology_service"] = terminology_service
     elif target_type == "COMPOSITION":
         arg_dict["terminology_service"] = terminology_service
+    elif target_type == "DV_MULTIMEDIA":
+        if "data" in arg_dict:
+            arg_dict["data"] = base64.decodebytes(arg_dict["data"].encode())
+    elif target_type == "DV_INTERVAL":
+        del arg_dict["lower_unbounded"]
+        del arg_dict["upper_unbounded"]
+    elif target_type == "DV_PROPORTION":
+        # uses 'proportion_type' to avoid collision with python keyword type
+        arg_dict["proportion_type"] = arg_dict["type"]
+        del arg_dict["type"]
 
     instance_list = []
     if flag_allow_resolved_references:

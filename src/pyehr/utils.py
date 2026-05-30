@@ -12,7 +12,11 @@ from pyehr.core.its.rest.additions import UpdateVersion
 from pyehr.core.rm.common.change_control import Contribution, OriginalVersion, VersionedObject
 from pyehr.core.rm.common.directory import Folder
 from pyehr.core.rm.composition import Composition
-from pyehr.core.rm.data_types.text import DVText
+from pyehr.core.rm.data_types.encapsulated import DVMultimedia, DVParsable
+from pyehr.core.rm.data_types.quantity import DVCount, DVInterval, DVOrdinal, DVProportion, DVQuantity, DVScale, ReferenceRange
+from pyehr.core.rm.data_types.text import DVParagraph, DVText, TermMapping
+from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecification, DVPeriodicTimeSpecification
+from pyehr.core.rm.data_types.uri import DVEHRUri
 from pyehr.core.rm.demographic import Agent, Organisation, Party, Person, Role
 from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus, VersionedComposition
 from pyehr.core.base.base_types.identification import HierObjectID, InternetID, ObjectRef, ObjectVersionID, GenericID, PartyRef, TerminologyID
@@ -22,8 +26,8 @@ from pyehr.core.rm.common.generic import Attestation, AuditDetails, PartyIdentif
 from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID
 from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemTree
 from pyehr.core.rm.data_structures.representation import Cluster, Element
-from pyehr.core.rm.data_types.basic import DVIdentifier
-from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVDateTime
+from pyehr.core.rm.data_types.basic import DVBoolean, DVIdentifier, DVState
+from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVDateTime, DVDuration, DVTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText, DVUri
 from pyehr.core.rm.demographic import Address, Contact, Organisation, PartyIdentity, Person, VersionedParty
 from pyehr.core.rm.ehr import EHR, EHRStatus, VersionedEHRStatus
@@ -81,8 +85,31 @@ OPENEHR_TYPE_MAP = {
     "RESOURCE_DESCRIPTION": ResourceDescription,
     # RM : datatypes
     "DV_TEXT": DVText,
+    "DV_IDENTIFIER": DVIdentifier,
+    "DV_DATE": DVDate,
+    "DV_CODED_TEXT": DVCodedText,
+    "DV_TIME": DVTime,
+    "DV_BOOLEAN": DVBoolean,
+    "CODE_PHRASE": CodePhrase,
+    "DV_PARSABLE": DVParsable,
+    "TERM_MAPPING": TermMapping,
+    "DV_EHR_URI": DVEHRUri,
     "DV_URI": DVUri,
+    "DV_COUNT": DVCount,
+    "DV_GENERAL_TIME_SPECIFICATION": DVGeneralTimeSpecification,
+    "DV_MULTIMEDIA": DVMultimedia,
     "DV_DATE_TIME": DVDateTime,
+    "DV_QUANTITY": DVQuantity,
+    "DV_DURATION": DVDuration,
+    "DV_INTERVAL": DVInterval,
+    "DV_ORDINAL": DVOrdinal,
+    "DV_PARAGRAPH": DVParagraph,
+    "DV_STATE": DVState,
+    "DV_PERIODIC_TIME_SPECIFICATION": DVPeriodicTimeSpecification,
+    "DV_PROPORTION": DVProportion,
+    "DV_SCALE": DVScale,
+    "REFERENCE_RANGE": ReferenceRange,
+    # RM : Common
     "PARTY_SELF": PartySelf,
     "EHR": EHR,
     "EHR_STATUS": EHRStatus,
@@ -91,10 +118,7 @@ OPENEHR_TYPE_MAP = {
     "PARTY_IDENTITY": PartyIdentity,
     "ITEM_TREE": ItemTree,
     "ELEMENT": Element,
-    "DV_IDENTIFIER": DVIdentifier,
     "CLUSTER": Cluster,
-    "DV_CODED_TEXT": DVCodedText,
-    "CODE_PHRASE": CodePhrase,
     "VERSIONED_EHR_STATUS": VersionedEHRStatus,
     "REVISION_HISTORY": RevisionHistory,
     "REVISION_HISTORY_ITEM": RevisionHistoryItem,
@@ -114,7 +138,6 @@ OPENEHR_TYPE_MAP = {
     "ORGANISATION": Organisation,
     "CONTACT": Contact,
     "ADDRESS": Address,
-    "DV_DATE": DVDate,
     "TEMPLATE": OperationalTemplate,
     "ARCHETYPE": Archetype,
     "C_STRING": CString,

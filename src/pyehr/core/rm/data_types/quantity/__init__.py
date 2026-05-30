@@ -231,8 +231,10 @@ class DVInterval[T](DataValue, IXMLSupport):
                 raise TypeError("DVInterval values must be of type DVOrdered (did you forget to wrap an ordered value in DVOrdered first?)")
         self.value = value
 
-    def __init__(self, value: Optional[Interval[DVOrdered]] = None, lower: Optional[DVOrdered] = None, upper: Optional[DVOrdered] = None):
-        """If value filled it is used, otherwise lower and upper are taken (defaults to a completely unbounded proper interval)"""
+    def __init__(self, value: Optional[Interval[DVOrdered]] = None, lower: Optional[DVOrdered] = None, upper: Optional[DVOrdered] = None, lower_included: Optional[bool] = None, upper_included: Optional[bool] = None):
+        """If value filled it is used, otherwise lower and upper are taken (defaults to a completely unbounded proper interval)
+        
+        upper_included and lower_included are ignored and set to True when lower=upper"""
         if value is not None:
             self._attempt_set_value(value)
         else:
@@ -242,12 +244,12 @@ class DVInterval[T](DataValue, IXMLSupport):
             if (lower is None and upper is None):
                 self._attempt_set_value(ProperInterval[DVOrdered]())
             elif (lower is None and upper is not None) or (lower is not None and upper is None):
-                self._attempt_set_value(ProperInterval[DVOrdered](lower=lower, upper=upper))
+                self._attempt_set_value(ProperInterval[DVOrdered](lower=lower, upper=upper, lower_included=lower_included, upper_included=upper_included))
             else:
                 if lower.is_equal(upper):
                     self._attempt_set_value(PointInterval(point_value=lower))
                 else:
-                    self._attempt_set_value(ProperInterval[DVOrdered](lower=lower, upper=upper))
+                    self._attempt_set_value(ProperInterval[DVOrdered](lower=lower, upper=upper, lower_included=lower_included, upper_included=upper_included))
 
         super().__init__()
 
@@ -725,6 +727,9 @@ class DVAmount(DVQuantified):
     
     def as_json(self):
         draft = super().as_json()
+        if "accuracy" in draft:
+            del draft["accuracy"]
+            draft["accuracy"] = float(self.accuracy)
         if self.accuracy_is_percent is not None:
             draft["accuracy_is_percent"] = self.accuracy_is_percent
         return draft
@@ -813,7 +818,7 @@ class DVQuantity(DVAmount):
     # n.B: normal_range and other_reference_ranges must now have DVQuantity, not DVOrdered
 
     def __init__(self, 
-                 value: np.float32,
+                 magnitude: np.float32,
                  units: str, 
                  units_system: Optional[str] = None,
                  units_display_name: Optional[str] = None,
@@ -827,11 +832,11 @@ class DVQuantity(DVAmount):
                  terminology_service: Optional[TerminologyService] = None):
         if terminology_service is None:
             terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
-        converted_value = value
-        if not (isinstance(value, np.float32) or isinstance(value, float)):
+        converted_value = magnitude
+        if not (isinstance(magnitude, np.float32) or isinstance(magnitude, float)):
             raise TypeError("Value/magnitude must be a Real")
-        if isinstance(value, float):
-            converted_value = np.float32(value)
+        if isinstance(magnitude, float):
+            converted_value = np.float32(magnitude)
         
         if normal_range is not None:
             if normal_range.value.upper is not None and not isinstance(normal_range.value.upper, DVQuantity):
@@ -845,7 +850,7 @@ class DVQuantity(DVAmount):
         self.units_display_name = units_display_name
         self.precision = precision
 
-        super().__init__(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, accuracy_is_percent, terminology_service)
+        super().__init__(magnitude, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, accuracy_is_percent, terminology_service)
 
     def is_strictly_comparable_to(self, other: 'DVQuantity'):
         return (
@@ -907,7 +912,7 @@ class DVQuantity(DVAmount):
         # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_QUANTITY.json
         draft = super().as_json()
         draft["_type"] = "DV_QUANTITY"
-        draft["magnitude"] = self._value
+        draft["magnitude"] = float(self._value)
         draft["units"] = self.units
         if self.precision is not None:
             draft["precision"] = int(self.precision)
@@ -977,14 +982,14 @@ class DVCount(DVAmount):
 
     # n.B: normal_range and other_reference_ranges must now have DVQuantity, not DVOrdered
 
-    def __init__(self, value: np.int64, normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, accuracy : Optional[np.float32] = None, accuracy_is_percent: Optional[bool] = None, terminology_service: Optional[TerminologyService] = None):
+    def __init__(self, magnitude: np.int64, normal_status: Optional[CodePhrase] = None, normal_range: Optional['DVInterval'] = None, other_reference_ranges: Optional[list['ReferenceRange']] = None, magnitude_status : Optional[Union[DVQuantified.MagnitudeStatus, str]] = None, accuracy : Optional[np.float32] = None, accuracy_is_percent: Optional[bool] = None, terminology_service: Optional[TerminologyService] = None):
         if terminology_service is None:
             terminology_service = PyehrGlobalTerminologyService.get_global_terminology_service()
-        converted_value = value
-        if not (isinstance(value, np.int64) or isinstance(value, int)):
+        converted_value = magnitude
+        if not (isinstance(magnitude, np.int64) or isinstance(magnitude, int)):
             raise TypeError("Value/magnitude must be a Integer64")
-        if isinstance(value, int):
-            converted_value = np.int64(value)
+        if isinstance(magnitude, int):
+            converted_value = np.int64(magnitude)
         
         super().__init__(converted_value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy, accuracy_is_percent, terminology_service)
 
@@ -1213,8 +1218,8 @@ class DVProportion(DVAmount):
         # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_PROPORTION.json
         draft = super().as_json()
         draft["_type"] = "DV_PROPORTION"
-        draft["numerator"] = self.numerator
-        draft["denominator"] = self.denominator
+        draft["numerator"] = float(self.numerator)
+        draft["denominator"] = float(self.denominator)
         draft["type"] = int(self.proportion_type)
         if self.precision is not None:
             draft["precision"] = int(self.precision)

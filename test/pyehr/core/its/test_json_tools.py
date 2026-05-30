@@ -362,7 +362,7 @@ def test_its_json_rm_data_type_dv_date_time():
     validate(t_dvdt)
 
 def test_its_json_rm_data_type_dv_quantity():
-    t_dvq = DVQuantity(200.6, 
+    t_dvq = DVQuantity(np.float32(200.6), 
                        units="cm",
                        units_display_name="cm",
                        precision=1,
@@ -413,7 +413,7 @@ def test_its_json_rm_data_type_dv_periodic_time_specification():
     validate(t_dvpts)
 
 def test_its_json_rm_data_type_dv_proportion():
-    t_dvp = DVProportion(95.0, 100.0, ProportionKind.PK_PERCENT)
+    t_dvp = DVProportion(np.float32(95.0), np.float32(100.0), ProportionKind.PK_PERCENT)
 
     validate(t_dvp)
 
