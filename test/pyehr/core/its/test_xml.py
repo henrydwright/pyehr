@@ -1,13 +1,14 @@
 from uuid import UUID
 
 import numpy as np
+from pyehr.core.rm.data_types.basic import DVState
 import pytest
 from xmlschema import XMLSchema
 
 import xml.etree.ElementTree as ET
 
 from pyehr.core.am.aom14.archetype.assertion import Assertion, AssertionVariable, ExprBinaryOperator, ExprLeaf, ExprUnaryOperator, OperatorKind
-from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CMultipleAttribute, CQuantityItem, CSingleAttribute
+from pyehr.core.am.aom14.archetype.constraint_model import AMNonTerminalState, AMStateMachine, AMTerminalState, AMTransition, CCodePhrase, CComplexObject, CDVOrdinal, CDVQuantity, CDVState, CMultipleAttribute, CQuantityItem, CSingleAttribute
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingItem
 from pyehr.core.base.base_types.definitions import ValidityKind
@@ -123,7 +124,10 @@ def test_its_xml_basetypes_hier_object_id():
 
 # DV_IDENTIFIER
 
-# DV_STATE
+def test_its_xml_basetypes_dv_state():
+    st = DVState(DVCodedText("prescription_fulfilled", CodePhrase("local", "prescription_fulfilled")), True)
+    validate(st, "BaseTypes.xsd", "DV_STATE")
+    check_from_xml(st, DVState)
 
 def test_its_xml_basetypes_dv_interval():
     low = DVQuantity(97.5, "cm")
@@ -405,11 +409,63 @@ def test_its_xml_resource_resource_description():
 # =========
 # OpenehrProfile
 
-# C_CODE_PHRASE
+def test_its_xml_openehrprofile_c_code_phrase():
+    t_cc = CCodePhrase(
+        "CODE_PHRASE",
+        PointInterval(np.int32(1)),
+        "",
+        assumed_value=CodePhrase("SNOMED_CT", "49872002"),
+        code_list=["49872002", "84676004"]
+    )
+    validate(t_cc, "OpenehrProfile.xsd", "C_CODE_PHRASE")
+    check_from_xml(t_cc, CCodePhrase)
 
-# C_DV_ORDINAL
+def test_its_xml_openehrprofile_c_dv_ordinal():
+    t_dvo = CDVOrdinal(
+        rm_type_name="DV_ORDINAL",
+        occurrences=PointInterval(np.int32(1)),
+        node_id="",
+        list_var=[
+            DVOrdinal(
+                value=0,
+                symbol=DVCodedText("", defining_code=CodePhrase("local", "at0005"))
+            )
+        ]
+    )
 
-# C_DV_QUANTITY
+    validate(t_dvo, "OpenehrProfile.xsd", "C_DV_ORDINAL")
+    check_from_xml(t_dvo, CDVOrdinal)
+
+def test_its_xml_openehrprofile_c_dv_quantity():
+    t_cdvq = CDVQuantity(
+        rm_type_name="DV_QUANTITY",
+        occurrences=PointInterval(np.int32(1)),
+        node_id="",
+        property_var=CodePhrase("openehr", "122"),
+        list_var=[
+            CQuantityItem(
+                units="cm",
+                magnitude=ProperInterval[np.float32](
+                    lower=np.float32(0.0),
+                    upper=np.float32(500.0),
+                    lower_included=True,
+                    upper_included=True
+                )
+            ),
+            CQuantityItem(
+                units="[in_i]",
+                magnitude=ProperInterval[np.float32](
+                    lower=np.float32(0.0),
+                    upper=np.float32(250.0),
+                    lower_included=True,
+                    upper_included=True
+                )
+            )
+        ]
+    )
+
+    validate(t_cdvq, "OpenehrProfile.xsd", "C_DV_QUANTITY")
+    check_from_xml(t_cdvq, CDVQuantity)
 
 def test_its_xml_openehrprofile_c_quantity_item():
     t_cqi = CQuantityItem("mm[Hg]", ProperInterval(np.float32(0.0), np.float32(1000.0), True, False), PointInterval(np.int32(0)))
@@ -417,12 +473,59 @@ def test_its_xml_openehrprofile_c_quantity_item():
     validate(t_cqi, "OpenehrProfile.xsd", "C_QUANTITY_ITEM")
     check_from_xml(t_cqi, CQuantityItem)
 
-# C_DV_STATE
+def test_its_xml_openehrprofile_c_dv_state():
+    t_cdvs = CDVState(
+        "DV_STATE",
+        PointInterval(np.int32(1)),
+        node_id="",
+        value=AMStateMachine(
+            states=[
+                AMTerminalState("test_state")
+            ]
+        ),
+        assumed_value=DVState(
+            value=DVCodedText("test_state", CodePhrase("local", "test_state")),
+            is_terminal=True
+        )
+    )
 
-# STATE_MACHINE
+    validate(t_cdvs, "OpenehrProfile.xsd", "C_DV_STATE")
+    check_from_xml(t_cdvs, CDVState)
 
-# NON_TERMINAL_STATE
+def test_its_xml_openehrprofile_state_machine():
+    t_sm = AMStateMachine(
+        states=[
+            AMTerminalState("test_state")
+        ]
+    )
 
-# TERMINAL_STATE
+def test_its_xml_openehrprofile_non_terminal_state():
+    t_nts = AMNonTerminalState(
+        name="prescription_drafted",
+        transitions=[
+            AMTransition(
+                event="sign_prescription",
+                action="sign",
+                guard="check_authority",
+                next_state=AMTerminalState("prescription_signed")
+            )
+        ])
+    
+    validate(t_nts, "OpenehrProfile.xsd", "NON_TERMINAL_STATE")
+    check_from_xml(t_nts, AMNonTerminalState)
 
-# TRANSITION
+def test_its_xml_openehrprofile_terminal_state():
+    t_ts = AMTerminalState("prescription_fulfilled")
+
+    validate(t_ts, "OpenehrProfile.xsd", "TERMINAL_STATE")
+    check_from_xml(t_ts, AMTerminalState)
+
+def test_its_xml_openehrprofile_transition():
+    t_t = AMTransition(
+        event="prescribe",
+        action="provide medication",
+        guard="check prescription"
+    )
+
+    validate(t_t, "OpenehrProfile.xsd", "TRANSITION")
+    check_from_xml(t_t, AMTransition)

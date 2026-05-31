@@ -3,7 +3,9 @@ state (in a state machine) and real-world entity identifiers (see the openEHR
 Common IM for a discussion on identifier types)."""
 
 from typing import Optional
+import xml.etree.ElementTree as ET
 
+from pyehr.core.its.xml import IXMLSupport
 from pyehr.core.rm.data_types import DataValue
 from pyehr.core.rm.data_types.text import DVCodedText
 
@@ -31,7 +33,7 @@ class DVBoolean(DataValue):
             "value": self.value
         }
 
-class DVState(DataValue):
+class DVState(DataValue, IXMLSupport):
     """For representing state values which obey a defined state machine, such as a variable representing the states of an instruction or care process.
 
     DV_STATE is expressed as a String but its values are driven by archetype-defined state machines. This provides a powerful way of capturing stateful complex processes in simple data."""
@@ -61,6 +63,21 @@ class DVState(DataValue):
             "value": self.value.as_json(),
             "is_terminal": self.is_terminal
         }
+    
+    def as_xml(self, root_tag = None):
+        root = ET.Element("dv_state" if root_tag is None else root_tag)
+        root.append(self.value.as_xml("value"))
+        term_el = ET.Element("is_terminal")
+        term_el.text = str(self.is_terminal).lower()
+        root.append(term_el)
+        return root
+    
+    @staticmethod
+    def from_xml(root, **kwargs):
+        val_el = root.find("./value")
+        val = DVCodedText.from_xml(val_el)
+        is_term = (root.findtext("./is_terminal") == "true")
+        return DVState(val, is_term)
 
 class DVIdentifier(DataValue):
     """Type for representing identifiers of real-world entities. Typical identifiers include drivers licence number, social security number, veterans affairs number, prescription id, order id, and so on.

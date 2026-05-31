@@ -121,18 +121,30 @@ class OperationalTemplate(AnyClass, IXMLSupport):
         return root
     
     def from_xml(root: ET.Element, **kwargs) -> 'OperationalTemplate':
+        warnings.warn("OPERATIONAL_TEMPLATE parsing is not fully implemented so elements will be missing")
+        
         lang = CodePhrase.from_xml(root.find("./language"))
         is_cont = (root.findtext("./is_controlled") == "true")
         desc = root.find("./description")
         if desc is not None:
             desc = ResourceDescription.from_xml(desc)
-        # rev_his
+
+        # TODO: revision_history
+
         uid = root.find("./uid")
         if uid is not None:
             uid = HierObjectID.from_xml(uid)
         tid = TemplateID.from_xml(root.find("./template_id"))
         concept = root.findtext("./concept")
         definition = CArchetypeRoot.from_xml(root.find("./definition"))
+
+        # TODO : ontology
+        # TODO : component_ontologies
+
+        # TODO : annotation
+
+        # TODO : constraints
+        # TODO : view
         
         return OperationalTemplate(lang, tid, concept, is_controlled=is_cont, description=desc, uid=uid, definition=definition)
     

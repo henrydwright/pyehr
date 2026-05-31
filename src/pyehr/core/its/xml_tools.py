@@ -24,9 +24,9 @@ def from_arbitrary_xml(root: ET.Element,
         if target is None:
             target = root.tag.upper()
 
-    if target == "xsd:string":
+    if ":string" in target:
         return root.text
-    elif target == "xsd:boolean":
+    elif ":boolean" in target:
         return (root.text == "true")
 
     if target not in OPENEHR_TYPE_MAP:
