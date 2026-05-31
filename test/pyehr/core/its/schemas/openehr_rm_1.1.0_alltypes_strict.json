@@ -244,6 +244,12 @@
                     "$ref": "#/definitions/EHR"
                 },
                 {
+                    "$ref": "#/definitions/EHR_STATUS"
+                },
+                {
+                    "$ref": "#/definitions/EHR_ACCESS"
+                },
+                {
                     "$ref": "#/definitions/ISM_TRANSITION"
                 },
                 {

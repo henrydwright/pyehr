@@ -10,21 +10,24 @@ from pyehr.core.its.rest.additions import UpdateAttestation, UpdateAudit, Update
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.its.rest.additions import UpdateVersion
 from pyehr.core.rm.common.change_control import Contribution, OriginalVersion, VersionedObject
-from pyehr.core.rm.common.directory import Folder
-from pyehr.core.rm.composition import Composition
+from pyehr.core.rm.common.directory import Folder, VersionedFolder
+from pyehr.core.rm.composition import Composition, EventContext
+from pyehr.core.rm.composition.content.entry import Action, Activity, AdminEntry, Evaluation, ISMTransition, Instruction, InstructionDetails, Observation
+from pyehr.core.rm.composition.content.navigation import Section
+from pyehr.core.rm.data_structures.history import History, IntervalEvent, PointEvent
 from pyehr.core.rm.data_types.encapsulated import DVMultimedia, DVParsable
 from pyehr.core.rm.data_types.quantity import DVCount, DVInterval, DVOrdinal, DVProportion, DVQuantity, DVScale, ReferenceRange
 from pyehr.core.rm.data_types.text import DVParagraph, DVText, TermMapping
 from pyehr.core.rm.data_types.time_specification import DVGeneralTimeSpecification, DVPeriodicTimeSpecification
 from pyehr.core.rm.data_types.uri import DVEHRUri
-from pyehr.core.rm.demographic import Agent, Organisation, Party, Person, Role
+from pyehr.core.rm.demographic import Agent, Capability, Group, Organisation, Party, PartyRelationship, Person, Role
 from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus, VersionedComposition
 from pyehr.core.base.base_types.identification import HierObjectID, InternetID, ObjectRef, ObjectVersionID, GenericID, PartyRef, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion, VersionedObject
-from pyehr.core.rm.common.generic import Attestation, AuditDetails, PartyIdentified, PartySelf, RevisionHistory, RevisionHistoryItem
-from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID
-from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemTree
+from pyehr.core.rm.common.generic import Attestation, AuditDetails, Participation, PartyIdentified, PartyRelated, PartySelf, RevisionHistory, RevisionHistoryItem
+from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID, FeederAudit, FeederAuditDetails, Link
+from pyehr.core.rm.data_structures.item_structure import ItemList, ItemSingle, ItemTable, ItemTree
 from pyehr.core.rm.data_structures.representation import Cluster, Element
 from pyehr.core.rm.data_types.basic import DVBoolean, DVIdentifier, DVState
 from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVDateTime, DVDuration, DVTime
@@ -83,7 +86,7 @@ OPENEHR_TYPE_MAP = {
     "TRANSLATION_DETAILS": TranslationDetails,
     "RESOURCE_DESCRIPTION_ITEM": ResourceDescriptionItem,
     "RESOURCE_DESCRIPTION": ResourceDescription,
-    # RM : datatypes
+    # RM : Data Types
     "DV_TEXT": DVText,
     "DV_IDENTIFIER": DVIdentifier,
     "DV_DATE": DVDate,
@@ -110,44 +113,76 @@ OPENEHR_TYPE_MAP = {
     "DV_SCALE": DVScale,
     "REFERENCE_RANGE": ReferenceRange,
     # RM : Common
-    "PARTY_SELF": PartySelf,
-    "EHR": EHR,
-    "EHR_STATUS": EHRStatus,
+    "ATTESTATION": Attestation,
+    "CONTRIBUTION": Contribution,
+    "FEEDER_AUDIT": FeederAudit,
+    "LINK": Link,
+    "ORIGINAL_VERSION": OriginalVersion,
+    "VERSIONED_OBJECT": VersionedObject,
     "ARCHETYPED": Archetyped,
-    "PERSON": Person,
-    "PARTY_IDENTITY": PartyIdentity,
-    "ITEM_TREE": ItemTree,
-    "ELEMENT": Element,
-    "CLUSTER": Cluster,
-    "VERSIONED_EHR_STATUS": VersionedEHRStatus,
-    "REVISION_HISTORY": RevisionHistory,
+    "PARTY_RELATED": PartyRelated,
     "REVISION_HISTORY_ITEM": RevisionHistoryItem,
+    "FOLDER": Folder,
+    "VERSIONED_FOLDER": VersionedFolder,
+    "FEEDER_AUDIT_DETAILS": FeederAuditDetails,
+    "PARTICIPATION": Participation,
+    "IMPORTED_VERSION": ImportedVersion,
+    "PARTY_SELF": PartySelf,
+    "REVISION_HISTORY": RevisionHistory,
     "AUDIT_DETAILS": AuditDetails,
     "PARTY_IDENTIFIED": PartyIdentified,
-    "ORIGINAL_VERSION": OriginalVersion,
-    "IMPORTED_VERSION": ImportedVersion,
-    "CONTRIBUTION": Contribution,
+    # RM : Data Structures
+    "INTERVAL_EVENT": IntervalEvent,
+    "ITEM_TABLE": ItemTable,
+    "CLUSTER": Cluster,
+    "ITEM_LIST": ItemList,
+    "ITEM_TREE": ItemTree,
+    "HISTORY": History,
+    "POINT_EVENT": PointEvent,
+    "ELEMENT": Element,
     "ITEM_SINGLE": ItemSingle,
+    # RM : EHR
+    "EHR": EHR,
+    "EHR_STATUS": EHRStatus,
+    "EHR_ACCESS": EHRAccess,
+    "VERSIONED_EHR_STATUS": VersionedEHRStatus,
     "VERSIONED_PARTY": VersionedParty,
-    "VERSIONED_OBJECT": VersionedObject,
-    "ATTESTATION": Attestation,
+    # RM : Composition
+    "ISM_TRANSITION": ISMTransition,
+    "INSTRUCTION": Instruction,
+    "ADMIN_ENTRY": AdminEntry,
+    "ACTIVITY": Activity,
+    "COMPOSITION": Composition,
+    "VERSIONED_COMPOSITION": VersionedComposition,
+    "INSTRUCTION_DETAILS": InstructionDetails,
+    "EVALUATION": Evaluation,
+    "EVENT_CONTEXT": EventContext,
+    "SECTION": Section,
+    "OBSERVATION": Observation,
+    "ACTION": Action,
+    # RM : Demographic
+    "GROUP": Group,
+    "PARTY_IDENTITY": PartyIdentity,
+    "PERSON": Person,
+    "AGENT": Agent,
+    "ROLE": Role,
+    "CONTACT": Contact,
+    "ORGANISATION": Organisation,
+    "PARTY_RELATIONSHIP": PartyRelationship,
+    "ADDRESS": Address,
+    "CAPABILITY": Capability,
+    # REST API classes
     "UPDATE_CONTRIBUTION": UpdateContribution,
     "UPDATE_VERSION": UpdateVersion,
     "UPDATE_AUDIT": UpdateAudit,
     "UPDATE_ATTESTATION": UpdateAttestation,
-    "ORGANISATION": Organisation,
-    "CONTACT": Contact,
-    "ADDRESS": Address,
+    # AM
     "TEMPLATE": OperationalTemplate,
     "ARCHETYPE": Archetype,
     "C_STRING": CString,
-    "AGENT": Agent,
-    "COMPOSITION": Composition,
-    "VERSIONED_COMPOSITION": VersionedComposition,
-    "ROLE": Role,
+    # PYEHR CLASSES
     "PYEHR_ACCESS_CONTROL_SETTINGS": PyehrAccessControlSettings,
     "PYEHR_ACCESS_POLICY_ITEM": PyehrAccessPolicyItem,
-    "FOLDER": Folder
 }
 """Map of OpenEHR string type names (e.g. as found in '_type' JSON) to pyehr Python types"""
 

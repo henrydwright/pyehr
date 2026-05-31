@@ -127,7 +127,7 @@ class EventContext(Pathable):
             return False
     
     def is_equal(self, other):
-        return (super().is_equal(other) and
+        return (type(self) == type(other) and
                 is_equal_value(self.start_time, other.start_time) and
                 is_equal_value(self.end_time, other.end_time) and
                 is_equal_value(self.setting, other.setting) and

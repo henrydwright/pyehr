@@ -38,7 +38,7 @@ from pyehr.core.rm.common.directory import Folder
 from pyehr.core.rm.data_structures.representation import Cluster, Element
 from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemList, ItemTable, ItemTree
 
-from pyehr.core.rm.ehr import EHR
+from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus
 
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
@@ -678,9 +678,8 @@ def test_its_json_rm_data_structures_interval_event():
         parent=hs
     )
 
-    print(t_iev)
-
-    validate(t_iev)
+    # need to validate with history as events are not valid on their own
+    validate(hs)
 
 def test_its_json_rm_data_structures_item_table():
     ev = DVProportion(6.0, 6.0, ProportionKind.PK_RATIO)
@@ -894,9 +893,8 @@ def test_its_json_rm_data_structures_point_event():
         parent=hs
     )
 
-    print(t_ev)
-
-    validate(t_ev)
+    # need to validate with history as events are not valid without a parent
+    validate(hs)
 
 def test_its_json_rm_data_structures_element():
     t_e = Element(
@@ -925,9 +923,32 @@ def test_its_json_rm_data_structures_item_single():
 # ==========
 # RM.ehr: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Ehr
 
-# TODO: EHR_STATUS
+def test_its_json_rm_ehr_ehr_status():
+    t_es = EHRStatus(
+        name=DVText("EHR status"),
+        archetype_node_id="openEHR-EHR-EHR_STATUS.generic.v1",
+        subject=PartySelf(),
+        is_queryable=True,
+        is_modifiable=True,
+        archetype_details=Archetyped(
+            archetype_id=ArchetypeID("openEHR-EHR-EHR_STATUS.generic.v1"),
+            rm_version="1.1.0"
+        )
+    )
 
-# TODO: EHR_ACCESS
+    validate(t_es)
+
+def test_its_json_rm_ehr_ehr_access():
+    t_ea = EHRAccess(
+        name=DVText("EHR Access"),
+        archetype_node_id="openEHR-EHR-EHR_ACCESS.generic.v1",
+        archetype_details=Archetyped(
+            archetype_id=ArchetypeID("openEHR-EHR-EHR_ACCESS.generic.v1"),
+            rm_version="1.1.0"
+        )
+    )
+
+    validate(t_ea)
 
 def test_its_json_rm_ehr_ehr():
     t_ehr = EHR(
@@ -1132,7 +1153,6 @@ def test_its_json_rm_composition_event_context():
     t_ec = EventContext(
         start_time=DVDateTime("2025-12-29"),
         setting=DVCodedText("home", CodePhrase(TerminologyID("openehr"), "225")),
-        
         participations=[Participation(DVText("observer"), PartyIdentified(name="Miss M Student"))]
     )
 

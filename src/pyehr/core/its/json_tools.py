@@ -107,6 +107,7 @@ def _obj_uid_or_none(obj: AnyClass) -> Optional[ObjectID]:
         return uid
 
 def decode_json(json_obj: dict, 
+                python_params: Optional[dict] = None,
                 target: Optional[str] = None,
                 terminology_service: Optional[TerminologyService] = None,
                 flag_allow_resolved_references: bool = True,
@@ -116,6 +117,7 @@ def decode_json(json_obj: dict,
                 flag_replace_empty_dv_text_with_null: bool = True) -> Union[AnyClass, list[AnyClass]]:
     """Decodes Python objects (from JSON) to pyehr.core objects.
     
+    :param python_params: (Optional) Dict of Python parameters to provide at class creation (e.g. for references to parents)
     :param target_type: (Optional) Set the target type to decode to explicitly. Overrides the '_type' parameter, if present.
     :param terminology_service: (Optional) Provide a terminology service, if not provided, uses the inbuilt pyehr terminology service.
     :param flag_allow_resolved_references: (Optional, default=True) Some APIs do not return OBJECT_REF as per the OpenEHR
@@ -143,6 +145,7 @@ def decode_json(json_obj: dict,
         target_type = target
     else:
         if '_type' not in json_obj:
+            print(str(json_obj))
             raise ValueError("Could not decode object: '_type' attribute not present")
         target_type = json_obj['_type']
     
@@ -154,6 +157,8 @@ def decode_json(json_obj: dict,
     if '_type' in json_obj:
         # not a valid argument
         del json_obj['_type']
+
+    create_parent_first_params = dict()
 
     arg_dict = dict()
     for (param_name, param) in json_obj.items():
@@ -172,7 +177,11 @@ def decode_json(json_obj: dict,
             elif target_type == "RESOURCE_DESCRIPTION" and param_name in ["original_author", "ip_acknowledgements", "references", "conversion_details", "other_details"]:
                 arg_dict[param_name] = param
                 continue
+            elif (target_type == "POINT_EVENT" or target_type == "INTERVAL_EVENT") and (python_params is None):
+                raise ValueError("Cannot decode 'POINT_EVENT' or 'INTERVAL_EVENT' unless they are part of 'events' in a HISTORY.")
+            
             type_hint = None
+            
             # TODO: replace this with proper hinting and lookups from the schema
             if flag_infer_missing_type_details and target_type == "EHR_STATUS" and param_name == "archetype_details":
                 type_hint = "ARCHETYPED"
@@ -188,13 +197,17 @@ def decode_json(json_obj: dict,
             if target_type == "PYEHR_ACCESS_POLICY_ITEM":
                 if param_name == "actions":
                     arg_dict["actions"] = [PyehrAccessPolicyEndpointAction(action) for action in param]
-                    return
+                    continue
                 elif param_name == "endpoints":
                     arg_dict["endpoints"] = [PyehrAccessPolicyEndpoint(endpoint) for endpoint in param]
-                    return
+                    continue
                 elif param_name == "archetype_ids":
                     arg_dict["archetype_ids"] = param
-                    return
+                    continue
+            elif target_type == "HISTORY":
+                if param_name == "events":
+                    create_parent_first_params["events"] = param
+                    continue
             arg_dict[param_name] = [decode_json(list_item, terminology_service=terminology_service) for list_item in param]
         else:
             raise RuntimeError(f"Could not decode object: unknown type of parameter \'{type(param)}\' encountered during parsing")
@@ -242,6 +255,14 @@ def decode_json(json_obj: dict,
         # pyehr library used 'addr_type' to clarify meaning of inherited 'name' field
         arg_dict["addr_type"] = arg_dict["name"]
         del arg_dict["name"]
+    elif target_type == "GROUP":
+        # pyehr library used 'actor_type' to clarify meaning of inherited 'name' field
+        arg_dict["actor_type"] = arg_dict["name"]
+        del arg_dict["name"]
+    elif target_type == "PARTY_RELATIONSHIP":
+        # pyehr library used 'rel_type' to clarify meaning of inherited 'name' field
+        arg_dict["rel_type"] = arg_dict["name"]
+        del arg_dict["name"]
     elif target_type == "CONTACT":
         # pyehr library used 'purpose' to clarify meaning of inherited 'name' field
         arg_dict["purpose"] = arg_dict["name"]
@@ -274,6 +295,10 @@ def decode_json(json_obj: dict,
     elif target_type == "DV_PROPORTION":
         # uses 'proportion_type' to avoid collision with python keyword type
         arg_dict["proportion_type"] = arg_dict["type"]
+        del arg_dict["type"]
+    elif target_type == "LINK":
+        # uses 'link_type' to avoid collision with python keyword type
+        arg_dict["link_type"] = arg_dict["type"]
         del arg_dict["type"]
 
     instance_list = []
@@ -309,7 +334,22 @@ def decode_json(json_obj: dict,
                             else:
                                 arg_dict[oref_param] = ObjectRef("pyehr_decode_json", oref_type, GenericID(str(i), "list_index"))
 
+    if python_params is not None:
+        for (param_name, param) in python_params.items():
+            arg_dict[param_name] = param
+
     result = target_cls(**arg_dict)
+
+    if create_parent_first_params is not None:
+        for (param_name, param) in create_parent_first_params.items():
+            decoded = None
+            if isinstance(param, list):
+                decoded = [decode_json(list_item, python_params={"parent": result}, terminology_service=terminology_service) for list_item in param]
+            else:
+                decoded = decode_json(param, python_params={"parent": result}, terminology_service=terminology_service)
+
+            setattr(result, param_name, decoded)
+
 
     if len(instance_list) > 0:
         instance_list.append(result)

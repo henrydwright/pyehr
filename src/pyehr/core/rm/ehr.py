@@ -279,13 +279,14 @@ class EHRAccess(Locatable):
     
     def is_equal(self, other: 'EHRAccess'):
         return (super().is_equal(other) and
-                self.settings.is_equal(other.settings))
+                is_equal_value(self.settings, other.settings))
     
     def as_json(self):
         draft = super().as_json()
         if self.settings is not None:
             draft["settings"] = self.settings.as_json()
         draft["_type"] = "EHR_ACCESS"
+        return draft
 
     def item_at_path(self, a_path):
         return super().item_at_path(a_path)

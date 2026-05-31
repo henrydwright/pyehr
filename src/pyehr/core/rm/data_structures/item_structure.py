@@ -91,6 +91,10 @@ class ItemSingle(ItemStructure):
     def as_hierarchy(self):
         return self.item
     
+    def is_equal(self, other):
+        return (super().is_equal(other) and
+                is_equal_value(self.item, other.item))
+    
     def as_json(self):
         # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_structures/ITEM_SINGLE.json
         draft = super().as_json()
@@ -259,6 +263,10 @@ class ItemList(ItemStructure):
             return self._pred_item(path.current_node_predicate, path.current_node_predicate_type).path_unique(path.remaining_path if path.remaining_path is not None else "")
         else:
             return False
+        
+    def is_equal(self, other):
+        return (super().is_equal(other) and
+                is_equal_value(self.items, other.items))
             
     def as_json(self):
         # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_structures/ITEM_LIST.json
