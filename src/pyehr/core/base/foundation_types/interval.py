@@ -147,17 +147,21 @@ class Interval[T : ordered](AnyClass, IXMLSupport):
         if self.lower is not None:
             if isinstance(self._lower, AnyClass):
                 draft["lower"] = self._lower.as_json()
+            elif isinstance(self._lower, np.int32):
+                draft["lower"] = int(self._lower)
+            elif isinstance(self._lower, np.float32):
+                draft["lower"] = float(self._lower)
             else:
-                draft["lower"] = {
-                    "value": str(self._lower)
-                }
+                draft["lower"] = self._lower
         if self.upper is not None:
             if isinstance(self._upper, AnyClass):
                 draft["upper"] = self._upper.as_json()
+            elif isinstance(self._upper, np.int32):
+                draft["upper"] = int(self._upper)
+            elif isinstance(self._lower, np.float32):
+                draft["upper"] = float(self._upper)
             else:
-                draft["upper"] = {
-                    "value": str(self._upper)
-                }
+                draft["upper"] = self._upper
         return draft
     
     def as_xml(self, root_tag = None, dv_interval_ordering=False):
@@ -260,7 +264,7 @@ class PointInterval[T : ordered](Interval[T]):
 
     def __init__(self, point_value : ordered, **kwargs):
         self.point = point_value
-        super().__init__(**kwargs)
+        super().__init__()
 
     # change default field values
     _lower_included : bool = True

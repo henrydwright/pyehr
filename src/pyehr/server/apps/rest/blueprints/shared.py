@@ -452,7 +452,7 @@ def _parse_request_body(target_type: str):
         return _create_error_response(f"415 Unsupported Media Type: Server cannot parse the OpenEHR \'{str(parse_format)}\' format", 415)
     else:
         # the loads, dumps series is to make a deep copy
-        return decode_json(json.loads(json.dumps(request.get_json())), target_type)
+        return decode_json(json.loads(json.dumps(request.get_json())), target=target_type)
 
 def _get_lifecycle_state(fallback_value: VersionLifecycleState, log: Logger):
     header_state : VersionLifecycleState = g.processed_headers.version_lifecycle_state

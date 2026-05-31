@@ -211,7 +211,7 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
                 # decode here back to a pyehr object
                 decodable_candidate = candidate_dict
                 del decodable_candidate["_id"]
-                returns.append(decode_json(candidate, obj_type))
+                returns.append(decode_json(candidate, target=obj_type))
         
         # step 4: log the reads in metadata
         for ret_item in returns:
@@ -278,8 +278,8 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
         del combined_vo["revision_history"]
         del combined_vo["_id"]
 
-        rev_history = decode_json(rev_history_json, "REVISION_HISTORY")
-        meta_only_vo = decode_json(combined_vo, "VERSIONED_OBJECT")
+        rev_history = decode_json(rev_history_json, target="REVISION_HISTORY")
+        meta_only_vo = decode_json(combined_vo, target="VERSIONED_OBJECT")
 
         if metadata_only_versioned_object:
             self._log.info(f"{uid.value}:Retrieved VERSIONED_OBJECT (metadata and revision history only)")
@@ -441,7 +441,7 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             raise ValueError(f"Cannot add items to lists in EHR \'{ehr_id.value}\' as it did not exist")
         
         ehr_collection = self._database.get_collection("EHR")
-        ehr : EHR = decode_json(ehr_collection.find_one(filter={"_id": ehr_id.value}), "EHR")
+        ehr : EHR = decode_json(ehr_collection.find_one(filter={"_id": ehr_id.value}), target="EHR")
 
         update_dict = None
         if addition.ref_type == "CONTRIBUTION":

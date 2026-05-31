@@ -50,7 +50,7 @@ class DVState(DataValue):
     def is_equal(self, other: 'DVState'):
         return(
             type(self) == type(other) and
-            self.value == other.value and
+            self.value.is_equal(other.value) and
             self.is_terminal == other.is_terminal
         )
     

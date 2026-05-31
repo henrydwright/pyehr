@@ -67,7 +67,7 @@ print(str(new_date))
 |-|-|
 |Base model (BASE)|✅ Complete |
 |Reference model (RM)|✅ Complete (aside from rm.extract and rm.integration) |
-|Implementation technology (ITS) - JSON|✅ Serialisation complete for all implemented classes, but deserialisation still under development |
+|Implementation technology (ITS) - JSON|✅ Serialisation and deserialisation complete and stable for all implemented classes |
 | Archetype model (AOM v1.4 and OPT v1.4) | 🟠 Partial implementation for serialisation/deserialisation but methods unimplemented |
 |Implementation technology (ITS) - XML|🟠 Some support for parsing AOM v1.4 archetypes and templates, limited support elsewhere |
 | Archetype model (AOM v2) | ❌ Unsupported |

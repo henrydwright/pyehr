@@ -1,3 +1,4 @@
+from pyehr.core.base.foundation_types.any import AnyClass
 import pytest
 import json
 
@@ -12,7 +13,7 @@ from pyehr.core.base.base_types.identification import LocatableRef, TerminologyI
 from pyehr.core.base.base_types.identification import TerminologyID, ISOOID, UUID, InternetID, VersionTreeID, HierObjectID, ObjectVersionID, ArchetypeID, TemplateID, GenericID, ObjectRef, PartyRef
 from pyehr.core.base.resource import TranslationDetails, ResourceDescriptionItem, ResourceDescription, AuthoredResource
 
-from pyehr.core.its.json_tools import OpenEHREncoder
+from pyehr.core.its.json_tools import OpenEHREncoder, decode_json
 
 from pyehr.core.rm.data_structures.history import History, IntervalEvent, PointEvent
 from pyehr.core.rm.data_types.text import DVText, DVUri, DVCodedText, CodePhrase, TermMapping, DVParagraph
@@ -37,44 +38,56 @@ from pyehr.core.rm.common.directory import Folder
 from pyehr.core.rm.data_structures.representation import Cluster, Element
 from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemList, ItemTable, ItemTree
 
-from pyehr.core.rm.ehr import EHR
+from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus
 
 # as_json methods are not tested in individual module tests, rather they are tested
 #  here so they can be assessed against the list at https://specifications.openehr.org/releases/ITS-JSON/development/components/
 
-def validate(json_obj):
+def validate(obj: AnyClass, lossless_seri_deseri: bool = True):
     _schema = json.loads(open("test/pyehr/core/its/schemas/openehr_rm_1.1.0_alltypes_strict.json").read())
     # keep this as a separate method so we can switch to a different validator
     #  at a future date if we need to
+    json_obj = obj.as_json()
     jsonschema.validate(json_obj, _schema)
+    # ensure serialise->deserialise is lossless for the same object
+    if lossless_seri_deseri:
+        assert_seri_deseri_equal(obj)
+
+def assert_seri_deseri_equal(obj):
+    """Tests that decode_json(obj.as_json()) is equal to obj (i.e. serialising and deserialising loses no detail)"""
+    print(obj.as_json())
+    decoded = decode_json(json.loads(json.dumps(obj.as_json())))
+    print(decoded.as_json())
+    assert decoded.is_equal(obj)
 
 # ==========
 # BASE.foundation_types: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types
 
 def test_its_json_foundation_date():
-    dt = ISODate("2025-11-03").as_json()
+    dt = ISODate("2025-11-03")
     
     validate(dt)
+    assert_seri_deseri_equal(dt)
 
 # ARRAY just uses a numpy array so would never be serialised as an object
 
 def test_its_json_foundation_interval():
-    pi_json = PointInterval[np.int32](np.int32(0)).as_json()
+    pi_json = PointInterval[np.int32](np.int32(0))
     validate(pi_json)
 
-    pri_json = ProperInterval[str](lower="SMITH", lower_included=True).as_json()
+    pri_json = ProperInterval[str](lower="SMITH", lower_included=True)
     validate(pri_json)
 
-    mi_json = MultiplicityInterval(lower=np.int32(0), upper=np.int32(1)).as_json()
-    validate(mi_json)
+    mi_json = MultiplicityInterval(lower=np.int32(0), upper=np.int32(1))
+    validate(mi_json, lossless_seri_deseri=False)
 
 def test_its_json_foundation_time():
-    tm = ISOTime("08:48").as_json()
+    tm = ISOTime("08:48")
 
     validate(tm)
 
 def test_its_json_foundation_duration():
-    dur = ISODuration("P2Y").as_json()
+    dur = ISODuration("P2Y")
 
     validate(dur)
 
@@ -83,19 +96,19 @@ def test_its_json_foundation_duration():
 def test_its_json_foundation_terminology_code():
     # TODO: specification and JSON specification disagree on whether Uri is required or not
     #  trusting spec, and modifying JSON spec to pass test
-    tc = TerminologyCode("SNOMED-CT", "71341001").as_json()
+    tc = TerminologyCode("SNOMED-CT", "71341001")
 
     validate(tc)
 
 # set and list are represented as built in Python/JSON objects so would never be serialised as an object
 
 def test_its_json_foundation_terminology_term():
-    tt = TerminologyTerm(TerminologyCode("SNOMED-CT", "71341001"), "Bone structure of femur (body structure)").as_json()
+    tt = TerminologyTerm(TerminologyCode("SNOMED-CT", "71341001"), "Bone structure of femur (body structure)")
 
     validate(tt)
 
 def test_its_json_foundation_date_time():
-    dt = ISODateTime("2025-11-03T09:03:00Z").as_json()
+    dt = ISODateTime("2025-11-03T09:03:00Z")
 
     validate(dt)
 
@@ -103,7 +116,7 @@ def test_its_json_foundation_date_time():
 # BASE.base_types: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Base_types
 
 def test_its_json_base_internet_id():
-    ii_json = InternetID("org.example.ehr").as_json()
+    ii_json = InternetID("org.example.ehr")
 
     validate(ii_json)
 
@@ -111,22 +124,22 @@ def test_its_json_base_internet_id():
 #  this as an issue to raise with spec
 
 def test_its_json_base_object_ref():
-    orf_json = ObjectRef("net.example.ehr", "CONTRIBUTION", HierObjectID("1826ea47-e98b-4779-b201-80db3af5de92")).as_json()
+    orf_json = ObjectRef("net.example.ehr", "CONTRIBUTION", HierObjectID("1826ea47-e98b-4779-b201-80db3af5de92"))
 
     validate(orf_json)
 
 def test_its_json_base_party_ref():
-    prf_json = PartyRef("local_active_directory", "PERSON", GenericID("TU999", "local")).as_json()
+    prf_json = PartyRef("local_active_directory", "PERSON", GenericID("TU999", "local"))
 
     validate(prf_json)
 
 def test_its_json_base_template_id():
-    tid_json = TemplateID("Glucose test result example").as_json()
+    tid_json = TemplateID("Glucose test result example")
 
     validate(tid_json)
 
 def test_its_json_base_object_version_id():
-    ovd_json = ObjectVersionID("154b1047-23aa-4d4d-8713-df848fd4d60a::net.example.ehr::1").as_json()
+    ovd_json = ObjectVersionID("154b1047-23aa-4d4d-8713-df848fd4d60a::net.example.ehr::1")
 
     validate(ovd_json)
 
@@ -134,32 +147,32 @@ def test_its_json_base_object_version_id():
 #  that uses VERSION_STATUS
 
 def test_its_json_base_version_tree_id():
-    v_json = VersionTreeID("1.2.2").as_json()
+    v_json = VersionTreeID("1.2.2")
 
     validate(v_json)
 
 def test_its_json_base_locatable_ref():
-    v_lr = LocatableRef("local", "INSTRUCTION", HierObjectID("d2adf197-dfed-43d0-81f8-ccd27e5e127c"), "content[0]").as_json()
+    v_lr = LocatableRef("local", "INSTRUCTION", HierObjectID("d2adf197-dfed-43d0-81f8-ccd27e5e127c"), "content[0]")
 
     validate(v_lr)
 
 def test_its_json_base_generic_id():
-    gid_json = GenericID("QQ123456A", "https://www.gov.uk/hmrc-internal-manuals/national-insurance-manual/nim39110").as_json()
+    gid_json = GenericID("QQ123456A", "https://www.gov.uk/hmrc-internal-manuals/national-insurance-manual/nim39110")
 
     validate(gid_json)
 
 def test_its_json_base_archetype_id():
-    a_json = ArchetypeID("openEHR-EHR-INSTRUCTION.medication_order.v3").as_json()
+    a_json = ArchetypeID("openEHR-EHR-INSTRUCTION.medication_order.v3")
 
     validate(a_json)
 
 def test_its_json_base_hier_object_id():
-    h_json = HierObjectID("93f49724-c066-40f5-aea0-5d0ff1184326::abacus").as_json()
+    h_json = HierObjectID("93f49724-c066-40f5-aea0-5d0ff1184326::abacus")
 
     validate(h_json)
 
 def test_its_json_base_uuid():
-    u_json = UUID("82901b2e-0920-4cbe-913e-fa119258a94b").as_json()
+    u_json = UUID("82901b2e-0920-4cbe-913e-fa119258a94b")
 
     validate(u_json)
 
@@ -167,7 +180,7 @@ def test_its_json_base_uuid():
 #  that uses VALIDITY_KIND
 
 def test_its_json_base_iso_oid():
-    i_json = ISOOID("2.16.840.1.113883.2.1.10").as_json()
+    i_json = ISOOID("2.16.840.1.113883.2.1.10")
 
     validate(i_json)
 
@@ -175,7 +188,7 @@ def test_its_json_base_iso_oid():
 #  this as an issue to raise with spec
 
 def test_its_json_base_terminology_id():
-    t_json = TerminologyID("SNOMED-CT").as_json()
+    t_json = TerminologyID("SNOMED-CT")
 
     validate(t_json)
 
@@ -187,7 +200,7 @@ def test_its_json_base_translation_details():
         language=TerminologyCode("ISO639-1", "de"),
         author={"name": "Herr H. Potter"},
         version_last_translated="1.2.0"
-    ).as_json()
+    )
 
     validate(t_td)
 
@@ -198,7 +211,7 @@ def test_its_json_base_resource_description_item():
         keywords=["sex", "male", "female"],
         use="Use to record details about the individual's gender, including administrative and legal gender and assigned sex at birth, in addition to gender identity, expression and preferred pronoun.",
         misuse="Not to be used for recording information relating to the sexual orientation or sexual activity of an individual."
-    ).as_json()
+    )
 
     validate(t_rdi)
 
@@ -232,9 +245,10 @@ def test_its_json_base_resource_description():
         parent_resource=res,
         custodian_namespace="org.openehr",
         custodian_organisation="openEHR Foundation"
-    ).as_json()
+    )
 
-    validate(t_rd)
+    validate(t_rd, lossless_seri_deseri=False)
+
 
 # ==========
 # RM.data_types: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types
@@ -242,17 +256,17 @@ def test_its_json_base_resource_description():
 def test_its_json_rm_data_type_dv_text():
     t_dvt = DVText("NICE guidance on 'Overweight and obesity management'", 
                    hyperlink=DVUri("https://www.nice.org.uk/guidance/ng246"),
-                   formatting="plain_no_newlines").as_json()
+                   formatting="plain_no_newlines")
 
     validate(t_dvt)
 
 def test_its_json_rm_data_type_dv_identifier():
-    t_dvi = DVIdentifier("9990548609", issuer="NHS Digital", id_type="NHS Number").as_json()
+    t_dvi = DVIdentifier("9990548609", issuer="NHS Digital", id_type="NHS Number")
 
     validate(t_dvi)
 
 def test_its_json_rm_data_type_dv_date():
-    t_dvd = DVDate("2025-10-27").as_json()
+    t_dvd = DVDate("2025-10-27")
 
     validate(t_dvd)
 
@@ -262,7 +276,7 @@ def test_its_json_rm_data_type_dv_coded_text():
         defining_code=CodePhrase(TerminologyID("SNOMED-CT"), "195967001", "Asthma (disorder)"),
         mappings=[
             TermMapping('=', CodePhrase(TerminologyID("ICD-10"), "J45", "Asthma"))
-        ]).as_json()
+        ])
 
     validate(t_dvct)
 
@@ -270,17 +284,17 @@ def test_its_json_rm_data_type_dv_time():
     t_dvt = DVTime(
         "13:00",
         accuracy=DVDuration("PT15M")
-    ).as_json()
+    )
 
     validate(t_dvt)
 
 def test_its_json_rm_data_type_dv_boolean():
-    t_dvb = DVBoolean(False).as_json()
+    t_dvb = DVBoolean(False)
 
     validate(t_dvb)
 
 def test_its_json_rm_data_type_code_phrase():
-    cd_phrse = CodePhrase(TerminologyID("SNOMED-CT"), "1069221000000106", "Does not shop at supermarket (finding)").as_json()
+    cd_phrse = CodePhrase(TerminologyID("SNOMED-CT"), "1069221000000106", "Does not shop at supermarket (finding)")
 
     validate(cd_phrse)
 
@@ -288,34 +302,34 @@ def test_its_json_rm_data_type_dv_parsable():
     t_dvp = DVParsable("{\"val\":\"test\"}", 
                        formalism="json",
                        charset=CodePhrase(TerminologyID("IANA_character-sets"), "UTF-8"),
-                       ).as_json()
+                       )
 
     validate(t_dvp)
 
 def test_its_json_rm_data_type_term_mapping():
-    t_dtm = TermMapping('=', CodePhrase(TerminologyID("ICD-10"), "J45", "Asthma")).as_json()
+    t_dtm = TermMapping('=', CodePhrase(TerminologyID("ICD-10"), "J45", "Asthma"))
     
     validate(t_dtm)
 
 def test_its_json_rm_data_type_dv_ehr_uri():
-    t_dveu = DVEHRUri("ehr:tasks/380daa09-028f-4beb-9803-4aef91644c2a").as_json()
+    t_dveu = DVEHRUri("ehr:tasks/380daa09-028f-4beb-9803-4aef91644c2a")
 
     validate(t_dveu)
 
 def test_its_json_rm_data_type_dv_uri():
-    t_dvu = DVUri("https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_URI.json").as_json()
+    t_dvu = DVUri("https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_URI.json")
 
     validate(t_dvu)
 
 def test_its_json_rm_data_type_dv_count():
-    t_dvc = DVCount(3000, accuracy=0.05, accuracy_is_percent=True).as_json()
+    t_dvc = DVCount(3000, accuracy=0.05, accuracy_is_percent=True)
 
     validate(t_dvc)
 
 # accepts warning until DV_GENERAL_TIME_SPECIFICATION is fully implemented
 @pytest.mark.filterwarnings("ignore: DVGeneralTimeSpecification does not")
 def test_its_json_rm_data_type_dv_general_time_specification():
-    t_dvgts = DVGeneralTimeSpecification(DVParsable("WAKE+[50m;1h]", "HL7:GTS")).as_json()
+    t_dvgts = DVGeneralTimeSpecification(DVParsable("WAKE+[50m;1h]", "HL7:GTS"))
 
     validate(t_dvgts)
 
@@ -328,7 +342,7 @@ def test_its_json_rm_data_type_dv_multimedia():
         media_type=CodePhrase(TerminologyID("IANA_media-types"), "application/json"), 
         size=len(test_json_bytes),
         
-        data=test_json_bytes).as_json()
+        data=test_json_bytes)
     
     validate(t_dvmi)
     
@@ -338,21 +352,21 @@ def test_its_json_rm_data_type_dv_multimedia():
         size=549453,
         
         uri=DVUri("https://ruh.nhs.uk/patients/patient_information/HTH024_Wrist_Exercises.pdf")
-    ).as_json()
+    )
 
     validate(t_dvme)
 
 def test_its_json_rm_data_type_dv_date_time():
-    t_dvdt = DVDateTime("20251102T194100Z").as_json()
+    t_dvdt = DVDateTime("20251102T194100Z")
 
     validate(t_dvdt)
 
 def test_its_json_rm_data_type_dv_quantity():
-    t_dvq = DVQuantity(200.6, 
+    t_dvq = DVQuantity(np.float32(200.6), 
                        units="cm",
                        units_display_name="cm",
                        precision=1,
-                       magnitude_status="=").as_json()
+                       magnitude_status="=")
     
     validate(t_dvq)
 
@@ -360,21 +374,21 @@ def test_its_json_rm_data_type_dv_duration():
     t_dvd = DVDuration("P3D",
                        magnitude_status="~",
                        normal_status=CodePhrase(TerminologyID("openehr_normal_statuses"), "L"),
-                       ).as_json()
+                       )
     
     validate(t_dvd)
 
 def test_its_json_rm_data_type_dv_interval():
     low = DVQuantity(97.5, "cm")
     high = DVQuantity(122.0, "cm")
-    t_dvi = DVInterval(ProperInterval[DVQuantity](lower=low, upper=high, lower_included=True, upper_included=True)).as_json()
+    t_dvi = DVInterval(ProperInterval[DVQuantity](lower=low, upper=high, lower_included=True, upper_included=True))
 
     validate(t_dvi)
 
 def test_its_json_rm_data_type_dv_ordinal():
     t_dvo = DVOrdinal(3, 
                       symbol=DVCodedText("Canadian Study of Health and Aging Clinical Frailty Scale level 3 - managing well (finding)",
-                                         defining_code=CodePhrase(TerminologyID("SNOMED-CT"), "1129351000000108"))).as_json()
+                                         defining_code=CodePhrase(TerminologyID("SNOMED-CT"), "1129351000000108")))
     
     validate(t_dvo)
 
@@ -382,30 +396,30 @@ def test_its_json_rm_data_type_dv_paragraph():
     t_dvp = DVParagraph([
         DVText("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."),
         DVText("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.")
-    ]).as_json()
+    ])
 
     validate(t_dvp)
 
 def test_its_json_rm_data_type_dv_state():
     t_dvs = DVState(
                     value=DVCodedText("planned", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "526", "planned")),
-                    is_terminal=False).as_json()
+                    is_terminal=False)
     
     validate(t_dvs)
 
 def test_its_json_rm_data_type_dv_periodic_time_specification():
-    t_dvpts = DVPeriodicTimeSpecification(DVParsable("[20250914;]/(PT1M)@DM", "HL7:PIVL")).as_json()
+    t_dvpts = DVPeriodicTimeSpecification(DVParsable("[20250914;]/(PT1M)@DM", "HL7:PIVL"))
 
     validate(t_dvpts)
 
 def test_its_json_rm_data_type_dv_proportion():
-    t_dvp = DVProportion(95.0, 100.0, ProportionKind.PK_PERCENT).as_json()
+    t_dvp = DVProportion(np.float32(95.0), np.float32(100.0), ProportionKind.PK_PERCENT)
 
     validate(t_dvp)
 
 def test_its_json_rm_data_type_dv_scale():
     t_dvs = DVScale(0.5, DVCodedText("Borg Breathlessness Score: 0.5 very, very slight (just noticeable) (finding)", 
-                                     defining_code=CodePhrase(TerminologyID("SNOMED-CT"), "401323002"))).as_json()
+                                     defining_code=CodePhrase(TerminologyID("SNOMED-CT"), "401323002")))
     
     validate(t_dvs)
 
@@ -415,7 +429,7 @@ def test_its_json_rm_data_type_reference_range():
                                                                             lower=DVQuantity(18.5, "kg/m2"),
                                                                             upper=DVQuantity(23.0, "kg/m2"),
                                                                             lower_included=True,
-                                                                            upper_included=False))).as_json()
+                                                                            upper_included=False)))
     validate(t_rr)
 
 # ==========
@@ -429,7 +443,7 @@ def test_its_json_rm_common_attestation():
         committer=PartyIdentified(name="Dr T Test"),
         reason=DVText("Initial version created"),
         is_pending=False,
-        ).as_json()
+        )
     
     validate(t_att)
 
@@ -445,7 +459,7 @@ def test_its_json_rm_common_contribution():
             change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
             committer=PartyIdentified(name="Mr A Example"),
             )
-    ).as_json()
+    )
 
     validate(t_con)
 
@@ -455,7 +469,7 @@ def test_its_json_rm_common_feeder_audit():
             system_id="net.example.legacy_ehr",
             time=DVDateTime("20251104T183900Z")
         )
-    ).as_json()
+    )
 
     validate(t_fa)
 
@@ -464,7 +478,7 @@ def test_its_json_rm_common_link():
         meaning=DVText("previous issue"),
         link_type=DVText("history"),
         target=DVEHRUri("ehr:tasks/380daa09-028f-4beb-9803-4aef91644c2a")
-    ).as_json()
+    )
 
     validate(t_lnk)
 
@@ -481,7 +495,7 @@ def test_its_json_rm_common_original_version():
         lifecycle_state=DVCodedText("complete", CodePhrase(TerminologyID("openehr"), "532")),
         
         data=DVText("Hello, world! This is some example text")
-    ).as_json()
+    )
 
     validate(t_ov)
 
@@ -490,7 +504,7 @@ def test_its_json_rm_common_versioned_object():
         uid=HierObjectID("14304fd8-e37f-4ee8-9f39-5566a745ea99"),
         owner_id=ObjectRef("net.example.ehr", "EHR", HierObjectID("2e372186-480e-4555-97ae-1c639829caf4")),
         time_created=DVDateTime("20251109T201900Z")
-    ).as_json()
+    )
 
     validate(t_vo)
 
@@ -498,7 +512,7 @@ def test_its_json_rm_common_archetyped():
     t_ach = Archetyped(
         archetype_id=ArchetypeID("openEHR-EHR-OBSERVATION.blood_pressure.v2"),
         rm_version="1.1.0"
-    ).as_json()
+    )
 
     validate(t_ach)
 
@@ -507,7 +521,7 @@ def test_its_json_rm_common_party_related():
         relationship=DVCodedText("brother", CodePhrase(TerminologyID("openehr"), "23")),
         
         name="Brian Bloggs"
-    ).as_json()
+    )
 
     validate(t_pr)
 
@@ -521,7 +535,7 @@ def test_its_json_rm_common_revision_history_item():
                          committer=PartySelf(),
                          )
         ]
-    ).as_json()
+    )
 
     validate(t_rhi)
 
@@ -551,7 +565,7 @@ def test_its_json_rm_common_folder():
                 ]
             )
         ]
-    ).as_json()
+    )
 
     validate(t_fr)
 
@@ -559,7 +573,7 @@ def test_its_json_rm_common_feeder_audit_details():
     t_fad = FeederAuditDetails(
             system_id="net.example.legacy_ehr",
             time=DVDateTime("20251104T183900Z")
-        ).as_json()
+        )
     
     validate(t_fad)
 
@@ -568,7 +582,7 @@ def test_its_json_rm_common_participation():
         function=DVText("observer"), 
         performer=PartyIdentified(name="Ms. A Student"),
         mode=DVCodedText("physically present", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "219", "physically present")),
-        ).as_json()
+        )
     
     validate(t_ptc)
 
@@ -596,13 +610,13 @@ def test_its_json_rm_common_imported_version():
             
         ),
         item=ov
-    ).as_json()
+    )
 
     validate(t_iv)
 
 
 def test_its_json_rm_common_party_self():
-    t_ps = PartySelf().as_json()
+    t_ps = PartySelf()
 
     validate(t_ps)
 
@@ -618,7 +632,7 @@ def test_its_json_rm_common_revision_history():
                             )
             ]
         )
-    ]).as_json()
+    ])
 
     validate(t_rs)
 
@@ -627,12 +641,12 @@ def test_its_json_rm_common_audit_details():
                             time_committed=DVDateTime("2025-11-04T20:49:02Z"), 
                             change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
                             committer=PartySelf(),
-                            ).as_json()
+                            )
     
     validate(t_ad)
 
 def test_its_json_rm_common_party_identified():
-    t_pi = PartyIdentified(external_ref=PartyRef("net.example.employees", "PARTY", GenericID("5928123", "employee_number"))).as_json()
+    t_pi = PartyIdentified(external_ref=PartyRef("net.example.employees", "PARTY", GenericID("5928123", "employee_number")))
 
     validate(t_pi)
 
@@ -662,11 +676,10 @@ def test_its_json_rm_data_structures_interval_event():
         math_function=DVCodedText("mean", CodePhrase(TerminologyID(OpenEHRTerminologyGroupIdentifiers.TERMINOLOGY_ID_OPENEHR), "146")),
         
         parent=hs
-    ).as_json()
+    )
 
-    print(t_iev)
-
-    validate(t_iev)
+    # need to validate with history as events are not valid on their own
+    validate(hs)
 
 def test_its_json_rm_data_structures_item_table():
     ev = DVProportion(6.0, 6.0, ProportionKind.PK_RATIO)
@@ -716,7 +729,7 @@ def test_its_json_rm_data_structures_item_table():
             row1,
             row2
         ]
-    ).as_json()
+    )
 
     validate(t_itbl)
 
@@ -744,7 +757,7 @@ def test_its_json_rm_data_structures_cluster():
                     archetype_id=ArchetypeID("openEHR-EHR-CLUSTER.address.v1"),
                     rm_version="1.1.0"
                 ),
-                items=addr_items).as_json()
+                items=addr_items)
     
     validate(t_c)
 
@@ -766,7 +779,7 @@ def test_its_json_rm_data_structures_item_list():
     t_itl = ItemList(DVText("admission metadata"), 
                 archetype_node_id="pyehr-EHR-ITEM_LIST.admission.v0",
                 items=[e, e2, e3],
-                archetype_details=Archetyped(ArchetypeID("pyehr-EHR-ITEM_LIST.admission.v0"), "1.1.0")).as_json()
+                archetype_details=Archetyped(ArchetypeID("pyehr-EHR-ITEM_LIST.admission.v0"), "1.1.0"))
     
     validate(t_itl)
 
@@ -822,7 +835,7 @@ def test_its_json_rm_data_structures_item_tree():
             it1,
             it2
         ]
-    ).as_json()
+    )
 
     validate(t_itr)
 
@@ -842,7 +855,7 @@ def test_its_json_rm_data_structures_history():
         archetype_node_id="at0010",
         origin=DVDateTime("2025-12-28T12:00:00Z"),
         summary=su
-    ).as_json()
+    )
 
     validate(t_hs)
 
@@ -878,11 +891,10 @@ def test_its_json_rm_data_structures_point_event():
         data=da,
         state=st,
         parent=hs
-    ).as_json()
+    )
 
-    print(t_ev)
-
-    validate(t_ev)
+    # need to validate with history as events are not valid without a parent
+    validate(hs)
 
 def test_its_json_rm_data_structures_element():
     t_e = Element(
@@ -890,7 +902,7 @@ def test_its_json_rm_data_structures_element():
         archetype_node_id="at0007",
         null_flavour=DVCodedText("not applicable", CodePhrase(TerminologyID("openehr"), "273")),
         
-    ).as_json()
+    )
 
     validate(t_e)
 
@@ -904,16 +916,39 @@ def test_its_json_rm_data_structures_item_single():
     t_its = ItemSingle(DVText("admission time container"),
                     "pyehr-EHR-ITEM_SINGLE-admission_time.v0",
                     archetype_details=Archetyped(ArchetypeID("pyehr-EHR-ITEM_SINGLE.admission_time.v0"), "1.1.0"),
-                    item=e).as_json()
+                    item=e)
     
     validate(t_its)
 
 # ==========
 # RM.ehr: release 1.1.0 - https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Ehr
 
-# TODO: EHR_STATUS
+def test_its_json_rm_ehr_ehr_status():
+    t_es = EHRStatus(
+        name=DVText("EHR status"),
+        archetype_node_id="openEHR-EHR-EHR_STATUS.generic.v1",
+        subject=PartySelf(),
+        is_queryable=True,
+        is_modifiable=True,
+        archetype_details=Archetyped(
+            archetype_id=ArchetypeID("openEHR-EHR-EHR_STATUS.generic.v1"),
+            rm_version="1.1.0"
+        )
+    )
 
-# TODO: EHR_ACCESS
+    validate(t_es)
+
+def test_its_json_rm_ehr_ehr_access():
+    t_ea = EHRAccess(
+        name=DVText("EHR Access"),
+        archetype_node_id="openEHR-EHR-EHR_ACCESS.generic.v1",
+        archetype_details=Archetyped(
+            archetype_id=ArchetypeID("openEHR-EHR-EHR_ACCESS.generic.v1"),
+            rm_version="1.1.0"
+        )
+    )
+
+    validate(t_ea)
 
 def test_its_json_rm_ehr_ehr():
     t_ehr = EHR(
@@ -923,7 +958,7 @@ def test_its_json_rm_ehr_ehr():
         ehr_access=ObjectRef("net.example.ehr", "VERSIONED_EHR_ACCESS", id=HierObjectID("7eef792c-acae-4641-9280-2a54d1690672")),
         time_created=DVDateTime("20251205T220900Z"),
         folders=[ObjectRef("net.example.ehr", "VERSIONED_FOLDER", HierObjectID("597a04f6-a738-4914-9d02-df95e67644d5"))]
-    ).as_json()
+    )
 
     validate(t_ehr)
 
@@ -935,7 +970,7 @@ def test_its_json_rm_composition_ism_transition():
         current_state=DVCodedText("planned", CodePhrase(TerminologyID("openehr"), "526")),
         transition=DVCodedText("initiate", CodePhrase(TerminologyID("openehr"), "535")),
         
-    ).as_json()
+    )
     
     validate(t_ism)
 
@@ -985,7 +1020,7 @@ def test_its_json_rm_composition_instruction():
         activities=[
             act
         ]
-    ).as_json()
+    )
 
     validate(t_ins)
 
@@ -1026,7 +1061,7 @@ def test_its_json_rm_composition_admin_entry():
         other_participations=[
             Participation(DVText("observer"), PartyIdentified(name="Miss M Student"))
         ]
-    ).as_json()
+    )
 
     validate(t_ae)
 
@@ -1062,7 +1097,7 @@ def test_its_json_rm_composition_activity():
             value="R1000/2026-01-01T13:29:00Z/PT6H",
             formalism="ISO8601"
         )
-    ).as_json()
+    )
 
     validate(t_act)
 
@@ -1076,7 +1111,7 @@ def test_its_json_rm_composition_composition():
         composer=PartyIdentified(name="Dr Test General-Practitioner"),
         archetype_details=Archetyped(ArchetypeID("openEHR-EHR-COMPOSITION.gp_appointment.v0"), "1.1.0"),
         
-    ).as_json()
+    )
 
     validate(t_c)
 
@@ -1084,7 +1119,7 @@ def test_its_json_rm_composition_instruction_details():
     t_insd = InstructionDetails(
         instruction_id=LocatableRef("local", "INSTRUCTION", HierObjectID("d2adf197-dfed-43d0-81f8-ccd27e5e127c"), "content[0]"),
         activity_id="activities[at0001]"
-    ).as_json()
+    )
 
     validate(t_insd)
 
@@ -1108,7 +1143,7 @@ def test_its_json_rm_composition_evaluation():
             ]
         ),
         
-    ).as_json()
+    )
 
     validate(t_ev)
 
@@ -1118,9 +1153,8 @@ def test_its_json_rm_composition_event_context():
     t_ec = EventContext(
         start_time=DVDateTime("2025-12-29"),
         setting=DVCodedText("home", CodePhrase(TerminologyID("openehr"), "225")),
-        
         participations=[Participation(DVText("observer"), PartyIdentified(name="Miss M Student"))]
-    ).as_json()
+    )
 
     validate(t_ec)
 
@@ -1128,7 +1162,7 @@ def test_its_json_rm_composition_section():
     t_s = Section(
         name=DVText("subjective"),
         archetype_node_id="at0011"
-    ).as_json()
+    )
 
     validate(t_s)
 
@@ -1167,7 +1201,7 @@ def test_its_json_rm_composition_observation():
         archetype_details=Archetyped(ArchetypeID("openEHR-EHR-OBSERVATION.body_weight.v2"), "1.1.0"),
         data=his,
         
-    ).as_json()
+    )
 
     validate(t_obs)
 
@@ -1214,7 +1248,7 @@ def test_its_json_rm_composition_action():
         instruction_details=insd,
         description=ad_desc,
         
-    ).as_json()
+    )
 
     validate(t_act)
 
@@ -1242,7 +1276,7 @@ def test_its_json_rm_demographic_group():
                 )
             )
         ]
-    ).as_json()
+    )
 
     validate(t_grp)
 
@@ -1263,7 +1297,7 @@ def test_its_json_rm_demographic_party_identity():
         purpose=pur,
         archetype_node_id="at0002",
         details=det
-    ).as_json()
+    )
 
     validate(t_pi)
 
@@ -1317,7 +1351,7 @@ def test_its_json_rm_demographic_person():
         reverse_relationships=[
             LocatableRef("local", "PARTY_RELATIONSHIP", HierObjectID("a8fa099f-5c0b-4d50-90e4-825af230f795"), path="relationships[at0001]")
         ]
-    ).as_json()
+    )
 
     validate(t_p)
 
@@ -1342,7 +1376,7 @@ def test_its_json_rm_demographic_agent():
                 )
             )
         ]
-    ).as_json()
+    )
 
     validate(t_agt)
 
@@ -1369,7 +1403,7 @@ def test_its_json_rm_demographic_role():
 
             )
         ]
-    ).as_json()
+    )
     
     validate(t_rol)
 
@@ -1392,7 +1426,7 @@ def test_its_json_rm_demographic_contact():
                 )
             )
         ]
-    ).as_json()
+    )
 
     validate(t_cont)
 
@@ -1417,7 +1451,7 @@ def test_its_json_rm_demographic_organisation():
                 )
             )
         ]
-    ).as_json()
+    )
 
     validate(t_org)
 
@@ -1438,7 +1472,7 @@ def test_its_json_rm_demographic_party_relationship():
                 )
             ]
         )
-    ).as_json()
+    )
 
     validate(t_pr)
 
@@ -1455,7 +1489,7 @@ def test_its_json_rm_demographic_address():
                 value=DVText("12 Example Way, Anytown, AT1 4BA")
             )
         )
-    ).as_json()
+    )
 
     validate(t_addr)
     
@@ -1472,6 +1506,6 @@ def test_its_json_rm_demographic_capability():
                 value=DVIdentifier("999", "Medicare")
             )
         )
-    ).as_json()
+    )
 
     validate(t_cap)

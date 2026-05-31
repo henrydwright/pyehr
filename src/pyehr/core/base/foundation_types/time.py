@@ -192,9 +192,9 @@ class ISODate(ISOType):
     _month : np.int32 = 0
     _day : np.int32 = 0
 
-    def __init__(self, iso8601_string: str):
+    def __init__(self, value: str):
         # test validity
-        s = iso8601_string
+        s = value
         format_ok = (re.match(TimeDefinitions.ISO8601_DATE_COMPACT_REGEX, s) is not None or
         re.match(TimeDefinitions.ISO8601_DATE_EXTENDED_REGEX, s) is not None) 
         compact = s.replace("-", "")
@@ -212,7 +212,7 @@ class ISODate(ISOType):
         if parts[3] is not None:
             self._day = np.int32(parts[3][0:2])
 
-        super().__init__(iso8601_string)
+        super().__init__(value)
     
     def to_python_date(self) -> Optional[date]:
         """Converts this to a Python date object, or `None` if 
@@ -471,9 +471,9 @@ class ISOTime(ISOType):
     _has_fractional_second : bool = False
     _timezone : Optional['ISOTimeZone'] = None
 
-    def __init__(self, iso8601_string: str):
-        self._time = time.fromisoformat(iso8601_string)
-        s = iso8601_string.replace(":", "").replace(",", ".")
+    def __init__(self, value: str):
+        self._time = time.fromisoformat(value)
+        s = value.replace(":", "").replace(",", ".")
         parts = re.split(ISOTime.ISO8601_TIME_REGEX, s)
         if parts[2] is not None:
             self._minute_unknown = False
@@ -482,9 +482,9 @@ class ISOTime(ISOType):
         if parts[4] is not None:
             self._has_fractional_second = True
         if parts[5] is not None:
-            tz_index = iso8601_string.index(parts[5][0:1])
-            self._timezone = ISOTimeZone(iso8601_string[tz_index:])
-        super().__init__(iso8601_string)
+            tz_index = value.index(parts[5][0:1])
+            self._timezone = ISOTimeZone(value[tz_index:])
+        super().__init__(value)
 
     def to_python_time(self) -> time:
         """Return the Python `time` repesentation of this object"""
@@ -543,6 +543,10 @@ class ISOTime(ISOType):
             dr = self._time.isoformat()
         dr = dr.replace("+00:00", "Z")
         return dr
+    
+    def is_equal(self, other: 'ISOTime'):
+        return (type(self) == type(other) and
+                self.as_string() == other.as_string())
 
     def __str__(self) -> str:
         return self.as_string()
@@ -619,8 +623,8 @@ class ISODateTime(ISOType):
 
     _python_datetime : Optional[datetime] = None
 
-    def __init__(self, iso8601_string: str):
-        s = iso8601_string
+    def __init__(self, value: str):
+        s = value
         if "T" in s:
             date_str = s[:s.index("T")]
             time_str = s[s.index("T") + 1:]
@@ -631,12 +635,12 @@ class ISODateTime(ISOType):
             if ((self._date.is_extended() and not self._time.is_extended()) or 
             (self._time.is_extended() and not self._date.is_extended())):
                 raise ValueError("Both date and time must use extended form, or compact form, not a combination")
-            self._python_datetime = datetime.fromisoformat(iso8601_string)
+            self._python_datetime = datetime.fromisoformat(value)
         else:
             self._date = ISODate(s)
             if not self._date.is_partial():
-                self._python_datetime = datetime.fromisoformat(iso8601_string)
-        super().__init__(iso8601_string)
+                self._python_datetime = datetime.fromisoformat(value)
+        super().__init__(value)
 
     def is_partial(self) -> bool:
         """True if this date time is partial, i.e. if seconds or more is missing."""
@@ -807,15 +811,15 @@ class ISODuration(ISOType):
     _seconds : np.int32 = 0
     _fractional_seconds : np.float32 = 0
 
-    def __init__(self, iso8601_string: str):
-        raw = iso8601_string
-        iso8601_string = iso8601_string.replace(",", ".")
-        if iso8601_string[0] == '-':
+    def __init__(self, value: str):
+        raw = value
+        value = value.replace(",", ".")
+        if value[0] == '-':
             self._negative = True
-            iso8601_string = iso8601_string[1:]
-        if re.match(ISODuration.ISO8601_DURATION_REGEX, iso8601_string) is None:
-            raise ValueError(f"Provided string '{iso8601_string}' was not a valid ISO8601 duration")
-        parts = re.split(ISODuration.ISO8601_DURATION_REGEX, iso8601_string)
+            value = value[1:]
+        if re.match(ISODuration.ISO8601_DURATION_REGEX, value) is None:
+            raise ValueError(f"Provided string '{value}' was not a valid ISO8601 duration")
+        parts = re.split(ISODuration.ISO8601_DURATION_REGEX, value)
         if parts[1] is not None:
             self._years = int(parts[1].replace("Y",""))
         if parts[2] is not None:
