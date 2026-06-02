@@ -1,6 +1,7 @@
 from uuid import UUID
 
 import numpy as np
+from pyehr.core.am.opt14 import TView, TViewConstraint
 from pyehr.core.rm.data_types.basic import DVState
 import pytest
 from xmlschema import XMLSchema
@@ -529,3 +530,35 @@ def test_its_xml_openehrprofile_transition():
 
     validate(t_t, "OpenehrProfile.xsd", "TRANSITION")
     check_from_xml(t_t, AMTransition)
+
+# =============
+# Template.xsd
+
+# OPERATIONAL_TEMPLATE
+
+# C_ARCHETYPE_ROOT
+
+# FLAT_ARCHETYPE_ONTOLOGY
+
+# ANNOTATION
+
+def test_its_xml_template_t_view():
+    t_v = TView(
+        constraints=[
+            TViewConstraint(
+                path="[openEHR-EHR-COMPOSITION.prescription.v0]/content[openEHR-EHR-INSTRUCTION.medication_order.v0]/protocol[at0005]",
+                items={"pass_through": True}
+            )
+        ]
+    )
+
+    validate(t_v, "Template.xsd", "T_VIEW")
+    check_from_xml(t_v, TView)
+
+# T_CONSTRAINT
+
+# T_ATTRIBUTE
+
+# T_COMPLEX_OBJECT
+
+# C_CODE_REFERENCE
