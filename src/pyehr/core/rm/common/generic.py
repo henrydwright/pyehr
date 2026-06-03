@@ -6,10 +6,13 @@ patterns in the domain of health (and most likely other domains), such as
 
 from abc import abstractmethod
 from typing import Optional
+import xml.etree.ElementTree as ET
 
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.resource import is_equal_value
 from pyehr.core.base.base_types.identification import PartyRef, ObjectVersionID
+from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
+from pyehr.core.its.xml_tools import make_xml_text_element
 from pyehr.core.rm.data_types.basic import DVIdentifier
 from pyehr.core.rm.data_types.encapsulated import DVMultimedia
 from pyehr.core.rm.data_types.quantity import DVInterval
@@ -20,7 +23,7 @@ from pyehr.core.rm.support.terminology import TerminologyService, util_verify_co
 
 from pyehr.term import PyehrGlobalTerminologyService
 
-class PartyProxy(AnyClass):
+class PartyProxy(AnyClass, IXMLSupport):
     """Abstract concept of a proxy description of a party, including an optional link 
     to data for this party in a demographic or other identity management system. Sub-typed 
     into PARTY_IDENTIFIED and PARTY_SELF."""
@@ -45,6 +48,33 @@ class PartyProxy(AnyClass):
         if self.external_ref is not None:
             draft["external_ref"] = self.external_ref.as_json()
         return draft
+    
+    def as_xml(self, root_tag = None):
+        root = ET.Element("party_proxy" if root_tag is None else root_tag)
+        if self.external_ref is not None:
+            root.append(self.external_ref.as_xml("external_ref"))
+        return root
+    
+    @staticmethod
+    def from_xml(root, **kwargs):
+        typ = get_pyehr_type_from_element(root)
+        if typ is None:
+            raise RuntimeError("Could not parse PARTY_PROXY element as no type attribute was found")
+        elif typ == "PARTY_SELF":
+            return PartySelf.from_xml(root)
+        elif typ == "PARTY_IDENTIFIED":
+            return PartyIdentified.from_xml(root)
+        elif typ == "PARTY_RELATED":
+            return PartyRelated.from_xml(root)
+        else:
+            raise RuntimeError(f"Could not parse PARTY_PROXY element as \'{typ}\' is not a subtype")
+        
+    @staticmethod
+    def extract_xml_elements(root: ET.Element) -> Optional[PartyRef]:
+        """Extract external_ref from PARTY_PROXY"""
+        pr = root.find("./external_ref")
+        pr = PartyRef.from_xml(pr) if pr is not None else None
+        return pr
 
 class PartySelf(PartyProxy):
     """Party proxy representing the subject of the record. Used to indicate that the 
@@ -61,6 +91,17 @@ class PartySelf(PartyProxy):
         draft = super().as_json()
         draft["_type"] = "PARTY_SELF"
         return draft
+    
+    def as_xml(self, root_tag=None):
+        sup = super().as_xml("party_self" if root_tag is None else root_tag)
+        sup.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        sup.attrib["xsi:type"] = "PARTY_SELF"
+        return sup
+    
+    @staticmethod
+    def from_xml(root, **kwargs):
+        er = PartyProxy.extract_xml_elements(root)
+        return PartySelf(er)
 
 class PartyIdentified(PartyProxy):
     """Proxy data for an identified party other than the subject of the record, minimally 
@@ -110,6 +151,37 @@ class PartyIdentified(PartyProxy):
         if self.identifiers is not None:
             draft["identifiers"] = [identifier.as_json() for identifier in self.identifiers]
         return draft
+    
+    def as_xml(self, root_tag=None):
+        sup = super().as_xml("party_identified" if root_tag is None else root_tag)
+        if self.name is not None:
+            nam_el = ET.Element("name")
+            nam_el.text = self.name
+            sup.append(nam_el)
+        if self.identifiers is not None:
+            for identifier in self.identifiers:
+                sup.append(identifier.as_xml("identifiers"))
+        sup.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        sup.attrib["xsi:type"] = "PARTY_IDENTIFIED"
+        return sup
+    
+    @staticmethod
+    def extract_xml_elements(root) -> tuple[Optional[PartyRef], Optional[str], Optional[list[DVIdentifier]]]:
+        """Extract external_ref, name and identifiers from XML"""
+        er = PartyProxy.extract_xml_elements(root)
+        nm = root.findtext("./name")
+        id_els = root.findall("./identifiers")
+        ids = None
+        if len(id_els) > 0:
+            ids = []
+            for id_el in id_els:
+                ids.append(DVIdentifier.from_xml(id_el))
+        return (er, nm, ids)
+
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs):
+        er, nm, ids = PartyIdentified.extract_xml_elements(root)
+        return PartyIdentified(er, nm, ids)
 
 class PartyRelated(PartyIdentified):
     """Proxy type for identifying a party and its relationship to the subject of the record. 
@@ -146,6 +218,18 @@ class PartyRelated(PartyIdentified):
         draft["_type"] = "PARTY_RELATED"
         draft["relationship"] = self.relationship.as_json()
         return draft
+    
+    def as_xml(self, root_tag=None):
+        sup = super().as_xml("party_related" if root_tag is None else root_tag)
+        sup.append(self.relationship.as_xml("relationship"))
+        sup.attrib["xsi:type"] = "PARTY_RELATED"
+        return sup
+    
+    @staticmethod
+    def from_xml(root, **kwargs):
+        er, nm, ids = PartyIdentified.extract_xml_elements(root)
+        rel = DVCodedText.from_xml(root.find("./relationship"))
+        return PartyRelated(rel, None, er, nm, ids)
 
 class Participation(AnyClass):
     """Model of a participation of a Party (any Actor or Role) in an activity. Used to represent 
@@ -220,7 +304,7 @@ class Participation(AnyClass):
             draft["time"] = self.time.as_json()
         return draft
     
-class AuditDetails(AnyClass):
+class AuditDetails(AnyClass, IXMLSupport):
     """The set of attributes required to document the committal of an information item to a 
     repository."""
 
@@ -291,6 +375,27 @@ class AuditDetails(AnyClass):
         if self.description is not None:
             draft["description"] = self.description.as_json()
         return draft
+    
+    def as_xml(self, root_tag = None):
+        root = ET.Element("audit_details" if root_tag is None else root_tag)
+        root.append(make_xml_text_element("system_id", self.system_id))
+        root.append(self.committer.as_xml("committer"))
+        root.append(self.time_committed.as_xml("time_committed"))
+        root.append(self.change_type.as_xml("change_type"))
+        if self.description is not None:
+            root.append(self.description.as_xml("description"))
+        return root
+    
+    @staticmethod
+    def from_xml(root, **kwargs):
+        sys_id = root.findtext("./system_id")
+        comm = PartyProxy.from_xml(root.find("./committer"))
+        tm_com = DVDateTime.from_xml(root.find("./time_committed"))
+        chg_typ = DVCodedText.from_xml(root.find("./change_type"))
+        desc = root.find("./description")
+        desc = DVText.from_xml(desc) if desc is not None else None
+        return AuditDetails(sys_id, tm_com, chg_typ, comm, None, desc)
+
     
 class Attestation(AuditDetails):
     """Record an attestation of a party (the committer) to item(s) of record content. An attestation 
@@ -364,7 +469,7 @@ class Attestation(AuditDetails):
         return draft
 
 
-class RevisionHistoryItem(AnyClass):
+class RevisionHistoryItem(AnyClass, IXMLSupport):
     """An entry in a revision history, corresponding to a version from a versioned container. Consists of 
     AUDIT_DETAILS instances with revision identifier of the revision to which the AUDIT_DETAILS instance belongs."""
 
@@ -392,8 +497,25 @@ class RevisionHistoryItem(AnyClass):
             "version_id": self.version_id.as_json(),
             "audits": [audit_detail.as_json() for audit_detail in self.audits]
         }
+    
+    def as_xml(self, root_tag = None):
+        root = ET.Element("revision_history_item" if root_tag is None else root_tag)
+        root.append(self.version_id.as_xml("version_id"))
+        for aud in self.audits:
+            root.append(aud.as_xml("audits"))
+        return root
+    
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs):
+        vid = ObjectVersionID.from_xml(root.find("./version_id"))
+        aud_els = root.findall("./audits")
+        auds = []
+        for aud_el in aud_els:
+            auds.append(AuditDetails.from_xml(aud_el))
+        return RevisionHistoryItem(vid, auds)
 
-class RevisionHistory(AnyClass):
+
+class RevisionHistory(AnyClass, IXMLSupport):
     """Defines the notion of a revision history of audit items, each associated with the version for which that 
     audit was committed. The list is in most-recent-last order."""
 
@@ -425,3 +547,17 @@ class RevisionHistory(AnyClass):
             "_type": "REVISION_HISTORY",
             "items": [item.as_json() for item in self.items]
         }
+    
+    def as_xml(self, root_tag = None):
+        root = ET.Element("revision_history" if root_tag is None else root_tag)
+        for item in self.items:
+            root.append(item.as_xml("items"))
+        return root
+    
+    @staticmethod
+    def from_xml(root, **kwargs):
+        it_els = root.findall("./items")
+        items = []
+        for it_el in it_els:
+            items.append(RevisionHistoryItem.from_xml(it_el))
+        return RevisionHistory(items)

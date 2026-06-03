@@ -227,6 +227,9 @@ class OperationalTemplate(AnyClass, IXMLSupport):
         if self.description is not None:
             root.append(self.description.as_xml("description"))
 
+        if self.revision_history is not None:
+            root.append(self.revision_history.as_xml("revision_history"))
+
         if self.uid is not None:
             root.append(self.uid.as_xml("uid"))
         
@@ -237,6 +240,13 @@ class OperationalTemplate(AnyClass, IXMLSupport):
         root.append(conc)
         
         root.append(self.definition.as_xml("definition"))
+
+        # ontology
+        # component_ontologies
+        # annotations
+        # constraints
+
+        root.append(self.view.as_xml("view"))
         return root
     
     def from_xml(root: ET.Element, **kwargs) -> 'OperationalTemplate':
@@ -248,7 +258,8 @@ class OperationalTemplate(AnyClass, IXMLSupport):
         if desc is not None:
             desc = ResourceDescription.from_xml(desc)
 
-        # TODO: revision_history
+        rh = root.find("./revision_history")
+        rh = RevisionHistory.from_xml(rh) if rh is not None else None
 
         uid = root.find("./uid")
         if uid is not None:
@@ -263,9 +274,10 @@ class OperationalTemplate(AnyClass, IXMLSupport):
         # TODO : annotation
 
         # TODO : constraints
-        # TODO : view
+        view = root.find("./view")
+        view = TView.from_xml(view) if view is not None else None
         
-        return OperationalTemplate(lang, tid, concept, is_controlled=is_cont, description=desc, uid=uid, definition=definition)
+        return OperationalTemplate(lang, tid, concept, is_controlled=is_cont, description=desc, uid=uid, definition=definition, view=view)
     
     def as_json(self):
         draft = {
@@ -274,8 +286,12 @@ class OperationalTemplate(AnyClass, IXMLSupport):
             "template_id": self.template_id.as_json(),
             "concept": self.concept
         }
+        if self.revision_history is not None:
+            draft["revision_history"] = self.revision_history.as_json()
         if self.definition is not None:
             draft["definition"] = self.definition.as_json()
+        if self.view is not None:
+            draft["view"] = self.view.as_json()
         draft["_type"] = "TEMPLATE"
         return draft
 

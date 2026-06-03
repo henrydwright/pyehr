@@ -2,7 +2,8 @@ from uuid import UUID
 
 import numpy as np
 from pyehr.core.am.opt14 import TView, TViewConstraint
-from pyehr.core.rm.data_types.basic import DVState
+from pyehr.core.rm.common.generic import AuditDetails, PartyIdentified, PartyRelated, PartySelf, RevisionHistory, RevisionHistoryItem
+from pyehr.core.rm.data_types.basic import DVIdentifier, DVState
 import pytest
 from xmlschema import XMLSchema
 
@@ -13,7 +14,7 @@ from pyehr.core.am.aom14.archetype.constraint_model import AMNonTerminalState, A
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingItem
 from pyehr.core.base.base_types.definitions import ValidityKind
-from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectVersionID, TemplateID, TerminologyID
+from pyehr.core.base.base_types.identification import ArchetypeID, GenericID, HierObjectID, ObjectVersionID, PartyRef, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.interval import Cardinality, Interval, MultiplicityInterval, PointInterval, ProperInterval
 from pyehr.core.base.foundation_types.terminology import TerminologyCode
@@ -123,7 +124,10 @@ def test_its_xml_basetypes_hier_object_id():
 
 # DV_BOOLEAN
 
-# DV_IDENTIFIER
+def test_its_xml_basetypes_dv_identifier():
+    dvi = DVIdentifier("981", "test iss", "", "")
+    validate(dvi, "BaseTypes.xsd", "DV_IDENTIFIER")
+    check_from_xml(dvi, DVIdentifier)
 
 def test_its_xml_basetypes_dv_state():
     st = DVState(DVCodedText("prescription_fulfilled", CodePhrase("local", "prescription_fulfilled")), True)
@@ -224,6 +228,68 @@ def test_its_xml_basetypes_dv_uri():
     check_from_xml(ur, DVUri)
 
 # DV_EHR_URI
+
+def test_its_xml_basetypes_party_ref():
+    pr = PartyRef("local", "PERSON", HierObjectID("e49c1b9c-321f-4a86-8c12-e1c036b90519"))
+    validate(pr, "BaseTypes.xsd", "PARTY_REF")
+    check_from_xml(pr, PartyRef)
+
+def test_its_xml_basetypes_party_self():
+    ps = PartySelf()
+    validate(ps, "BaseTypes.xsd", "PARTY_SELF")
+    check_from_xml(ps, PartySelf)
+
+def test_its_xml_basetypes_party_identified():
+    pi = PartyIdentified(external_ref=PartyRef("net.example.employees", "PARTY", GenericID("5928123", "employee_number")))
+    validate(pi, "BaseTypes.xsd", "PARTY_IDENTIFIED")
+    check_from_xml(pi, PartyIdentified)
+
+def test_its_xml_basetypes_party_related():
+    t_pr = PartyRelated(
+        relationship=DVCodedText("brother", CodePhrase(TerminologyID("openehr"), "23")),
+        name="Brian Bloggs"
+    )
+    validate(t_pr, "BaseTypes.xsd", "PARTY_RELATED")
+    check_from_xml(t_pr, PartyRelated)
+
+def test_its_xml_basetypes_audit_details():
+    ad = AuditDetails(system_id="net.example.ehr", 
+                time_committed=DVDateTime("2025-11-04T20:49:02Z"), 
+                change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
+                committer=PartySelf(),
+                )
+    validate(ad, "BaseTypes.xsd", "AUDIT_DETAILS")
+    check_from_xml(ad, AuditDetails)
+
+def test_its_xml_basetypes_revision_history_item():
+    t_rhi = RevisionHistoryItem(
+        version_id=ObjectVersionID("5f99cf14-3494-4a47-9051-91822d59468f::net.example.ehr::3"),
+        audits=[
+            AuditDetails(system_id="net.example.ehr", 
+                         time_committed=DVDateTime("2025-11-04T20:49:02Z"), 
+                         change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
+                         committer=PartySelf(),
+                         )
+        ]
+    )
+    validate(t_rhi, "BaseTypes.xsd", "REVISION_HISTORY_ITEM")
+    check_from_xml(t_rhi, RevisionHistoryItem)
+
+def test_its_xml_basetypes_revision_history():
+    rh = RevisionHistory([
+        RevisionHistoryItem(
+            version_id=ObjectVersionID("5f99cf14-3494-4a47-9051-91822d59468f::net.example.ehr::3"),
+            audits=[
+                AuditDetails(system_id="net.example.ehr", 
+                            time_committed=DVDateTime("2025-11-04T20:49:02Z"), 
+                            change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
+                            committer=PartySelf(),
+                            )
+            ]
+        )
+    ])
+    validate(rh, "BaseTypes.xsd", "REVISION_HISTORY")
+    check_from_xml(rh, RevisionHistory)
 
 # =========
 # Archetype - https://specifications.openehr.org/releases/ITS-XML/Release-1.0.2/components/ALL/Archetype.xsd

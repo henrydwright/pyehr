@@ -57,5 +57,8 @@ def decode_xml(xml_str: str,
 
     return from_arbitrary_xml(el, target, terminology_service)
 
-
+def make_xml_text_element(element_name: str, value: str):
+    el = ET.Element(element_name)
+    el.text = value
+    return el
     

@@ -5,7 +5,7 @@ import warnings
 from xml.etree import ElementTree
 
 from pyehr.core.base.foundation_types import AnyClass
-from pyehr.core.its.xml import IXMLSupport
+from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
 
 class UID(AnyClass, ABC):
     """Abstract parent of classes representing unique identifiers 
@@ -155,8 +155,18 @@ class ObjectID(AnyClass, IXMLSupport):
         return root
     
     def from_xml(root: ElementTree.Element, **kwargs):
+        from pyehr.utils import OPENEHR_TYPE_MAP
+        
         val = root.findtext("./value")
-        return ObjectID(val)
+        typ = get_pyehr_type_from_element(root)
+        if typ is not None:
+            id_cls = OPENEHR_TYPE_MAP[typ]
+            if id_cls == GenericID:
+                return id_cls(val, root.findtext("./scheme"))
+            else:
+                return id_cls(val)
+        else:
+            return ObjectID(val)
     
 class UIDBasedID(ObjectID):
     """Abstract model of UID-based identifiers consisting of a root part and an 
@@ -512,6 +522,15 @@ class GenericID(ObjectID):
             "value": self.value,
             "scheme": self.scheme
         }
+    
+    def as_xml(self, root_tag=None):
+        from pyehr.core.its.xml_tools import make_xml_text_element
+
+        sup = super().as_xml(root_tag)
+        sup.append(make_xml_text_element("scheme", self.scheme))
+        return sup
+    
+
 
 class ObjectRef(AnyClass):
     """Class describing a reference to another object, which may exist locally or 
@@ -586,7 +605,7 @@ class ObjectRef(AnyClass):
             "type": self.ref_type
         }
 
-class PartyRef(ObjectRef):
+class PartyRef(ObjectRef, IXMLSupport):
     """Identifier for parties in a demographic or identity service. There are typically a 
     number of subtypes of the `PARTY` class, including `PERSON`, `ORGANISATION`, etc. Abstract 
     supertypes are allowed if the referenced object is of a type not known by the current 
@@ -603,6 +622,29 @@ class PartyRef(ObjectRef):
         oref_json = super().as_json()
         oref_json["_type"] = "PARTY_REF"
         return oref_json
+    
+    def as_xml(self, root_tag = None):
+        from pyehr.utils import get_openehr_type_str
+
+        root = ElementTree.Element("party_ref" if root_tag is None else root_tag)
+        id_el = self._id.as_xml("id")
+        id_el.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        id_el.attrib["xsi:type"] = get_openehr_type_str(self._id)
+        root.append(id_el)
+        ns_el = ElementTree.Element("namespace")
+        ns_el.text = self.namespace
+        root.append(ns_el)
+        ty_el = ElementTree.Element("type")
+        ty_el.text = self._type
+        root.append(ty_el)
+        return root
+    
+    @staticmethod
+    def from_xml(root: ElementTree.Element, **kwargs):
+        id = ObjectID.from_xml(root.find("./id"))
+        ns = root.findtext("./namespace")
+        ty = root.findtext("./type")
+        return PartyRef(ns, ty, id)
 
 class LocatableRef(ObjectRef):
     """Reference to a `LOCATABLE` instance in the top-level content structure 
