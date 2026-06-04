@@ -158,7 +158,7 @@ class Interval[T : ordered](AnyClass, IXMLSupport):
                 draft["upper"] = self._upper.as_json()
             elif isinstance(self._upper, np.int32):
                 draft["upper"] = int(self._upper)
-            elif isinstance(self._lower, np.float32):
+            elif isinstance(self._upper, np.float32):
                 draft["upper"] = float(self._upper)
             else:
                 draft["upper"] = self._upper

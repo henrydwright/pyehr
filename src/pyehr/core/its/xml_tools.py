@@ -24,9 +24,9 @@ def from_arbitrary_xml(root: ET.Element,
         if target is None:
             target = root.tag.upper()
 
-    if target == "xsd:string":
+    if ":string" in target:
         return root.text
-    elif target == "xsd:boolean":
+    elif ":boolean" in target:
         return (root.text == "true")
 
     if target not in OPENEHR_TYPE_MAP:
@@ -57,5 +57,8 @@ def decode_xml(xml_str: str,
 
     return from_arbitrary_xml(el, target, terminology_service)
 
-
+def make_xml_text_element(element_name: str, value: str):
+    el = ET.Element(element_name)
+    el.text = value
+    return el
     

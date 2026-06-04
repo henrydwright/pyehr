@@ -14,7 +14,8 @@ from pyehr.core.base.foundation_types.interval import Cardinality, Interval
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.its.json_path_utils import json_has_path
 from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
-from pyehr.core.rm.data_types.quantity import DVQuantity
+from pyehr.core.rm.data_types.basic import DVState
+from pyehr.core.rm.data_types.quantity import DVOrdinal, DVQuantity
 from pyehr.core.rm.data_types.text import CodePhrase
 
 # TODO: implement tests for member methods
@@ -154,9 +155,16 @@ class CObject(ArchetypeConstraint):
             return CPrimitiveObject.from_xml(root, **kwargs)
         elif typ == "C_DV_QUANTITY":
             return CDVQuantity.from_xml(root, **kwargs)
-        elif typ == "C_DV_ORDINAL" or typ == "C_DV_STATE":
-            warnings.warn(f"'{typ}' is not supported, replacing with a placeholder (C_DOMAIN_PLACEHOLDER).")
-            return CDomainPlaceholder.from_xml(root, **kwargs)
+        elif typ == "C_DV_ORDINAL":
+            return CDVOrdinal.from_xml(root, **kwargs)
+        elif typ == "C_DV_STATE":
+            return CDVState.from_xml(root, **kwargs)
+        elif typ == "ARCHETYPE_INTERNAL_REF":
+            return ArchetypeInternalRef.from_xml(root, **kwargs)
+        elif typ == "CONSTRAINT_REF":
+            return ConstraintRef.from_xml(root, **kwargs)
+        elif typ == "ARCHETYPE_SLOT":
+            return ArchetypeSlot.from_xml(root, **kwargs)
         elif typ == "ARCHETYPE_INTERNAL_REF":
             return ArchetypeInternalRef.from_xml(root, **kwargs)
         else:
@@ -199,6 +207,8 @@ class CDefinedObject(CObject):
         # https://specifications.openehr.org/releases/ITS-XML/Release-1.0.2/components/ALL/Archetype.xsd
         tag = "c_defined_object" if root_tag is None else root_tag
         sup = super().as_xml(tag)
+        if self.assumed_value is not None and isinstance(self.assumed_value, IXMLSupport):
+            sup.append(self.assumed_value.as_xml("assumed_value"))
         return sup
 
     @abstractmethod
@@ -445,11 +455,12 @@ class CMultipleAttribute(CAttribute):
         rm_attr, existence, children = CAttribute.extract_xml_elements(root)
         card = Cardinality.from_xml(root.find("./cardinality"))
         ret = CMultipleAttribute(rm_attr, existence, card, children=children, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
-        for i in range(len(ret.children)):
-            child = ret.children[i]
-            child._parent = ret
-            child._parent_container_attribute_name = "children"
-            child._list_index = i
+        if ret.children is not None:
+            for i in range(len(ret.children)):
+                child = ret.children[i]
+                child._parent = ret
+                child._parent_container_attribute_name = "children"
+                child._list_index = i
         return ret
     
 # CARDINALITY is implemented elsewhere in rm 1.1.0 so no need to re-implement here
@@ -638,8 +649,6 @@ class CCodePhrase(CDomainType):
     def as_xml(self, root_tag=None):
         tag = "c_code_phrase" if root_tag is None else root_tag
         sup = super().as_xml(tag)
-        if self.assumed_value is not None:
-            sup.append(self.assumed_value.as_xml("assumed_value"))
         if self.terminology_id is not None:
             sup.append(self.terminology_id.as_xml("terminology_id"))
         if self.code_list is not None:
@@ -662,7 +671,7 @@ class CCodePhrase(CDomainType):
             term_id = TerminologyID.from_xml(term_id)
         code_list_els = root.findall("./code_list")
         code_list = None
-        if code_list_els is not None:
+        if len(code_list_els) > 0:
             code_list = []
             for code_list_el in code_list_els:
                 code_list.append(code_list_el.text)
@@ -1107,6 +1116,9 @@ class CDVQuantity(CDomainType):
         if self.list_var is not None:
             for quant_item in self.list_var:
                 sup.append(quant_item.as_xml("list"))
+
+        sup.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        sup.attrib["xsi:type"] = "C_DV_QUANTITY"
         return sup
 
     def from_xml(root: ET.Element, **kwargs):
@@ -1155,3 +1167,333 @@ class CDVQuantity(CDomainType):
     
     def valid_value(self, a_value):
         raise NotImplementedError()
+
+class CDVOrdinal(CDomainType):
+    """C_DV_ORDINAL as defined in OpenehrProfile.xsd"""
+
+    list_var: Optional[list[DVOrdinal]]
+
+    assumed_value: Optional[DVOrdinal]
+
+    def __init__(self,
+            rm_type_name: str,
+            occurrences: Interval[np.int32],
+            node_id: str,
+            list_var: Optional[list[DVOrdinal]] = None,
+            assumed_value: Optional[DVOrdinal] = None,
+            parent: Optional['ArchetypeConstraint'] = None,
+            parent_container_attribute_name: Optional[str] = None,
+            list_index: Optional[int] = None,
+            **kwargs):
+        self.list_var = list_var
+        super().__init__(rm_type_name, occurrences, node_id, assumed_value, parent, parent_container_attribute_name, list_index, **kwargs)
+
+    def as_xml(self, root_tag=None):
+        draft = super().as_xml("c_dv_ordinal" if root_tag is None else root_tag)
+        if self.list_var is not None:
+            for item in self.list_var:
+                draft.append(item.as_xml("list"))
+        draft.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        draft.attrib["xsi:type"] = "C_DV_ORDINAL"
+        return draft
+    
+    def as_json(self):
+        draft = super().as_json()
+        if self.list_var is not None:
+            draft["list"] = [item.as_json() for item in self.list_var]
+        draft["_type"] = "C_DV_ORDINAL"
+        return draft
+    
+    @staticmethod
+    def from_xml(root, **kwargs):
+        rm_typ, occ, nod = CObject.extract_xml_elements(root)
+
+        assval_el = root.find("./assumed_value")
+        assumed_value = DVOrdinal.from_xml(assval_el) if assval_el is not None else None
+
+        list_els = root.findall("./list")
+        list_val = None
+        if len(list_els) > 0:
+            list_val = []
+            for list_el in list_els:
+                list_val.append(DVOrdinal.from_xml(list_el))
+
+        return CDVOrdinal(rm_typ, occ, nod, list_val, assumed_value)
+    
+    def is_equal(self, other: 'CDVOrdinal'):
+        return (super().is_equal(other) and
+                is_equal_value(self.list_var, other.list_var))
+    
+    def any_allowed(self):
+        raise NotImplementedError()
+    
+    def default_value(self):
+        raise NotImplementedError()
+    
+    def prototype_value(self):
+        raise NotImplementedError()
+    
+    def standard_equivalent(self):
+        raise NotImplementedError()
+    
+    def valid_value(self, a_value):
+        raise NotImplementedError()
+
+class AMState(AnyClass, IXMLSupport):
+    """(Abstract) STATE as defined in OpenehrProfile.xsd"""
+
+    name: str
+
+    @abstractmethod
+    def __init__(self, name: str, **kwargs):
+        self.name = name
+        super().__init__()
+
+    @abstractmethod
+    def is_equal(self, other: 'AMState'):
+        return (type(self) == type(other) and
+                is_equal_value(self.name, other.name))
+    
+    @abstractmethod
+    def as_json(self):
+        return {
+            "name": self.name
+        }
+    
+    @abstractmethod
+    def as_xml(self, root_tag = None):
+        root = ET.Element("state" if root_tag is None else root_tag)
+        name_el = ET.Element("name")
+        name_el.text = self.name
+        root.append(name_el)
+        return root
+    
+    def extract_xml_elements(root: ET.Element) -> str:
+        """Extracts `name` from the state subclass"""
+        return root.findtext("./name")
+    
+    @abstractmethod
+    def from_xml(root: ET.Element, **kwargs):
+        # type can be inferred from whether or not 'transitions' is present
+        if len(root.findall("./transitions")) > 0:
+            return AMNonTerminalState.from_xml(root)
+        else:
+            return AMTerminalState.from_xml(root)
+    
+class AMTransition(AnyClass, IXMLSupport):
+    """TRANSITION as defined in OpenehrProfile.xsd"""
+
+    event: str
+
+    action: Optional[str]
+
+    guard: Optional[str]
+
+    next_state: Optional[AMState]
+
+    def __init__(self, event: str, action: Optional[str] = None, guard: Optional[str] = None, next_state: Optional[AMState] = None):
+        self.event = event
+        self.action = action
+        self.guard = guard
+        self.next_state = next_state
+        super().__init__()
+
+    def is_equal(self, other: 'AMTransition'):
+        return (type(self) == type(other) and
+                is_equal_value(self.event, other.event) and
+                is_equal_value(self.guard, other.guard) and
+                is_equal_value(self.next_state, other.next_state))
+    
+    def as_json(self):
+        draft = {
+            "event": self.event
+        }
+        if self.action is not None:
+            draft["action"] = self.action
+        if self.guard is not None:
+            draft["guard"] = self.guard
+        if self.next_state is not None:
+            draft["next_state"] = self.next_state.as_json()
+        draft["_type"] = "TRANSITION"
+
+    def as_xml(self, root_tag = None):
+        root = ET.Element("transition" if root_tag is None else root_tag)
+        event_el = ET.Element("event")
+        event_el.text = self.event
+        root.append(event_el)
+        if self.action is not None:
+            act_el = ET.Element("action")
+            act_el.text = self.action
+            root.append(act_el)
+        if self.guard is not None:
+            gua_el = ET.Element("guard")
+            gua_el.text = self.guard
+            root.append(gua_el)
+        if self.next_state is not None:
+            root.append(self.next_state.as_xml("next_state"))
+        return root
+    
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs):
+        ev = root.findtext("./event")
+        act = root.findtext("./action")
+        gua = root.findtext("./guard")
+        next_el = root.find("./next_state")
+        next = None
+        if next_el is not None:
+            next = AMState.from_xml(next_el)
+        return AMTransition(ev, act, gua, next)
+
+class AMNonTerminalState(AMState):
+    """NON_TERMINAL_STATE as defined in OpenehrProfile.xsd"""
+
+    transitions: list[AMTransition]
+
+    def __init__(self, name: str, transitions: list[AMTransition]):
+        self.transitions = transitions
+        super().__init__(name)
+
+    def is_equal(self, other: 'AMNonTerminalState'):
+        return (super().is_equal(other) and
+                is_equal_value(self.transitions, other.transitions))
+    
+    def as_json(self):
+        draft = super().as_json()
+        draft["transitions"] = [transition.as_json() for transition in self.transitions]
+        draft["_type"] = "NON_TERMINAL_STATE"
+        return draft
+    
+    def as_xml(self, root_tag=None):
+        root = super().as_xml("non_terminal_state" if root_tag is None else root_tag)
+        for transition in self.transitions:
+            root.append(transition.as_xml("transitions"))
+        root.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        root.attrib["xsi:type"] = "NON_TERMINAL_STATE"
+        return root
+
+    @staticmethod
+    def from_xml(root, **kwargs):
+        name = AMState.extract_xml_elements(root)
+        trans_els = root.findall("./transitions")
+        trans = []
+        for trans_el in trans_els:
+            trans.append(AMTransition.from_xml(trans_el))
+        return AMNonTerminalState(name, trans)
+
+class AMTerminalState(AMState):
+    """TERMINAL_STATE as defined in OpenehrProfile.xsd"""
+
+    def __init__(self, name, **kwargs):
+        super().__init__(name, **kwargs)
+
+    def is_equal(self, other):
+        return super().is_equal(other)
+    
+    def as_json(self):
+        draft = super().as_json()
+        draft["_type"] = "TERMINAL_STATE"
+        return draft
+    
+    def as_xml(self, root_tag=None):
+        draft = super().as_xml("terminal_state" if root_tag is None else root_tag)
+
+        draft.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        draft.attrib["xsi:type"] = "TERMINAL_STATE"
+        return draft
+    
+    def from_xml(root: ET.Element, **kwargs):
+        name = AMState.extract_xml_elements(root)
+        return AMTerminalState(name)
+    
+class AMStateMachine(AnyClass, IXMLSupport):
+    """STATE_MACHINE as defined in OpenehrProfile.xsd"""
+
+    states: list[AMState]
+
+    def __init__(self, states: list[AMState], **kwargs):
+        self.states = states
+        super().__init__(**kwargs)
+
+    def is_equal(self, other):
+        return (type(self) == type(other) and
+                is_equal_value(self.states, other.states))
+
+    def as_json(self):
+        return {
+            "states": [state.as_json() for state in self.states],
+            "_type": "STATE_MACHINE"
+        }
+    
+    def as_xml(self, root_tag = None):
+        root = ET.Element("state_machine" if root_tag is None else root_tag)
+        for state in self.states:
+            root.append(state.as_xml("states"))
+        return root
+    
+    def from_xml(root: ET.Element, **kwargs):
+        states_els = root.findall("./states")
+        states = []
+        for state_el in states_els:
+            states.append(AMState.from_xml(state_el))
+        return AMStateMachine(states)
+    
+class CDVState(CDomainType):
+    """C_DV_STATE as defined in OpenehrProfile.xsd"""
+
+    value: AMStateMachine
+
+    def __init__(self,
+        rm_type_name: str,
+        occurrences: Interval[np.int32],
+        node_id: str,
+        value: AMStateMachine,
+        assumed_value: Optional[DVState] = None,
+        parent: Optional['ArchetypeConstraint'] = None,
+        parent_container_attribute_name: Optional[str] = None,
+        list_index: Optional[int] = None,
+        **kwargs):
+        self.value = value
+        super().__init__(rm_type_name, occurrences, node_id, assumed_value, parent, parent_container_attribute_name, list_index, **kwargs)
+
+    def is_equal(self, other):
+        return (super().is_equal(other) and
+                self.value.is_equal(other.value))
+    
+    def as_json(self):
+        draft = super().as_json()
+        draft["value"] = self.value.as_json()
+        draft["_type"] = "C_DV_STATE"
+
+    def as_xml(self, root_tag=None):
+        draft = super().as_xml(root_tag)
+        draft.append(self.value.as_xml("value"))
+        draft.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        draft.attrib["xsi:type"] = "C_DV_STATE"
+        return draft
+    
+    def from_xml(root: ET.Element, **kwargs):
+        rm_typ, occ, nod = CObject.extract_xml_elements(root)
+
+        assval_el = root.find("./assumed_value")
+        assumed_value = DVState.from_xml(assval_el) if assval_el is not None else None
+
+        value = AMStateMachine.from_xml(root.find("./value"))
+
+        return CDVState(rm_typ, occ, nod, value, assumed_value)
+    
+    def any_allowed(self):
+        raise NotImplementedError()
+    
+    def default_value(self):
+        raise NotImplementedError()
+    
+    def prototype_value(self):
+        raise NotImplementedError()
+    
+    def standard_equivalent(self):
+        raise NotImplementedError()
+    
+    def valid_value(self, a_value):
+        raise NotImplementedError()
+
+        

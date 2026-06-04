@@ -232,11 +232,11 @@ class CInteger(CPrimitive):
     def as_json(self):
         draft = {}
         if self.list_var is not None:
-            draft["list"] = self.list_var
+            draft["list"] = [int(item) for item in self.list_var]
         if self.range is not None:
             draft["range"] = self.range.as_json()
         if self.assumed_value is not None:
-            draft["assumed_value"] = self.assumed_value
+            draft["assumed_value"] = int(self.assumed_value)
         draft["_type"] = "C_INTEGER"
         return draft
 
@@ -271,7 +271,7 @@ class CInteger(CPrimitive):
         range_el = root.find("./range")
         range_value = None
         if range_el is not None:
-            range_value = Interval.from_xml(range_el)
+            range_value = Interval.from_xml(range_el, np.int32)
 
         av = root.findtext("./assumed_value")
         if av is not None:
@@ -312,11 +312,11 @@ class CReal(CPrimitive):
     def as_json(self):
         draft = {}
         if self.list_var is not None:
-            draft["list"] = self.list_var
+            draft["list"] = [float(item) for item in self.list_var] 
         if self.range is not None:
             draft["range"] = self.range.as_json()
         if self.assumed_value is not None:
-            draft["assumed_value"] = self.assumed_value
+            draft["assumed_value"] = float(self.assumed_value)
         draft["_type"] = "C_REAL"
         return draft
 
@@ -351,7 +351,7 @@ class CReal(CPrimitive):
         range_el = root.find("./range")
         range_value = None
         if range_el is not None:
-            range_value = Interval.from_xml(range_el)
+            range_value = Interval.from_xml(range_el, np.float32)
 
         av = root.findtext("./assumed_value")
         if av is not None:
@@ -412,11 +412,11 @@ class CDate(CPrimitive):
     def as_json(self):
         draft = {}
         if self.day_validity is not None:
-            draft["day_validity"] = self.day_validity
+            draft["day_validity"] = self.day_validity.value
         if self.month_validity is not None:
-            draft["month_validity"] = self.month_validity
+            draft["month_validity"] = self.month_validity.value
         if self.timezone_validity is not None:
-            draft["timezone_validity"] = self.timezone_validity
+            draft["timezone_validity"] = self.timezone_validity.value
         if self.range is not None:
             draft["range"] = self.range.as_json()
         draft["_type"] = "C_DATE"
@@ -554,11 +554,11 @@ class CTime(CPrimitive):
     def as_json(self):
         draft = {}
         if self.minute_validity is not None:
-            draft["minute_validity"] = self.minute_validity
+            draft["minute_validity"] = self.minute_validity.value
         if self.second_validity is not None:
-            draft["second_validity"] = self.second_validity
+            draft["second_validity"] = self.second_validity.value
         if self.timezone_validity is not None:
-            draft["timezone_validity"] = self.timezone_validity
+            draft["timezone_validity"] = self.timezone_validity.value
         if self.range is not None:
             draft["range"] = self.range.as_json()
         if self.assumed_value is not None:
@@ -772,17 +772,17 @@ class CDateTime(CPrimitive):
     def as_json(self):
         draft = {}
         if self.month_validity is not None:
-            draft["month_validity"] = self.month_validity
+            draft["month_validity"] = self.month_validity.value
         if self.day_validity is not None:
-            draft["day_validity"] = self.day_validity
+            draft["day_validity"] = self.day_validity.value
         if self.hour_validity is not None:
-            draft["hour_validity"] = self.hour_validity
+            draft["hour_validity"] = self.hour_validity.value
         if self.minute_validity is not None:
-            draft["minute_validity"] = self.minute_validity
+            draft["minute_validity"] = self.minute_validity.value
         if self.second_validity is not None:
-            draft["second_validity"] = self.second_validity
+            draft["second_validity"] = self.second_validity.value
         if self.timezone_validity is not None:
-            draft["timezone_validity"] = self.timezone_validity
+            draft["timezone_validity"] = self.timezone_validity.value
         if self.range is not None:
             draft["range"] = self.range.as_json()
         if self.assumed_value is not None:

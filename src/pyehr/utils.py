@@ -37,28 +37,11 @@ from pyehr.core.rm.ehr import EHR, EHRStatus, VersionedEHRStatus
 from pyehr.server.security.access_control import PyehrAccessControlSettings, PyehrAccessPolicyItem
 
 
-PYTHON_TYPE_TO_STRING_TYPE_MAP : dict[type, str] = {
-    Party: "PARTY",
-    Person: "PERSON",
-    VersionedObject: "VERSIONED_OBJECT",
-    OriginalVersion: "VERSION",
-    UpdateVersion: "VERSION",
-    Contribution: "CONTRIBUTION",
-    DVText: "DV_TEXT",
-    EHRStatus: "EHR_STATUS",
-    EHR: "EHR",
-    Organisation: "ORGANISATION",
-    Agent: "AGENT",
-    EHRAccess: "EHR_ACCESS",
-    Composition: "COMPOSITION",
-    Folder: "FOLDER",
-    Role: "ROLE",
-    PyehrAccessControlSettings: "PYEHR_ACCESS_CONTROL_SETTINGS",
-    PyehrAccessPolicyItem: "PYEHR_ACCESS_POLICY_ITEM",
-    Folder: "FOLDER"
-}
-"""Mapping of pyehr type (Python type) to the openEHR type string (e.g. pyehr type
-of Party maps to 'PARTY')"""
+def _reverse_type_map(mp: dict[str, type]) -> dict[type, str]:
+    ret = dict()
+    for (str_type, py_type) in mp.items():
+        ret[py_type] = str_type
+    return ret
 
 OPENEHR_TYPE_MAP = {
     # FOUNDATION
@@ -185,6 +168,10 @@ OPENEHR_TYPE_MAP = {
     "PYEHR_ACCESS_POLICY_ITEM": PyehrAccessPolicyItem,
 }
 """Map of OpenEHR string type names (e.g. as found in '_type' JSON) to pyehr Python types"""
+
+PYTHON_TYPE_TO_STRING_TYPE_MAP : dict[type, str] = _reverse_type_map(OPENEHR_TYPE_MAP)
+"""Mapping of pyehr type (Python type) to the openEHR type string (e.g. pyehr type
+of Party maps to 'PARTY')"""
 
 def get_openehr_type_str(obj: AnyClass) -> str:
     type_str = PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj)]

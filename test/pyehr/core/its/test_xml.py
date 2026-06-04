@@ -1,17 +1,20 @@
 from uuid import UUID
 
 import numpy as np
+from pyehr.core.am.opt14 import TView, TViewConstraint
+from pyehr.core.rm.common.generic import AuditDetails, PartyIdentified, PartyRelated, PartySelf, RevisionHistory, RevisionHistoryItem
+from pyehr.core.rm.data_types.basic import DVIdentifier, DVState
 import pytest
 from xmlschema import XMLSchema
 
 import xml.etree.ElementTree as ET
 
 from pyehr.core.am.aom14.archetype.assertion import Assertion, AssertionVariable, ExprBinaryOperator, ExprLeaf, ExprUnaryOperator, OperatorKind
-from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CMultipleAttribute, CQuantityItem, CSingleAttribute
+from pyehr.core.am.aom14.archetype.constraint_model import AMNonTerminalState, AMStateMachine, AMTerminalState, AMTransition, CCodePhrase, CComplexObject, CDVOrdinal, CDVQuantity, CDVState, CMultipleAttribute, CQuantityItem, CSingleAttribute
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingItem
 from pyehr.core.base.base_types.definitions import ValidityKind
-from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectVersionID, TemplateID, TerminologyID
+from pyehr.core.base.base_types.identification import ArchetypeID, GenericID, HierObjectID, ObjectVersionID, PartyRef, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.interval import Cardinality, Interval, MultiplicityInterval, PointInterval, ProperInterval
 from pyehr.core.base.foundation_types.terminology import TerminologyCode
@@ -121,9 +124,15 @@ def test_its_xml_basetypes_hier_object_id():
 
 # DV_BOOLEAN
 
-# DV_IDENTIFIER
+def test_its_xml_basetypes_dv_identifier():
+    dvi = DVIdentifier("981", "test iss", "", "")
+    validate(dvi, "BaseTypes.xsd", "DV_IDENTIFIER")
+    check_from_xml(dvi, DVIdentifier)
 
-# DV_STATE
+def test_its_xml_basetypes_dv_state():
+    st = DVState(DVCodedText("prescription_fulfilled", CodePhrase("local", "prescription_fulfilled")), True)
+    validate(st, "BaseTypes.xsd", "DV_STATE")
+    check_from_xml(st, DVState)
 
 def test_its_xml_basetypes_dv_interval():
     low = DVQuantity(97.5, "cm")
@@ -219,6 +228,68 @@ def test_its_xml_basetypes_dv_uri():
     check_from_xml(ur, DVUri)
 
 # DV_EHR_URI
+
+def test_its_xml_basetypes_party_ref():
+    pr = PartyRef("local", "PERSON", HierObjectID("e49c1b9c-321f-4a86-8c12-e1c036b90519"))
+    validate(pr, "BaseTypes.xsd", "PARTY_REF")
+    check_from_xml(pr, PartyRef)
+
+def test_its_xml_basetypes_party_self():
+    ps = PartySelf()
+    validate(ps, "BaseTypes.xsd", "PARTY_SELF")
+    check_from_xml(ps, PartySelf)
+
+def test_its_xml_basetypes_party_identified():
+    pi = PartyIdentified(external_ref=PartyRef("net.example.employees", "PARTY", GenericID("5928123", "employee_number")))
+    validate(pi, "BaseTypes.xsd", "PARTY_IDENTIFIED")
+    check_from_xml(pi, PartyIdentified)
+
+def test_its_xml_basetypes_party_related():
+    t_pr = PartyRelated(
+        relationship=DVCodedText("brother", CodePhrase(TerminologyID("openehr"), "23")),
+        name="Brian Bloggs"
+    )
+    validate(t_pr, "BaseTypes.xsd", "PARTY_RELATED")
+    check_from_xml(t_pr, PartyRelated)
+
+def test_its_xml_basetypes_audit_details():
+    ad = AuditDetails(system_id="net.example.ehr", 
+                time_committed=DVDateTime("2025-11-04T20:49:02Z"), 
+                change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
+                committer=PartySelf(),
+                )
+    validate(ad, "BaseTypes.xsd", "AUDIT_DETAILS")
+    check_from_xml(ad, AuditDetails)
+
+def test_its_xml_basetypes_revision_history_item():
+    t_rhi = RevisionHistoryItem(
+        version_id=ObjectVersionID("5f99cf14-3494-4a47-9051-91822d59468f::net.example.ehr::3"),
+        audits=[
+            AuditDetails(system_id="net.example.ehr", 
+                         time_committed=DVDateTime("2025-11-04T20:49:02Z"), 
+                         change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
+                         committer=PartySelf(),
+                         )
+        ]
+    )
+    validate(t_rhi, "BaseTypes.xsd", "REVISION_HISTORY_ITEM")
+    check_from_xml(t_rhi, RevisionHistoryItem)
+
+def test_its_xml_basetypes_revision_history():
+    rh = RevisionHistory([
+        RevisionHistoryItem(
+            version_id=ObjectVersionID("5f99cf14-3494-4a47-9051-91822d59468f::net.example.ehr::3"),
+            audits=[
+                AuditDetails(system_id="net.example.ehr", 
+                            time_committed=DVDateTime("2025-11-04T20:49:02Z"), 
+                            change_type=DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249")),
+                            committer=PartySelf(),
+                            )
+            ]
+        )
+    ])
+    validate(rh, "BaseTypes.xsd", "REVISION_HISTORY")
+    check_from_xml(rh, RevisionHistory)
 
 # =========
 # Archetype - https://specifications.openehr.org/releases/ITS-XML/Release-1.0.2/components/ALL/Archetype.xsd
@@ -405,11 +476,63 @@ def test_its_xml_resource_resource_description():
 # =========
 # OpenehrProfile
 
-# C_CODE_PHRASE
+def test_its_xml_openehrprofile_c_code_phrase():
+    t_cc = CCodePhrase(
+        "CODE_PHRASE",
+        PointInterval(np.int32(1)),
+        "",
+        assumed_value=CodePhrase("SNOMED_CT", "49872002"),
+        code_list=["49872002", "84676004"]
+    )
+    validate(t_cc, "OpenehrProfile.xsd", "C_CODE_PHRASE")
+    check_from_xml(t_cc, CCodePhrase)
 
-# C_DV_ORDINAL
+def test_its_xml_openehrprofile_c_dv_ordinal():
+    t_dvo = CDVOrdinal(
+        rm_type_name="DV_ORDINAL",
+        occurrences=PointInterval(np.int32(1)),
+        node_id="",
+        list_var=[
+            DVOrdinal(
+                value=0,
+                symbol=DVCodedText("", defining_code=CodePhrase("local", "at0005"))
+            )
+        ]
+    )
 
-# C_DV_QUANTITY
+    validate(t_dvo, "OpenehrProfile.xsd", "C_DV_ORDINAL")
+    check_from_xml(t_dvo, CDVOrdinal)
+
+def test_its_xml_openehrprofile_c_dv_quantity():
+    t_cdvq = CDVQuantity(
+        rm_type_name="DV_QUANTITY",
+        occurrences=PointInterval(np.int32(1)),
+        node_id="",
+        property_var=CodePhrase("openehr", "122"),
+        list_var=[
+            CQuantityItem(
+                units="cm",
+                magnitude=ProperInterval[np.float32](
+                    lower=np.float32(0.0),
+                    upper=np.float32(500.0),
+                    lower_included=True,
+                    upper_included=True
+                )
+            ),
+            CQuantityItem(
+                units="[in_i]",
+                magnitude=ProperInterval[np.float32](
+                    lower=np.float32(0.0),
+                    upper=np.float32(250.0),
+                    lower_included=True,
+                    upper_included=True
+                )
+            )
+        ]
+    )
+
+    validate(t_cdvq, "OpenehrProfile.xsd", "C_DV_QUANTITY")
+    check_from_xml(t_cdvq, CDVQuantity)
 
 def test_its_xml_openehrprofile_c_quantity_item():
     t_cqi = CQuantityItem("mm[Hg]", ProperInterval(np.float32(0.0), np.float32(1000.0), True, False), PointInterval(np.int32(0)))
@@ -417,12 +540,91 @@ def test_its_xml_openehrprofile_c_quantity_item():
     validate(t_cqi, "OpenehrProfile.xsd", "C_QUANTITY_ITEM")
     check_from_xml(t_cqi, CQuantityItem)
 
-# C_DV_STATE
+def test_its_xml_openehrprofile_c_dv_state():
+    t_cdvs = CDVState(
+        "DV_STATE",
+        PointInterval(np.int32(1)),
+        node_id="",
+        value=AMStateMachine(
+            states=[
+                AMTerminalState("test_state")
+            ]
+        ),
+        assumed_value=DVState(
+            value=DVCodedText("test_state", CodePhrase("local", "test_state")),
+            is_terminal=True
+        )
+    )
 
-# STATE_MACHINE
+    validate(t_cdvs, "OpenehrProfile.xsd", "C_DV_STATE")
+    check_from_xml(t_cdvs, CDVState)
 
-# NON_TERMINAL_STATE
+def test_its_xml_openehrprofile_state_machine():
+    t_sm = AMStateMachine(
+        states=[
+            AMTerminalState("test_state")
+        ]
+    )
 
-# TERMINAL_STATE
+def test_its_xml_openehrprofile_non_terminal_state():
+    t_nts = AMNonTerminalState(
+        name="prescription_drafted",
+        transitions=[
+            AMTransition(
+                event="sign_prescription",
+                action="sign",
+                guard="check_authority",
+                next_state=AMTerminalState("prescription_signed")
+            )
+        ])
+    
+    validate(t_nts, "OpenehrProfile.xsd", "NON_TERMINAL_STATE")
+    check_from_xml(t_nts, AMNonTerminalState)
 
-# TRANSITION
+def test_its_xml_openehrprofile_terminal_state():
+    t_ts = AMTerminalState("prescription_fulfilled")
+
+    validate(t_ts, "OpenehrProfile.xsd", "TERMINAL_STATE")
+    check_from_xml(t_ts, AMTerminalState)
+
+def test_its_xml_openehrprofile_transition():
+    t_t = AMTransition(
+        event="prescribe",
+        action="provide medication",
+        guard="check prescription"
+    )
+
+    validate(t_t, "OpenehrProfile.xsd", "TRANSITION")
+    check_from_xml(t_t, AMTransition)
+
+# =============
+# Template.xsd
+
+# OPERATIONAL_TEMPLATE
+
+# C_ARCHETYPE_ROOT
+
+# FLAT_ARCHETYPE_ONTOLOGY
+
+# ANNOTATION
+
+def test_its_xml_template_t_view():
+    t_v = TView(
+        constraints=[
+            TViewConstraint(
+                path="[openEHR-EHR-COMPOSITION.prescription.v0]/content[openEHR-EHR-INSTRUCTION.medication_order.v0]/protocol[at0005]",
+                items={"pass_through": True}
+            )
+        ]
+    )
+
+    validate(t_v, "Template.xsd", "T_VIEW")
+    check_from_xml(t_v, TView)
+
+# T_CONSTRAINT
+
+# T_ATTRIBUTE
+
+# T_COMPLEX_OBJECT
+
+# C_CODE_REFERENCE

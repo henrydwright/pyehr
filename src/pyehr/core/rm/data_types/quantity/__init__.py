@@ -480,7 +480,7 @@ class DVScale(DVOrdered):
         # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_SCALE.json
         draft = super().as_json()
         draft["_type"] = "DV_SCALE"
-        draft["value"] = self.value
+        draft["value"] = float(self.value)
         draft["symbol"] = self.symbol.as_json()
         return draft
     
