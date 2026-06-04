@@ -161,6 +161,12 @@ class CObject(ArchetypeConstraint):
             return CDVState.from_xml(root, **kwargs)
         elif typ == "ARCHETYPE_INTERNAL_REF":
             return ArchetypeInternalRef.from_xml(root, **kwargs)
+        elif typ == "CONSTRAINT_REF":
+            return ConstraintRef.from_xml(root, **kwargs)
+        elif typ == "ARCHETYPE_SLOT":
+            return ArchetypeSlot.from_xml(root, **kwargs)
+        elif typ == "ARCHETYPE_INTERNAL_REF":
+            return ArchetypeInternalRef.from_xml(root, **kwargs)
         else:
             raise RuntimeError(f"Cannot parse C_OBJECT based element as given type \'{typ}\' was not a sub-type of C_OBJECT")
     
@@ -449,11 +455,12 @@ class CMultipleAttribute(CAttribute):
         rm_attr, existence, children = CAttribute.extract_xml_elements(root)
         card = Cardinality.from_xml(root.find("./cardinality"))
         ret = CMultipleAttribute(rm_attr, existence, card, children=children, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
-        for i in range(len(ret.children)):
-            child = ret.children[i]
-            child._parent = ret
-            child._parent_container_attribute_name = "children"
-            child._list_index = i
+        if ret.children is not None:
+            for i in range(len(ret.children)):
+                child = ret.children[i]
+                child._parent = ret
+                child._parent_container_attribute_name = "children"
+                child._list_index = i
         return ret
     
 # CARDINALITY is implemented elsewhere in rm 1.1.0 so no need to re-implement here

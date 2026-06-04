@@ -250,8 +250,6 @@ class OperationalTemplate(AnyClass, IXMLSupport):
         return root
     
     def from_xml(root: ET.Element, **kwargs) -> 'OperationalTemplate':
-        warnings.warn("OPERATIONAL_TEMPLATE parsing is not fully implemented so elements will be missing")
-        
         lang = CodePhrase.from_xml(root.find("./language"))
         is_cont = (root.findtext("./is_controlled") == "true")
         desc = root.find("./description")
@@ -268,6 +266,12 @@ class OperationalTemplate(AnyClass, IXMLSupport):
         concept = root.findtext("./concept")
         definition = CArchetypeRoot.from_xml(root.find("./definition"))
 
+        onto = root.find("./ontology")
+        comp_onto = root.find("./component_ontologies")
+        anno = root.find("./annotations")
+        cons = root.find("./constraints")
+        if onto is not None or comp_onto is not None or anno is not None or cons is not None:
+            warnings.warn("OPERATIONAL_TEMPLATE parsing does not support parsing top-level elements ontology, component_ontologies, annotations or constraints so these will be skipped.")
         # TODO : ontology
         # TODO : component_ontologies
 
