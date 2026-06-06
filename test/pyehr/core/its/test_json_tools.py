@@ -1,4 +1,5 @@
 from pyehr.core.base.foundation_types.any import AnyClass
+from pyehr.server.security.access_control import PyehrAccessPolicyEndpoint, PyehrAccessPolicyEndpointAction, PyehrAccessPolicyItem
 import pytest
 import json
 
@@ -1509,3 +1510,17 @@ def test_its_json_rm_demographic_capability():
     )
 
     validate(t_cap)
+
+# pyehr classes
+
+def test_its_json_pyehr_pyehr_access_control_policy_item():
+    t_papi = PyehrAccessPolicyItem(
+        allow_action=True,
+        roles={PartyRef("local", "ROLE", HierObjectID("bd83e70f-e24b-4356-884d-6c73050f26a6"))},
+        actions={PyehrAccessPolicyEndpointAction.CREATE},
+        endpoints={PyehrAccessPolicyEndpoint.DEMOGRAPHIC_PERSON},
+        archetype_ids={"openEHR-DEMOGRAPHIC-PERSON.patient_eng.v0"},
+        organisations={PartyRef("local", "ORGANISATION", HierObjectID("beb935c9-5f9c-4e59-8644-fae1323c84b0"))}
+    )
+
+    assert_seri_deseri_equal(t_papi)

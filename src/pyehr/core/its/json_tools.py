@@ -300,6 +300,27 @@ def decode_json(json_obj: dict,
         # uses 'link_type' to avoid collision with python keyword type
         arg_dict["link_type"] = arg_dict["type"]
         del arg_dict["type"]
+    elif target_type == "PYEHR_ACCESS_POLICY_ITEM":
+        # read lists of strs as sets of enums
+        if "actions" in arg_dict:
+            action_str_list = arg_dict["actions"]
+            action_enum_set = set()
+            for action in action_str_list:
+                action_enum_set.add(PyehrAccessPolicyEndpointAction(action))
+            arg_dict["actions"] = action_enum_set
+        if "endpoints" in arg_dict:
+            endpoint_str_list = arg_dict["endpoints"]
+            endpoint_enum_set = set()
+            for endpoint in endpoint_str_list:
+                endpoint_enum_set.add(PyehrAccessPolicyEndpoint(endpoint))
+            arg_dict["endpoints"] = endpoint_enum_set
+        # turn lists into sets
+        if "roles" in arg_dict:
+            arg_dict["roles"] = set(arg_dict["roles"])
+        if "archetype_ids" in arg_dict:
+            arg_dict["archetype_ids"] = set(arg_dict["archetype_ids"])
+        if "organisations" in arg_dict:
+            arg_dict["organisations"] = set(arg_dict["organisations"])
 
     instance_list = []
     if flag_allow_resolved_references:

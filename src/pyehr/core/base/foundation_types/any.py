@@ -7,7 +7,7 @@ class AnyClass(ABC):
     """
 
     def __init__(self, **kwargs):
-        super(ABC).__init__(**kwargs)
+        super(ABC).__init__()
 
     @abstractmethod
     def is_equal(self, other) -> bool:

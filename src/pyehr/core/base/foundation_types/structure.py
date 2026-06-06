@@ -46,6 +46,14 @@ def set_is_equal(a: set, b: set) -> bool:
     if len(a) != len(b):
         return False
     for a_item in a:
-        if a_item not in b:
-            return False
+        if isinstance(a_item, AnyClass):
+            # reference type, so can't use 'a_item in b'
+            found = False
+            for b_item in b:
+                found = found or a_item.is_equal(b_item)
+            if not found:
+                return False
+        else:
+            if a_item not in b:
+                return False
     return True

@@ -3,6 +3,7 @@ from uuid import uuid4
 from pathlib import Path
 import os
 import json
+import sys
 
 from flask import Flask, jsonify, make_response, request
 from dotenv import load_dotenv
@@ -16,6 +17,7 @@ from pyehr.server.apps.rest.blueprints.ehr import create_ehr_blueprint
 from pyehr.server.change_control import VersionedStore
 from pyehr.server.database import IDatabaseEngine, ObjectAlreadyExistsError
 from pyehr.server.database.local import InMemoryDB
+from pyehr.server.database.mongodb import MongoDBDatabaseEngine
 from pyehr.server.security.auth import IPyehrAuthProvider
 from pyehr.server.security.auth.noauth import AllowAllAuthProvider
 
@@ -38,11 +40,20 @@ def preload_content(root: Path, db: IDatabaseEngine, term_svc: TerminologyServic
             preload_content(child, db, term_svc, log)
 
 def create_app():
-    logging.basicConfig(level=logging.DEBUG)
+    app = Flask(__name__)
+
+    lvl = logging.INFO
+    if "SERVER_LOG_LEVEL" in app.config:
+        if app.config["SERVER_LOG_LEVEL"] == "DEBUG":
+            lvl = logging.DEBUG
+        elif app.config["SERVER_LOG_LEVEL"] == "INFO":
+            lvl = logging.INFO
+        else:
+            print("Log level not recognised, setting to INFO")
+
+    logging.basicConfig(level=lvl)
     log = logging.getLogger("apps.rest")
     log.info("pyehr REST API server starting...")
-
-    app = Flask(__name__)
 
     log.info(f"Loading config from: {os.getenv("PYEHR_REST_CONFIG")}")
     app.config.from_envvar("PYEHR_REST_CONFIG")
@@ -52,8 +63,20 @@ def create_app():
     log.info(f"SYSTEM_ID_HID: {app.config["SYSTEM_ID_HID"]}")
     log.info(f"BASE_URL: {app.config["BASE_URL"]}")
 
-    log.info("Initialising database")
-    db = InMemoryDB()
+    
+    db = None
+    if app.config["DB_TYPE"] == "InMemory":
+        log.info("Initialising database 'InMemory'")
+        db = InMemoryDB()
+    elif app.config["DB_TYPE"] == "MongoDB":
+        log.info("Initialising database 'MongoDB'")
+        if ("DB_MONGO_CONNECTION_STRING" not in app.config) or ("DB_MONGO_DATABASE_NAME" not in app.config):
+            log.error("Could not initialise database: either 'DB_MONGO_CONNECTION_STRING' or 'DB_MONGO_DATABASE_NAME' are not set")
+            sys.exit(1)
+        db = MongoDBDatabaseEngine(connection_string=app.config["DB_MONGO_CONNECTION_STRING"], database_name=app.config["DB_MONGO_DATABASE_NAME"])
+    else:
+        log.error("Could not initialise database: 'DB_TYPE' not recognised, must be one of 'InMemory' or 'MongoDB'")
+        sys.exit(1)
 
     log.info("Initialising OpenEHR terminology")
     term_svc = PyehrGlobalTerminologyService.get_global_terminology_service()

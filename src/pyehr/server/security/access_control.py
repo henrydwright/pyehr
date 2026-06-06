@@ -118,14 +118,14 @@ class PyehrAccessPolicyItem(AnyClass):
                  roles: Optional[set[PartyRef]] = None, 
                  actions: Optional[set[PyehrAccessPolicyEndpointAction]] = None,  
                  endpoints: Optional[set[PyehrAccessPolicyEndpoint]] = None,
-                 archetype_id: Optional[set[str]] = None,
+                 archetype_ids: Optional[set[str]] = None,
                  organisations: Optional[set[PartyRef]] = None,
                  **kwargs):
         self.allow_action = allow_action
         self.roles = roles
         self.actions = actions
         self.endpoints = endpoints
-        self.archetype_ids = archetype_id
+        self.archetype_ids = archetype_ids
         self.organisations = organisations
         super().__init__(**kwargs)
 
@@ -146,6 +146,13 @@ class PyehrAccessPolicyItem(AnyClass):
         return draft
     
     def is_equal(self, other: 'PyehrAccessPolicyItem'):
+        print(self.actions)
+        print(other.actions)
+        print(self.endpoints)
+        print(other.endpoints)
+        print(self.archetype_ids)
+        print(other.archetype_ids)
+
         return (type(self) == type(other) and
                 is_equal_value(self.roles, other.roles) and
                 is_equal_value(self.actions, other.actions) and
