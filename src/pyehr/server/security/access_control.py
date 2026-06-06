@@ -91,6 +91,11 @@ class PyehrAccessPolicyItem(AnyClass):
     """Set of references to ROLEs in the demographic service to which
     this policy applies. (If None, assume to match all roles)"""
 
+    organisations: Optional[set[PartyRef]]
+    """Set of references to ORGANISATIONs in the demographic service to
+    whose associated ACTORs this rule applies. (If None, assume match to
+    all organisations)"""
+
     actions: Optional[set[PyehrAccessPolicyEndpointAction]]
     """Actions to which this policy applies (if None, assume to 
     apply to all actions)"""
@@ -114,12 +119,14 @@ class PyehrAccessPolicyItem(AnyClass):
                  actions: Optional[set[PyehrAccessPolicyEndpointAction]] = None,  
                  endpoints: Optional[set[PyehrAccessPolicyEndpoint]] = None,
                  archetype_id: Optional[set[str]] = None,
+                 organisations: Optional[set[PartyRef]] = None,
                  **kwargs):
         self.allow_action = allow_action
         self.roles = roles
         self.actions = actions
         self.endpoints = endpoints
         self.archetype_ids = archetype_id
+        self.organisations = organisations
         super().__init__(**kwargs)
 
     def as_json(self):
@@ -132,6 +139,8 @@ class PyehrAccessPolicyItem(AnyClass):
             draft["endpoints"] = [endpoint.value for endpoint in self.endpoints]
         if self.archetype_ids is not None:
             draft["archetype_ids"] = [archetype_id for archetype_id in self.archetype_ids]
+        if self.organisations is not None:
+            draft["organisations"] = [organisation.as_json() for organisation in self.organisations]
         draft["allow_action"] = self.allow_action
         draft["_type"] = "PYEHR_ACCESS_POLICY_ITEM"
         return draft
@@ -142,7 +151,8 @@ class PyehrAccessPolicyItem(AnyClass):
                 is_equal_value(self.actions, other.actions) and
                 is_equal_value(self.endpoints, other.endpoints) and
                 is_equal_value(self.archetype_ids, other.archetype_ids) and
-                is_equal_value(self.allow_action, other.allow_action))
+                is_equal_value(self.allow_action, other.allow_action) and
+                is_equal_value(self.organisations, other.organisations))
 
 class PyehrAccessControlSettings(AccessControlSettings):
     """pyehr-specific implementation of ACCESS_CONTROL_SETTINGS on an EHR
