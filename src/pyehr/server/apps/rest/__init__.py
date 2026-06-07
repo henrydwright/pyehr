@@ -22,19 +22,33 @@ from pyehr.server.security.auth import IPyehrAuthProvider
 from pyehr.server.security.auth.noauth import AllowAllAuthProvider
 
 from pyehr.term import PyehrGlobalTerminologyService
+from pyehr.utils import get_uid_from_object_if_exists
 
 def preload_content(root: Path, db: IDatabaseEngine, term_svc: TerminologyService, log: logging.Logger):
     """Preload all content under a given folder structure into the EHR, checking if it already
     exists in the database"""
+
+    from pyehr.types import get_openehr_type_str
+
     jsons = root.glob("*.json")
     for json_f in jsons:
         log.info(f"Preloading... {json_f.as_posix()}")
         with json_f.open("r") as json_fh:
             py_obj = decode_json(json.load(json_fh), terminology_service=term_svc)
-            try:
+            uid = get_uid_from_object_if_exists(py_obj)
+            meta = db.retrieve_db_metadata(uid)
+            if meta is not None and meta.obj_type is not None:
+                log.info("Object already exists, checking for changes")
+                typ = get_openehr_type_str(py_obj)
+                existing_obj = db.retrieve_uid_object(typ, uid)
+                if not existing_obj.is_equal(py_obj):
+                    log.info(f"Changes detected, updating object with UID \'{uid.value}\'")
+                    db.update_uid_object(py_obj)
+                else:
+                    log.info(f"No changes detected, skipping")
+            else:
+                log.info(f"Creating object with UID \'{uid.value}\'")
                 db.create_uid_object(py_obj)
-            except ObjectAlreadyExistsError:
-                log.info(f"Object already existed, skipping.")
     for child in root.iterdir():
         if child.is_dir():
             preload_content(child, db, term_svc, log)

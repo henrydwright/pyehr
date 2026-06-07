@@ -22,7 +22,7 @@ from pyehr.server.change_control import AuditChangeType, VersionLifecycleState, 
 from pyehr.server.database import IDatabaseEngine
 from pyehr.server.security.access_control import PyehrAccessControlSettings, PyehrAccessPolicyEndpoint, PyehrAccessPolicyEndpointAction
 from pyehr.server.security.auth import IPyehrAuthProvider
-from pyehr.utils import PYTHON_TYPE_TO_STRING_TYPE_MAP, get_openehr_type_str
+from pyehr.types import PYTHON_TYPE_TO_STRING_TYPE_MAP, get_openehr_type_str
 
 def commit_contribution_set(auth: IPyehrAuthProvider, db: IDatabaseEngine, owner_id: ObjectRef, log: Logger, policy_and_endpoint: Optional[tuple[PyehrAccessControlSettings, PyehrAccessPolicyEndpoint]] = None):
     body_obj : UpdateContribution = _parse_request_body("UPDATE_CONTRIBUTION")
@@ -432,16 +432,6 @@ def _create_unauthorised_response():
 
 def _create_not_found_response(obj_type: str, uid_based_id: str):
     return _create_error_response(f"404 Not Found: Could not find {obj_type} with uid of \'{uid_based_id}\'", 404)
-
-def _get_uid_from_object_if_exists(obj: Optional[AnyClass]) -> Optional[ObjectID]:
-    if obj is None:
-        return None
-    uid = None
-    if hasattr(obj, "uid"):
-        uid = obj.uid
-        if callable(uid):
-            uid = uid()
-    return uid
 
 def _parse_request_body(target_type: str):
     parse_format = g.processed_headers.provided_content_format

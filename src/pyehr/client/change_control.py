@@ -16,7 +16,8 @@ from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.demographic import Party, VersionedParty
 from pyehr.core.rm.support.terminology import TerminologyService
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState
-from pyehr.utils import PYTHON_TYPE_TO_STRING_TYPE_MAP
+from pyehr.types import PYTHON_TYPE_TO_STRING_TYPE_MAP
+from pyehr.utils import get_uid_from_object_if_exists
 
 from pyehr.term import PyehrGlobalTerminologyService
 
@@ -48,16 +49,6 @@ class VersionedStoreClient():
             raise NotImplementedError(f"Object of type `{str(type(obj))}` is not yet supported or is not a valid OpenEHR type")
         else:
             return PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj)]
-
-    def _get_uid_from_object_if_exists(self, obj: Optional[AnyClass]) -> Optional[ObjectID]:
-        if obj is None:
-            return None
-        uid = None
-        if hasattr(obj, "uid"):
-            uid = obj.uid
-            if callable(uid):
-                uid = uid()
-        return uid
 
     def create(self, 
             obj: AnyClass, 
@@ -139,7 +130,7 @@ class VersionedStoreClient():
         oe_type = explicit_obj_type if explicit_obj_type is not None else self._str_type_or_error(obj)
         if oe_type in DEMOGRAPHIC_CLIENT_TYPE:
             demo_client = OpenEHRDemographicRestClient(self.base_url)
-            uid = self._get_uid_from_object_if_exists(obj)
+            uid = get_uid_from_object_if_exists(obj)
 
             # find the preceding version UID if not given
             if preceding_version_uid is None:

@@ -7,7 +7,8 @@ from pyehr.core.rm.common.change_control import OriginalVersion, VersionedObject
 from pyehr.core.rm.common.generic import RevisionHistory, RevisionHistoryItem
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.ehr import EHR
-from pyehr.utils import PYTHON_TYPE_TO_STRING_TYPE_MAP, get_openehr_type_str
+from pyehr.types import PYTHON_TYPE_TO_STRING_TYPE_MAP, get_openehr_type_str
+from pyehr.utils import get_uid_from_object_if_exists
 
 from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef, PartyRef
@@ -111,7 +112,7 @@ class InMemoryDB(IDatabaseEngine):
 
     def create_uid_object(self, obj, creator = None, type_override = None):
         met = None
-        uid = self._get_uid_from_uid_object_type(obj)
+        uid = get_uid_from_object_if_exists(obj)
         if uid.value in self._meta:
             met = self._meta[uid.value]
             if met.obj_type is not None:
@@ -142,7 +143,7 @@ class InMemoryDB(IDatabaseEngine):
         self._log.info(f"{uid.value}:Created new {type_str} {'[type set explicitly]' if type_override is not None else ''}")
     
     def update_uid_object(self, obj, updater = None):
-        uid = self._get_uid_from_uid_object_type(obj)
+        uid = get_uid_from_object_if_exists(obj)
         met = None
         if uid.value in self._meta:
             met = self._meta[uid.value]
@@ -213,7 +214,7 @@ class InMemoryDB(IDatabaseEngine):
 
         # step 4: for those we are returning, log that a read has happened
         for ret_item in returns:
-            ret_meta = self._meta[self._get_uid_from_uid_object_type(ret_item).value]
+            ret_meta = self._meta[get_uid_from_object_if_exists(ret_item).value]
             ret_meta.action_history.append(DBActionItem(DBActionType.READ, party=reader, query=query_dict))
 
         self._log.info(f"QUERY:Query returned {len(returns)} results")

@@ -17,7 +17,8 @@ from pyehr.core.rm.common.change_control import OriginalVersion, VersionedObject
 from pyehr.core.rm.common.generic import RevisionHistoryItem
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.server.database import DBActionItem, DBActionType, DBMetadata, IDatabaseEngine, IncorrectVersionTypeError, ObjectAlreadyExistsError, ObjectDoesNotExistError
-from pyehr.utils import get_openehr_type_str
+from pyehr.types import get_openehr_type_str
+from pyehr.utils import get_uid_from_object_if_exists
 
 class MongoDBDatabaseEngine(IDatabaseEngine):
     """Provides a persistent pyehr database with MongoDB"""
@@ -95,7 +96,7 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
         return meta
         
     def create_uid_object(self, obj, creator = None, type_override = None):
-        uid = self._get_uid_from_uid_object_type(obj)
+        uid = get_uid_from_object_if_exists(obj)
         meta : DBMetadata = self.retrieve_db_metadata(uid, record_audit=False)
 
         if meta is not None and meta.obj_type is not None:
@@ -134,7 +135,7 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
         self._log.info(f"{uid.value}:Created new {type_str} {'[type set explicitly]' if type_override is not None else ''}")
 
     def update_uid_object(self, obj, updater = None):
-        uid = self._get_uid_from_uid_object_type(obj)
+        uid = get_uid_from_object_if_exists(obj)
         meta = self.retrieve_db_metadata(uid, record_audit=False)
         if meta is None or (meta is not None and meta.obj_type is None):
             raise ObjectDoesNotExistError(f"Item with UID of {uid.value} did not exist in database so could not be updated")
@@ -215,13 +216,13 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
         
         # step 4: log the reads in metadata
         for ret_item in returns:
-            self._meta_add_db_action_item(self._get_uid_from_uid_object_type(ret_item), DBActionItem(DBActionType.READ, party=reader, query=query_dict))
+            self._meta_add_db_action_item(get_uid_from_object_if_exists(ret_item), DBActionItem(DBActionType.READ, party=reader, query=query_dict))
 
         self._log.info(f"QUERY:Query returned {len(returns)} results")
         return returns    
     
     def create_versioned_object(self, vo, create_underlying_versions = False, creator = None):
-        uid = self._get_uid_from_uid_object_type(vo)
+        uid = get_uid_from_object_if_exists(vo)
         meta : DBMetadata = self.retrieve_db_metadata(uid, record_audit=False)
 
         if meta is not None and meta.obj_type is not None:

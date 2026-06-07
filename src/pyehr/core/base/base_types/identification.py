@@ -155,7 +155,7 @@ class ObjectID(AnyClass, IXMLSupport):
         return root
     
     def from_xml(root: ElementTree.Element, **kwargs):
-        from pyehr.utils import OPENEHR_TYPE_MAP
+        from pyehr.types import OPENEHR_TYPE_MAP
         
         val = root.findtext("./value")
         typ = get_pyehr_type_from_element(root)
@@ -624,7 +624,7 @@ class PartyRef(ObjectRef, IXMLSupport):
         return oref_json
     
     def as_xml(self, root_tag = None):
-        from pyehr.utils import get_openehr_type_str
+        from pyehr.types import get_openehr_type_str
 
         root = ElementTree.Element("party_ref" if root_tag is None else root_tag)
         id_el = self._id.as_xml("id")

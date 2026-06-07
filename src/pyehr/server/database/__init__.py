@@ -128,15 +128,6 @@ class IDatabaseEngine(ABC):
 
     UID_OBJECT_TYPE = Union[Party]
     """Type of all top-level pyehr objects it is possible to store in the database"""
-
-    def _get_uid_from_uid_object_type(self, obj):
-        """Extract the UID from a UID object type"""
-        if isinstance(obj, EHR):
-            return obj.ehr_id
-        uid = obj.uid
-        if callable(uid):
-            uid = obj.uid()
-        return uid
     
     def _get_archetype_node_id_from_object(self, obj) -> Optional[str]:
         """Extract the archetype_node_id from an object, if it has one"""

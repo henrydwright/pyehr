@@ -16,7 +16,7 @@ def from_arbitrary_xml(root: ET.Element,
     :param target: (Optional) Target type to decode the root element to (e.g. 'CODE_PHRASE')
     :param terminology_service: (Optional) Provide a terminology service, if not provided, uses the inbuilt pyehr terminology service.
     :type terminology_service: TerminologyService"""
-    from pyehr.utils import OPENEHR_TYPE_MAP
+    from pyehr.types import OPENEHR_TYPE_MAP
 
     if target is None:
         # attempt to extract the target type from underlying

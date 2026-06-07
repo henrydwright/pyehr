@@ -12,7 +12,7 @@ from pyehr.core.its.rest.additions import UpdateAttestation, UpdateAudit, Update
 from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion, VersionedObject
 from pyehr.core.rm.common.generic import Attestation, AuditDetails, PartyIdentified, PartySelf, RevisionHistory, RevisionHistoryItem
 from pyehr.server.security.access_control import PyehrAccessPolicyEndpoint, PyehrAccessPolicyEndpointAction
-from pyehr.utils import OPENEHR_TYPE_MAP
+from pyehr.types import OPENEHR_TYPE_MAP
 from pyehr.core.base.base_types.identification import HierObjectID, InternetID, ObjectID, ObjectRef, ObjectVersionID, GenericID, PartyRef, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.rm.common.archetyped import Archetyped, ArchetypeID
@@ -26,54 +26,6 @@ from pyehr.core.rm.ehr import EHR, EHRStatus, VersionedEHRStatus
 from pyehr.core.rm.support.terminology import TerminologyService
 
 from pyehr.term import PyehrGlobalTerminologyService
-
-_type_map = {
-    "OBJECT_VERSION_ID": ObjectVersionID,
-    "OBJECT_REF": ObjectRef,
-    "HIER_OBJECT_ID" : HierObjectID,
-    "DV_TEXT": DVText,
-    "DV_URI": DVUri,
-    "DV_DATE_TIME": DVDateTime,
-    "PARTY_SELF": PartySelf,
-    "EHR": EHR,
-    "EHR_STATUS": EHRStatus,
-    "ARCHETYPED": Archetyped,
-    "ARCHETYPE_ID": ArchetypeID,
-    "PARTY_REF": PartyRef,
-    "GENERIC_ID": GenericID,
-    "PERSON": Person,
-    "PARTY_IDENTITY": PartyIdentity,
-    "ITEM_TREE": ItemTree,
-    "ELEMENT": Element,
-    "DV_IDENTIFIER": DVIdentifier,
-    "CLUSTER": Cluster,
-    "DV_CODED_TEXT": DVCodedText,
-    "CODE_PHRASE": CodePhrase,
-    "TERMINOLOGY_ID": TerminologyID,
-    "VERSIONED_EHR_STATUS": VersionedEHRStatus,
-    "REVISION_HISTORY": RevisionHistory,
-    "REVISION_HISTORY_ITEM": RevisionHistoryItem,
-    "AUDIT_DETAILS": AuditDetails,
-    "PARTY_IDENTIFIED": PartyIdentified,
-    "ORIGINAL_VERSION": OriginalVersion,
-    "IMPORTED_VERSION": ImportedVersion,
-    "CONTRIBUTION": Contribution,
-    "ITEM_SINGLE": ItemSingle,
-    "VERSIONED_PARTY": VersionedParty,
-    "VERSIONED_OBJECT": VersionedObject,
-    "INTERNET_ID": InternetID,
-    "ATTESTATION": Attestation,
-    "UPDATE_CONTRIBUTION": UpdateContribution,
-    "UPDATE_VERSION": UpdateVersion,
-    "UPDATE_AUDIT": UpdateAudit,
-    "UPDATE_ATTESTATION": UpdateAttestation,
-    "ORGANISATION": Organisation,
-    "CONTACT": Contact,
-    "ADDRESS": Address,
-    "DV_DATE": DVDate,
-    "AGENT": Agent
-}
-"""Map of OpenEHR JSON '_type' attributes to pyehr.core types"""
 
 _possible_object_refs = {
     "EHR": {

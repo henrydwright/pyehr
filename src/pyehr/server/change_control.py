@@ -15,7 +15,8 @@ from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
 from pyehr.core.rm.support.terminology import TerminologyService
 from pyehr.server.database import IDatabaseEngine
-from pyehr.utils import PYTHON_TYPE_TO_STRING_TYPE_MAP
+from pyehr.types import PYTHON_TYPE_TO_STRING_TYPE_MAP
+from pyehr.utils import get_uid_from_object_if_exists
 
 from pyehr.term import PyehrGlobalTerminologyService
 
@@ -98,16 +99,6 @@ class VersionedStore():
             self._ts = PyehrGlobalTerminologyService.get_global_terminology_service()
         else:
             self._ts = terminology_service
-        
-    def _get_uid_from_object_if_exists(self, obj: Optional[AnyClass]) -> Optional[ObjectID]:
-        if obj is None:
-            return None
-        uid = None
-        if hasattr(obj, "uid"):
-            uid = obj.uid
-            if callable(uid):
-                uid = uid()
-        return uid
     
     def _try_add_contribution_to_ehr(self, owner_id: ObjectRef, contrib_id: HierObjectID, user : PartyRef):
         # if the owner is an EHR, then attempt to create reference to the contribution in the EHR object (if it exists, else fail silently)
@@ -133,7 +124,7 @@ class VersionedStore():
         
         :param user: The user which will be recorded in the database logs"""
         # find the UID if the object has one, otherwise generate one
-        uid = self._get_uid_from_object_if_exists(obj)
+        uid = get_uid_from_object_if_exists(obj)
 
         if uid is not None:
             meta = self.db.retrieve_db_metadata(uid, reader=user)
@@ -207,7 +198,7 @@ class VersionedStore():
                         preceding_version_uid: Optional[ObjectVersionID] = None,
                         user: Optional[PartyRef] = None) -> tuple[str, OriginalVersion, ObjectRef]:
         # get UID from object if it exists
-        uid = self._get_uid_from_object_if_exists(obj)
+        uid = get_uid_from_object_if_exists(obj)
 
         if uid is not None:
             if isinstance(uid, HierObjectID) and preceding_version_uid is not None and preceding_version_uid.object_id().value != uid.value:
@@ -420,7 +411,7 @@ class VersionedStore():
                     raise ValueError(f"Aborting commit. objects[{str(i)}] had change type of CREATION but a preceding_version_uid was given")
                 
                 # find the UID if the object has one, otherwise generate one
-                uid = self._get_uid_from_object_if_exists(obj)
+                uid = get_uid_from_object_if_exists(obj)
 
                 if uid is not None:
                     meta = self.db.retrieve_db_metadata(uid, reader=user)

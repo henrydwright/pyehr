@@ -21,7 +21,7 @@ from pyehr.server.change_control import AuditChangeType, VersionLifecycleState, 
 from pyehr.server.database import IDatabaseEngine
 from pyehr.server.security.access_control import PyehrAccessControlSettings, PyehrAccessPolicyEndpoint, PyehrAccessPolicyEndpointAction, PyehrAccessPolicyItem
 from pyehr.server.security.auth import IPyehrAuthProvider
-from pyehr.utils import get_openehr_type_str
+from pyehr.types import get_openehr_type_str
 
 def create_demographic_blueprint(auth: IPyehrAuthProvider, db: IDatabaseEngine, vs: VersionedStore):
     demo_bp = Blueprint("demographic", __name__, url_prefix="/demographic")

@@ -146,13 +146,6 @@ class PyehrAccessPolicyItem(AnyClass):
         return draft
     
     def is_equal(self, other: 'PyehrAccessPolicyItem'):
-        print(self.actions)
-        print(other.actions)
-        print(self.endpoints)
-        print(other.endpoints)
-        print(self.archetype_ids)
-        print(other.archetype_ids)
-
         return (type(self) == type(other) and
                 is_equal_value(self.roles, other.roles) and
                 is_equal_value(self.actions, other.actions) and
