@@ -1,6 +1,9 @@
 import json
+from pyehr.core.am.opt14 import OperationalTemplate
+from pyehr.core.its.xml_tools import decode_xml
 import requests
 
+import xml.etree.ElementTree as ET
 from typing import Optional
 from pyehr.client import OpenEHRBaseRestClient, OpenEHRRestClientResponse
 from pyehr.core.base.base_types.identification import ArchetypeID
@@ -57,7 +60,7 @@ class OpenEHRDefinitionRestClient(OpenEHRBaseRestClient):
     def __init__(self, base_url, flag_allow_resolved_references = True):
         super().__init__(base_url, flag_allow_resolved_references)
 
-    def adl14_get_list_templates(self) -> OpenEHRRestClientResponse[list[OpenEHRRestTemplateDefinitionItem]]:
+    def adl14_list_templates(self) -> OpenEHRRestClientResponse[list[OpenEHRRestTemplateDefinitionItem]]:
         """List the available ADL 1.4 operational templates (OPT) on the system."""
         target_url = self._url_from_base("/definition/template/adl1.4")
         result = requests.get(
@@ -74,12 +77,12 @@ class OpenEHRDefinitionRestClient(OpenEHRBaseRestClient):
 
         return OpenEHRRestClientResponse(ret_list, result, self._get_metadata_from_result(result))
     
-    def adl14_get_template(self, template_id: str) -> str:
+    def adl14_get_template(self, template_id: str) -> OpenEHRRestClientResponse[OperationalTemplate]:
         """Retrieves the ADL 1.4 operational template (OPT) identified by template_id identifier."""
         target_url = self._url_from_base(f"/definition/template/adl1.4/{template_id}")
         result = requests.get(
             url=target_url,
-            headers=self._build_headers()
+            headers={"Accept": "application/xml","Prefer": "return=representation"}
         )
 
         if result.status_code == 400:
@@ -91,4 +94,27 @@ class OpenEHRDefinitionRestClient(OpenEHRBaseRestClient):
         elif result.status_code != 200:
             raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
         
-        return bytes.decode(result.content)
+        templ_str = bytes.decode(result.content)
+        ret = decode_xml(templ_str, "TEMPLATE")
+        return OpenEHRRestClientResponse(ret, result, self._get_metadata_from_result(result))
+    
+    def adl14_upload_template(self, opt: OperationalTemplate) -> OpenEHRRestClientResponse[OperationalTemplate]:
+        """Upload a new ADL 1.4 operational template (OPT)."""
+        target_url = self._url_from_base(f"/definition/template/adl1.4")
+        opt_xml = opt.as_xml("template")
+        opt_xml.attrib["xmlns"] = "http://schemas.openehr.org/v1"
+        opt_str = ET.tostring(opt_xml)
+        result = requests.post(
+            url=target_url,
+            headers={"Content-Type": "application/xml","Prefer": "return=representation"},
+            data=opt_str
+        )
+
+        if result.status_code == 400:
+            raise ValueError(f"400 Bad Request: server could not parse template. Further info {str(result.json())}")
+        elif result.status_code == 409:
+            raise ValueError(f"409 Conflict: template with same template ID already exists")
+
+        templ_str = bytes.decode(result.content)
+        ret = decode_xml(templ_str, "TEMPLATE")
+        return OpenEHRRestClientResponse(ret, result, self._get_metadata_from_result(result))

@@ -100,6 +100,8 @@ class CBoolean(CPrimitive):
             av_el.text = str(self.assumed_value).lower()
             root.append(av_el)
 
+        root.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        root.attrib["xsi:type"] = "C_BOOLEAN"
         return root
     
     @staticmethod
@@ -185,6 +187,8 @@ class CString(CPrimitive):
             av_el.text = self.assumed_value
             root.append(av_el)
 
+        root.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        root.attrib["xsi:type"] = "C_STRING"
         return root
     
     @staticmethod
@@ -259,6 +263,8 @@ class CInteger(CPrimitive):
             av_el.text = str(self.assumed_value)
             root.append(av_el)
 
+        root.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        root.attrib["xsi:type"] = "C_INTEGER"
         return root
 
     @staticmethod
@@ -339,6 +345,8 @@ class CReal(CPrimitive):
             av_el.text = str(self.assumed_value)
             root.append(av_el)
 
+        root.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        root.attrib["xsi:type"] = "C_REAL"
         return root
 
     @staticmethod
@@ -458,6 +466,8 @@ class CDate(CPrimitive):
             dat_el.text = self.assumed_value.value
             root.append(dat_el)
 
+        root.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        root.attrib["xsi:type"] = "C_DATE"
         return root
     
     def from_xml(root: ET.Element, **kwargs):
@@ -603,6 +613,8 @@ class CTime(CPrimitive):
             time_el.text = self.assumed_value.value
             root.append(time_el)
 
+        root.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        root.attrib["xsi:type"] = "C_TIME"
         return root
 
     @staticmethod
@@ -848,6 +860,9 @@ class CDateTime(CPrimitive):
                     pat += "??"
             pat_el = ET.Element("pattern")
             pat_el.text = pat
+
+            root.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+            root.attrib["xsi:type"] = "C_DATE_TIME"
             root.append(pat_el)
 
         if self.timezone_validity is not None:
@@ -1067,6 +1082,8 @@ class CDuration(CPrimitive):
             av_el.text = self.assumed_value.value
             root.append(av_el)
 
+        root.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        root.attrib["xsi:type"] = "C_DURATION"
         return root
 
     @staticmethod

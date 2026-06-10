@@ -160,6 +160,10 @@ def decode_json(json_obj: dict,
                 if param_name == "events":
                     create_parent_first_params["events"] = param
                     continue
+            elif target_type == "ADL14_TEMPLATE_LIST":
+                # type hint as schema doesn't use _type for the inner items
+                arg_dict[param_name] = [decode_json(list_item, target="ADL14_TEMPLATE_LIST_ITEM", terminology_service=terminology_service) for list_item in param]
+                continue
             arg_dict[param_name] = [decode_json(list_item, terminology_service=terminology_service) for list_item in param]
         else:
             raise RuntimeError(f"Could not decode object: unknown type of parameter \'{type(param)}\' encountered during parsing")

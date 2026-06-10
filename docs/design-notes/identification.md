@@ -28,4 +28,5 @@ This is a record for those developing pyehr as to which ranges have been reserve
 
 |Range|Purpose|
 |-|-|
+|`e0000000-0000-0000-FF00-FFFFFFFF1e39`|Stored template list|
 |`e0000000-0000-0000-FF00-FFFFFFFF1000`|Default EHR access policy|

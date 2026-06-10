@@ -65,6 +65,8 @@ class PyehrAccessPolicyEndpoint(Enum):
 
     DEMOGRAPHIC_CONTRIBUTION = "demographic_contribution"
 
+    DEFINITION_ADL14_TEMPLATE = "definition_adl14_template"
+
 
 class PyehrAccessPolicyEndpointAction(Enum):
     """Enum of the different actions that may be taken at an endpoint"""

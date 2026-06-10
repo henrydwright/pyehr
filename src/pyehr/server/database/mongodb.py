@@ -1,6 +1,6 @@
 import json
 from logging import getLogger, Logger
-from typing import Optional
+from typing import Optional, Union
 from uuid import uuid4
 from warnings import warn
 
@@ -10,7 +10,7 @@ from pymongo.database import Database
 from pymongo.collection import Collection
 
 from pyehr.core.base.base_types.builtins import Env
-from pyehr.core.base.base_types.identification import HierObjectID, UIDBasedID
+from pyehr.core.base.base_types.identification import HierObjectID, PartyRef, UIDBasedID
 from pyehr.core.its.json_tools import decode_json
 from pyehr.core.rm.common.archetyped import Locatable, PyehrInternalProcessedPath
 from pyehr.core.rm.common.change_control import OriginalVersion, VersionedObject
@@ -82,8 +82,14 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
                   }
           )
 
-    def retrieve_db_metadata(self, uid, reader = None, record_audit = True):
-        meta = self._meta.find_one(uid.value)
+    def retrieve_db_metadata(self, uid: Union[UIDBasedID, str], reader = None, record_audit = True):
+        uid_str = None
+        if isinstance(uid, UIDBasedID):
+            uid_str = uid.value
+        else:
+            uid_str = uid
+
+        meta = self._meta.find_one(uid_str)
         if meta is None:
             return meta
         
@@ -92,22 +98,28 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
         if record_audit:
             self._meta_add_db_action_item(uid, DBActionItem(DBActionType.READ_METADATA, party=reader))
             meta.action_history.append(DBActionItem(DBActionType.READ_METADATA, party=reader))
-            self._log.info(f"{uid.value}:Retrieved metadata")
+            self._log.info(f"{uid_str}:Retrieved metadata")
         return meta
         
-    def create_uid_object(self, obj, creator = None, type_override = None):
+    def create_uid_object(self, obj, creator: Optional[PartyRef] = None, type_override : Optional[str] = None, uid_override: Optional[str] = None):
         uid = get_uid_from_object_if_exists(obj)
+        if uid is None and uid_override is None:
+            raise ValueError("Cannot create object. Object did not have uid and uid_override was not set.")
+        uid_str = uid.value
+        if uid_override is not None:
+            uid_str = uid_override
+        
         meta : DBMetadata = self.retrieve_db_metadata(uid, record_audit=False)
 
         if meta is not None and meta.obj_type is not None:
-            raise ObjectAlreadyExistsError(f"Item with UID of {uid.value} already exists in database so could not be created.")
+            raise ObjectAlreadyExistsError(f"Item with UID of {uid_str} already exists in database so could not be created.")
         
         type_str = get_openehr_type_str(obj) if type_override is None else type_override
         arch_id = self._get_archetype_node_id_from_object(obj)
 
         if meta is None:
             meta = DBMetadata(
-                uid=uid,
+                uid=uid_str,
                 obj_type=type_str,
                 is_deleted=False,
                 action_history=[],
@@ -116,7 +128,7 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             self._meta.insert_one(meta.as_json())
         else:
             self._meta.update_one(
-                filter={"_id": uid.value},
+                filter={"_id": uid_str},
                 update={
                     "$set": {
                         "type": type_str,
@@ -128,44 +140,56 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
         type_collection = self._database.get_collection(type_str)
 
         obj_json = obj.as_json()
-        obj_json["_id"] = uid.value
+        obj_json["_id"] = uid_str
 
         type_collection.insert_one(obj_json)
         self._meta_add_db_action_item(uid, DBActionItem(DBActionType.CREATE, party=creator))
-        self._log.info(f"{uid.value}:Created new {type_str} {'[type set explicitly]' if type_override is not None else ''}")
+        self._log.info(f"{uid_str}:Created new {type_str} {'[type set explicitly]' if type_override is not None else ''} {'[uid overridden]' if uid_override is not None else ''}")
 
-    def update_uid_object(self, obj, updater = None):
+    def update_uid_object(self, obj, updater: Optional[PartyRef] = None, uid_override: Optional[str] = None):
         uid = get_uid_from_object_if_exists(obj)
+        if uid is None and uid_override is None:
+            raise ValueError("Cannot update object. Object did not have uid and uid_override was not set.")
+        uid_str = uid.value
+        if uid_override is not None:
+            uid_str = uid_override
+
         meta = self.retrieve_db_metadata(uid, record_audit=False)
         if meta is None or (meta is not None and meta.obj_type is None):
-            raise ObjectDoesNotExistError(f"Item with UID of {uid.value} did not exist in database so could not be updated")
+            raise ObjectDoesNotExistError(f"Item with UID of {uid_str} did not exist in database so could not be updated")
         
         type_str = get_openehr_type_str(obj)
 
         collection = self._database.get_collection(type_str)
         replace_obj = obj.as_json()
-        replace_obj["_id"] = uid.value
+        replace_obj["_id"] = uid_str
 
         collection.replace_one(
-            filter={"_id": uid.value},
+            filter={"_id": uid_str},
             replacement=replace_obj
         )
         self._meta_add_db_action_item(uid, DBActionItem(DBActionType.UPDATE, party=updater))
-        self._log.info(f"{uid.value}:Updated {type_str}")
+        self._log.info(f"{uid_str}:Updated {type_str}")
     
     def retrieve_uid_object(self, obj_type, uid, reader = None):
+        uid_str = None
+        if isinstance(uid, UIDBasedID):
+            uid_str = uid.value
+        else:
+            uid_str = uid
+        
         collection = self._database.get_collection(obj_type)
 
-        return_obj = collection.find_one(uid.value)
+        return_obj = collection.find_one(uid_str)
         if return_obj is None:
-            self._log.info(f"{uid.value}:Read attempted, but did not exist")
+            self._log.info(f"{uid_str}:Read attempted, but did not exist")
             return None
         
         del return_obj["_id"]
         return_obj = decode_json(return_obj)
         self._meta_add_db_action_item(uid, DBActionItem(DBActionType.READ, party=reader))
 
-        self._log.info(f"{uid.value}:Read {obj_type}")
+        self._log.info(f"{uid_str}:Read {obj_type}")
         return return_obj
     
     def retrieve_query_match_object(self, obj_type, archetype_id, query_dict, reader = None):

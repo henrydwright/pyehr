@@ -6,7 +6,7 @@ from pyehr.core.base.foundation_types.interval import Interval
 from pyehr.core.base.foundation_types.terminology import TerminologyCode, TerminologyTerm
 from pyehr.core.base.foundation_types.time import ISODate, ISODateTime, ISODuration, ISOTime
 from pyehr.core.base.resource import ResourceDescription, ResourceDescriptionItem, TranslationDetails
-from pyehr.core.its.rest.additions import UpdateAttestation, UpdateAudit, UpdateContribution, UpdateVersion
+from pyehr.core.its.rest.additions import ADL14TemplateList, ADL14TemplateListItem, UpdateAttestation, UpdateAudit, UpdateContribution, UpdateVersion
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.its.rest.additions import UpdateVersion
 from pyehr.core.rm.common.change_control import Contribution, OriginalVersion, VersionedObject
@@ -159,6 +159,8 @@ OPENEHR_TYPE_MAP = {
     "UPDATE_VERSION": UpdateVersion,
     "UPDATE_AUDIT": UpdateAudit,
     "UPDATE_ATTESTATION": UpdateAttestation,
+    "ADL14_TEMPLATE_LIST": ADL14TemplateList,
+    "ADL14_TEMPLATE_LIST_ITEM": ADL14TemplateListItem,
     # AM
     "TEMPLATE": OperationalTemplate,
     "ARCHETYPE": Archetype,

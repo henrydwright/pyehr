@@ -78,8 +78,8 @@ class DBActionItem():
     
 
 class DBMetadata():
-    uid: UIDBasedID
-    """Database unique UIDBasedID for the object this metadata relates to"""
+    uid: str
+    """Database unique identifier (usually UID) for the object this metadata relates to"""
 
     obj_type: Optional[str]
     """OpenEHR object type of the object"""
@@ -93,8 +93,11 @@ class DBMetadata():
     action_history: list[DBActionItem]
     """List of actions carried out on this item"""
 
-    def __init__(self, uid: UIDBasedID, obj_type: Optional[str], is_deleted: Optional[bool], action_history: list[DBActionItem], obj_archetype_id: Optional[str]):
-        self.uid = uid
+    def __init__(self, uid: Union[UIDBasedID, str], obj_type: Optional[str], is_deleted: Optional[bool], action_history: list[DBActionItem], obj_archetype_id: Optional[str]):
+        if isinstance(uid, UIDBasedID):
+            self.uid = uid.value
+        else:
+            self.uid = uid
         self.obj_type = obj_type
         self.is_deleted = is_deleted
         self.action_history = action_history
@@ -102,7 +105,7 @@ class DBMetadata():
 
     def as_json(self):
         return {
-            "_id": self.uid.value,
+            "_id": self.uid,
             "type": self.obj_type,
             "is_deleted": self.is_deleted,
             "action_history": [a.as_json() for a in self.action_history],
@@ -111,10 +114,6 @@ class DBMetadata():
     
     def from_json(js_dict: dict):
         uid = js_dict["_id"]
-        if "::" in uid:
-            uid = ObjectVersionID(uid)
-        else:
-            uid = HierObjectID(uid)
         draft = DBMetadata(uid, js_dict.get("type"), js_dict.get("is_deleted"), [], js_dict.get("archetype_id"))
         draft_ah = []
         for ah_dict in js_dict["action_history"]:
@@ -163,29 +162,32 @@ class IDatabaseEngine(ABC):
         pass
 
     @abstractmethod
-    def create_uid_object(self, obj: UID_OBJECT_TYPE, creator: Optional[PartyRef] = None, type_override : Optional[str] = None):
+    def create_uid_object(self, obj: UID_OBJECT_TYPE, creator: Optional[PartyRef] = None, type_override : Optional[str] = None, uid_override: Optional[str] = None):
         """Create a single new pyehr object with a UID field in the database.
         
         :param creator: If provided, this is stored in an audit trail of database actions associated with users.
         :param type_override: Override the default behaviour of inferring the type from `obj`.
+        :param uid_override: Overrides the 'key' used in the database with any string (e.g. for saving templates with Template IDs)
         :raises ObjectAlreadyExistsError: If an object with the UID contained within `obj` already exists within the database"""
         pass
 
     @abstractmethod
-    def retrieve_uid_object(self, obj_type: str, uid: UIDBasedID, reader: Optional[PartyRef] = None) -> Optional[UID_OBJECT_TYPE]:
+    def retrieve_uid_object(self, obj_type: str, uid: Union[UIDBasedID, str], reader: Optional[PartyRef] = None) -> Optional[UID_OBJECT_TYPE]:
         """Retrieve any pyehr object with a UID field
         
         :param obj_type: OpenEHR type of object being retrieved (e.g. CONTRIBUTION, VERSIONED_OBJECT, etc.)
-        :param uid: UID based identifier for the object to be retrieved.
+        :param uid: UID based identifier for the object to be retrieved. Either the pyehr type or the str, which allows 
+        for arbitrary non-UID compliant 'keys' when retrieving objects (e.g. for retrieving templates with Template IDs)
         :param reader: If provided, this is stored in an audit trail of database actions associated with the object.
         :returns `None`: If object of type obj_type and with given uid does not exist in database."""
         pass
 
     @abstractmethod
-    def retrieve_db_metadata(self, uid: UIDBasedID, reader: Optional[PartyRef] = None) -> Optional[DBMetadata]:
+    def retrieve_db_metadata(self, uid: Union[UIDBasedID, str], reader: Optional[PartyRef] = None) -> Optional[DBMetadata]:
         """Retrieve the database metadata for an object with a given UID.
         
-        :param uid: UID based identifier for the items whose associated db metadata is to be retrieved.
+        :param uid: UID based identifier for the items whose associated db metadata is to be retrieved. Either the pyehr type or the str, which allows 
+        for arbitrary non-UID compliant 'keys' when retrieving objects (e.g. for retrieving templates with Template IDs)
         :param reader: If provided, this is stored in an audit trail of database actions associated with users.
         :returns DBMetadata: If object with given uid exists in database.
         :returns `None`: If object with given uid does not exist in database."""
@@ -204,10 +206,11 @@ class IDatabaseEngine(ABC):
         pass
 
     @abstractmethod
-    def update_uid_object(self, obj: UID_OBJECT_TYPE, updater: Optional[PartyRef] = None):
+    def update_uid_object(self, obj: UID_OBJECT_TYPE, updater: Optional[PartyRef] = None, uid_override: Optional[str] = None):
         """Update the provided pyehr object in the database.
         
         :param updater: If provided, this is stored in an audit trail of database actions associated with users.
+        :param uid_override: Overrides the 'key' used in the database with any string replacing a UID parameter (e.g. for saving templates with Template IDs)
         :raises ObjectDoesNotExistError: If an object with the UID in `obj` does not exist to be updated"""
         pass
 

@@ -329,7 +329,6 @@ class CAttribute(ArchetypeConstraint):
     def from_xml(root, **kwargs):
         typ = get_pyehr_type_from_element(root)
         if typ is None:
-            ET.dump(root)
             raise RuntimeError("Cannot parse C_ATTRIBUTE based element as type was ambiguous")
         elif typ == "C_SINGLE_ATTRIBUTE":
             return CSingleAttribute.from_xml(root)
@@ -830,6 +829,8 @@ class ArchetypeInternalRef(CReferenceObject):
         tgt = ET.Element("target_path")
         tgt.text = self.target_path
         sup.append(tgt)
+        sup.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        sup.attrib["xsi:type"] = "ARCHETYPE_INTERNAL_REF"
         return sup
     
     def from_xml(root: ET.Element, **kwargs) -> 'ArchetypeInternalRef':
@@ -873,12 +874,14 @@ class ConstraintRef(CReferenceObject):
         tgt = ET.Element("reference")
         tgt.text = self.reference
         sup.append(tgt)
+        sup.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+        sup.attrib["xsi:type"] = "CONSTRAINT_REF"
         return sup
     
     def from_xml(root: ET.Element, **kwargs) -> 'ArchetypeInternalRef':
         rm_typ, occ, nod = CObject.extract_xml_elements(root)
         ref = root.findtext("./reference")
-        return ArchetypeInternalRef(rm_typ, occ, nod, ref, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
+        return ConstraintRef(rm_typ, occ, nod, ref, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
 
 
 class CArchetypeRoot(CComplexObject):

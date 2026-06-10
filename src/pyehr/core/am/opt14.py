@@ -239,14 +239,16 @@ class OperationalTemplate(AnyClass, IXMLSupport):
         conc.text = self.concept
         root.append(conc)
         
-        root.append(self.definition.as_xml("definition"))
+        if self.definition is not None:
+            root.append(self.definition.as_xml("definition"))
 
         # ontology
         # component_ontologies
         # annotations
         # constraints
 
-        root.append(self.view.as_xml("view"))
+        if self.view is not None:
+            root.append(self.view.as_xml("view"))
         return root
     
     def from_xml(root: ET.Element, **kwargs) -> 'OperationalTemplate':
@@ -282,7 +284,7 @@ class OperationalTemplate(AnyClass, IXMLSupport):
         view = TView.from_xml(view) if view is not None else None
         
         return OperationalTemplate(lang, tid, concept, is_controlled=is_cont, description=desc, uid=uid, definition=definition, view=view)
-    
+
     def as_json(self):
         draft = {
             "language": self.language.as_json(),

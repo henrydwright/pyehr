@@ -1,6 +1,6 @@
 from logging import getLogger, Logger
 import json
-from typing import Optional
+from typing import Optional, Union
 
 from pyehr.core.rm.common.archetyped import Locatable, PyehrInternalPathPredicateType, PyehrInternalProcessedPath
 from pyehr.core.rm.common.change_control import OriginalVersion, VersionedObject
@@ -11,7 +11,7 @@ from pyehr.types import PYTHON_TYPE_TO_STRING_TYPE_MAP, get_openehr_type_str
 from pyehr.utils import get_uid_from_object_if_exists
 
 from pyehr.core.base.base_types.builtins import Env
-from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef, PartyRef
+from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef, PartyRef, UIDBasedID
 from pyehr.server.database import DBActionItem, DBActionType, IDatabaseEngine, DBMetadata, IncorrectVersionTypeError, ObjectAlreadyExistsError, ObjectDoesNotExistError
 
 from uuid import uuid4
@@ -110,18 +110,24 @@ class InMemoryDB(IDatabaseEngine):
         vo_meta.action_history.append(DBActionItem(DBActionType.UPDATE, party=attester))
         self._log.info(f"{version_id.value}:Added ATTESTATION")
 
-    def create_uid_object(self, obj, creator = None, type_override = None):
+    def create_uid_object(self, obj, creator: Optional[PartyRef] = None, type_override : Optional[str] = None, uid_override: Optional[str] = None):
         met = None
         uid = get_uid_from_object_if_exists(obj)
-        if uid.value in self._meta:
-            met = self._meta[uid.value]
+        if uid is None and uid_override is None:
+            raise ValueError("Cannot create object. Object did not have uid and uid_override was not set.")
+        uid_str = uid.value
+        if uid_override is not None:
+            uid_str = uid_override
+        
+        if uid_str in self._meta:
+            met = self._meta[uid_str]
             if met.obj_type is not None:
-                raise ObjectAlreadyExistsError(f"Item with UID of {uid.value} already exists in database so could not be created.")
+                raise ObjectAlreadyExistsError(f"Item with UID of {uid_str} already exists in database so could not be created.")
 
         type_str = get_openehr_type_str(obj) if type_override is None else type_override
         arch_id = self._get_archetype_node_id_from_object(obj)
 
-        if uid.value not in self._meta:
+        if uid_str not in self._meta:
             met = DBMetadata(
                 uid=uid,
                 obj_type=type_str,
@@ -129,7 +135,7 @@ class InMemoryDB(IDatabaseEngine):
                 action_history=[],
                 obj_archetype_id=arch_id
             )
-            self._meta[uid.value] = met
+            self._meta[uid_str] = met
         else:
             met.obj_type = type_str
             met.is_deleted = False
@@ -137,33 +143,44 @@ class InMemoryDB(IDatabaseEngine):
         if type_str not in self._obj:
             self._obj[type_str] = dict()
 
-        self._obj[type_str][uid.value] = obj
+        self._obj[type_str][uid_str] = obj
 
         met.action_history.append(DBActionItem(DBActionType.CREATE, party=creator))
-        self._log.info(f"{uid.value}:Created new {type_str} {'[type set explicitly]' if type_override is not None else ''}")
+        self._log.info(f"{uid_str}:Created new {type_str} {'[type set explicitly]' if type_override is not None else ''} {'[uid overridden]' if uid_override is not None else ''}")
     
-    def update_uid_object(self, obj, updater = None):
+    def update_uid_object(self, obj, updater: Optional[PartyRef] = None, uid_override: Optional[str] = None):
         uid = get_uid_from_object_if_exists(obj)
+        if uid is None and uid_override is None:
+            raise ValueError("Cannot update object. Object did not have uid and uid_override was not set.")
+        uid_str = uid.value
+        if uid_override is not None:
+            uid_str = uid_override
+        
         met = None
-        if uid.value in self._meta:
-            met = self._meta[uid.value]
+        if uid_str in self._meta:
+            met = self._meta[uid_str]
             if met.obj_type is None:
-                raise ObjectDoesNotExistError(f"Item with UID of {uid.value} did not exist in database so could not be updated")
+                raise ObjectDoesNotExistError(f"Item with UID of {uid_str} did not exist in database so could not be updated")
         else:
-            raise ObjectDoesNotExistError(f"Item with UID of {uid.value} did not exist in database so could not be updated")
+            raise ObjectDoesNotExistError(f"Item with UID of {uid_str} did not exist in database so could not be updated")
         
         type_str = get_openehr_type_str(obj)
 
-        self._obj[type_str][uid.value] = obj
+        self._obj[type_str][uid_str] = obj
         met.action_history.append(DBActionItem(DBActionType.UPDATE, party=updater))
-        self._log.info(f"Updated {type_str} with UID {uid.value}")
+        self._log.info(f"Updated {type_str} with UID {uid_str}")
     
-    def retrieve_db_metadata(self, uid, reader = None):
-        if uid.value not in self._meta:
+    def retrieve_db_metadata(self, uid: Union[UIDBasedID, str], reader: Optional[PartyRef] = None):
+        uid_str = None
+        if isinstance(uid, UIDBasedID):
+            uid_str = uid.value
+        else:
+            uid_str = uid
+        if uid_str not in self._meta:
             return None
-        met = self._meta[uid.value]
+        met = self._meta[uid_str]
         met.action_history.append(DBActionItem(DBActionType.READ_METADATA, party=reader))
-        self._log.info(f"{uid.value}:Retrieved metadata")
+        self._log.info(f"{uid_str}:Retrieved metadata")
         return met
 
     
@@ -220,17 +237,23 @@ class InMemoryDB(IDatabaseEngine):
         self._log.info(f"QUERY:Query returned {len(returns)} results")
         return returns
     
-    def retrieve_uid_object(self, obj_type, uid, reader = None):
-        if uid.value not in self._meta:
+    def retrieve_uid_object(self, obj_type: str, uid: Union[UIDBasedID, str], reader: Optional[PartyRef] = None):
+        uid_str = None
+        if isinstance(uid, UIDBasedID):
+            uid_str = uid.value
+        else:
+            uid_str = uid
+
+        if uid_str not in self._meta:
             # object with given uid does not exist in database
-            self._log.info(f"{uid.value}:Read attempted, but did not exist")
+            self._log.info(f"{uid_str}:Read attempted, but did not exist")
             return None
         
-        met = self._meta[uid.value]
+        met = self._meta[uid_str]
         met.action_history.append(DBActionItem(DBActionType.READ, party=reader))
 
-        self._log.info(f"{uid.value}:Read {obj_type}")
-        return self._obj[obj_type][uid.value]
+        self._log.info(f"{uid_str}:Read {obj_type}")
+        return self._obj[obj_type][uid_str]
         
     def create_versioned_object(self, vo, create_underlying_versions=False, creator = None):
         vo_meta_only = VersionedObject(

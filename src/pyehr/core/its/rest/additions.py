@@ -2,9 +2,10 @@
 and part of the REST API specification."""
 
 from typing import Optional
-from pyehr.core.base.base_types.identification import GenericID, HierObjectID, ObjectRef, ObjectVersionID
+from pyehr.core.base.base_types.identification import GenericID, HierObjectID, ObjectRef, ObjectVersionID, TemplateID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.structure import is_equal_value
+from pyehr.core.base.foundation_types.time import ISODateTime
 from pyehr.core.rm.common.change_control import Contribution, OriginalVersion
 from pyehr.core.rm.common.generic import Attestation, AuditDetails, PartyProxy
 from pyehr.core.rm.data_types.encapsulated import DVMultimedia
@@ -197,3 +198,65 @@ class UpdateContribution(AnyClass):
             is_equal_value(self.audit, other.audit) and
             is_equal_value(self.uid, other.uid)
         )
+    
+class ADL14TemplateListItem(AnyClass):
+    """Item in the list of templates returned by GET - List templates"""
+
+    template_id : str
+
+    version: Optional[str]
+
+    concept: str
+
+    archetype_id: str
+
+    created_timestamp: str
+
+    def __init__(self, template_id : str, concept: str, archetype_id: str, created_timestamp: str, version: Optional[str] = None):
+        self.template_id = template_id
+        self.concept = concept
+        self.archetype_id = archetype_id
+        self.created_timestamp = created_timestamp
+        self.version = version
+        super().__init__()
+
+    def is_equal(self, other: 'ADL14TemplateListItem'):
+        return (type(self) == type(other) and
+                is_equal_value(self.template_id, other.template_id) and
+                is_equal_value(self.version, other.version) and
+                is_equal_value(self.concept, other.concept) and
+                is_equal_value(self.archetype_id, other.archetype_id) and
+                is_equal_value(self.created_timestamp, other.created_timestamp))
+    
+    def as_json(self):
+        draft = {
+            "template_id" : self.template_id,
+            "concept": self.concept,
+            "archetype_id": self.archetype_id,
+            "created_timestamp": self.created_timestamp
+        }
+        if self.version is not None:
+            draft["version"] = self.version
+        return draft
+    
+class ADL14TemplateList(AnyClass):
+    """List of templates as returned by GET - List Templates"""
+
+    items = list[ADL14TemplateListItem]
+
+    uid = HierObjectID("e0000000-0000-0000-FF00-FFFFFFFF1e39")
+
+    def __init__(self, items: list[ADL14TemplateListItem]):
+        self.items = items
+        super().__init__()
+
+    def is_equal(self, other):
+        return (type(self) == type(other) and
+                is_equal_value(self.items, other.items))
+    
+    def as_json(self):
+        return {
+            "items": [item.as_json() for item in self.items],
+            "_type": "ADL14_TEMPLATE_LIST"
+            }
+

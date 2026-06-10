@@ -12,6 +12,7 @@ from pyehr.core.base.base_types.identification import HierObjectID, PartyRef
 from pyehr.core.its.json_tools import decode_json
 from pyehr.core.rm.common.generic import PartyIdentified
 from pyehr.core.rm.support.terminology import TerminologyService
+from pyehr.server.apps.rest.blueprints.definition import create_definition_blueprint
 from pyehr.server.apps.rest.blueprints.demographic import create_demographic_blueprint
 from pyehr.server.apps.rest.blueprints.ehr import create_ehr_blueprint
 from pyehr.server.change_control import VersionedStore
@@ -157,6 +158,9 @@ def create_app():
     if app.config["ENDPOINT_EHR_ENABLED"]:
         log.info("Registering /ehr paths")
         app.register_blueprint(create_ehr_blueprint(auth_provider, db, vs))
+
+    log.info("Registering /definition paths")
+    app.register_blueprint(create_definition_blueprint(auth_provider, db, vs))
 
     return app
 
