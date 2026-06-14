@@ -428,6 +428,7 @@ class CDate(CPrimitive):
         if self.range is not None:
             draft["range"] = self.range.as_json()
         draft["_type"] = "C_DATE"
+        return draft
 
     def as_xml(self, root_tag = None):
         root = ET.Element("c_date" if root_tag is None else root_tag)

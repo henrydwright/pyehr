@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 import numpy as np
 
 from pyehr.core.am.aom14.archetype.assertion import Assertion
-from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDateTime, CDuration, CInteger, CPrimitive, CReal, CString, CTime
+from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CPrimitive, CReal, CString, CTime
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingSet
 from pyehr.core.base.base_types.identification import ArchetypeID, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
@@ -606,6 +606,8 @@ class CPrimitiveObject(CDefinedObject):
                 item = CTime.from_xml(item_el)
             elif typ == "C_DATE_TIME":
                 item = CDateTime.from_xml(item_el)
+            elif typ == "C_DATE":
+                item = CDate.from_xml(item_el)
             elif typ == "C_DURATION":
                 item = CDuration.from_xml(item_el)
             else:
