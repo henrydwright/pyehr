@@ -34,15 +34,7 @@ class Cluster(Item):
     """The grouping variant of ITEM, which may contain further instances of 
     ITEM, in an ordered list."""
 
-    _items_dict: dict[str, Item]
-    """dict of items keyed by archetype_node_id"""
-
-    def _get_items(self):
-        return list(self._items_dict.values())
-
-    items = property(
-        fget=_get_items
-    )
+    items : list[Item]
     """Ordered list of items - CLUSTER or ELEMENT objects - under this CLUSTER."""
 
     def __init__(self, 
@@ -56,11 +48,10 @@ class Cluster(Item):
             parent: Optional[Pathable] = None,
             parent_container_attribute_name: Optional[str] = None,
             **kwargs):
-        self._items_dict = dict()
-        for item in items:
+        self.items = items
+        for item in self.items:
             item._parent = self
             item._parent_container_attribute_name = "items"
-            self._items_dict[item.archetype_node_id] = item
         
         super().__init__(name, archetype_node_id, uid, links, archetype_details, feeder_audit, parent, parent_container_attribute_name, **kwargs)
 

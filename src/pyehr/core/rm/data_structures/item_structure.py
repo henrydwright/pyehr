@@ -468,15 +468,7 @@ class ItemTree(ItemStructure):
     data which are logically a tree such as audiology results, microbiology 
     results, biochemistry results."""
 
-    _archid_item_dict: Optional[dict[str, Item]]
-    """Mapping from archetype_node_id to the item"""
-
-    def _get_items(self):
-        return list(self._archid_item_dict.values())
-
-    items = property(
-        fget=_get_items
-    )
+    items : Optional[list[Item]]
     """The items comprising the ITEM_TREE. Can include 0 or more CLUSTERs and/or 
     0 or more individual ELEMENTs."""
 
@@ -491,10 +483,7 @@ class ItemTree(ItemStructure):
         parent: Optional[Pathable] = None,
         parent_container_attribute_name: Optional[str] = None,
         **kwargs):
-        if items is not None:
-            self._archid_item_dict = dict()
-        for item in items:
-            self._archid_item_dict[item.archetype_node_id] = item
+        self.items = items
         super().__init__(name, archetype_node_id, uid, links, archetype_details, feeder_audit, parent, parent_container_attribute_name, **kwargs)
 
     def as_hierarchy(self):
