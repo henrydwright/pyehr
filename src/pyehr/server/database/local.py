@@ -172,10 +172,10 @@ class InMemoryDB(IDatabaseEngine):
     
     def retrieve_db_metadata(self, uid: Union[UIDBasedID, str], reader: Optional[PartyRef] = None):
         uid_str = None
-        if isinstance(uid, UIDBasedID):
-            uid_str = uid.value
-        else:
+        if isinstance(uid, str):
             uid_str = uid
+        else:
+            uid_str = uid.value
         if uid_str not in self._meta:
             return None
         met = self._meta[uid_str]
@@ -239,10 +239,10 @@ class InMemoryDB(IDatabaseEngine):
     
     def retrieve_uid_object(self, obj_type: str, uid: Union[UIDBasedID, str], reader: Optional[PartyRef] = None):
         uid_str = None
-        if isinstance(uid, UIDBasedID):
-            uid_str = uid.value
-        else:
+        if isinstance(uid, str):
             uid_str = uid
+        else:
+            uid_str = uid.value
 
         if uid_str not in self._meta:
             # object with given uid does not exist in database

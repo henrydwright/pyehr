@@ -390,7 +390,7 @@ def test_its_xml_archetype_expr_binary_operator():
                              ExprLeaf(
                                  type_var="String",
                                  reference_type="constraint",
-                                 item=CString(pattern="openEHR-EHR-CLUSTER\.health_event(-[a-zA-Z0-9_]+)*\.v0|openEHR-EHR-CLUSTER\.issue(-[a-zA-Z0-9_]+)*\.v0|openEHR-EHR-CLUSTER\.symptom_sign(-[a-zA-Z0-9_]+)*\.v2")
+                                 item=CString(pattern="openEHR-EHR-CLUSTER\\.health_event(-[a-zA-Z0-9_]+)*\\.v0|openEHR-EHR-CLUSTER\\.issue(-[a-zA-Z0-9_]+)*\\.v0|openEHR-EHR-CLUSTER\\.symptom_sign(-[a-zA-Z0-9_]+)*\\.v2")
                              ))
     validate(ebo, "Archetype.xsd", "EXPR_BINARY_OPERATOR")
     check_from_xml(ebo, ExprBinaryOperator)

@@ -10,7 +10,7 @@ from pymongo.database import Database
 from pymongo.collection import Collection
 
 from pyehr.core.base.base_types.builtins import Env
-from pyehr.core.base.base_types.identification import HierObjectID, PartyRef, UIDBasedID
+from pyehr.core.base.base_types.identification import UUID, HierObjectID, PartyRef, UIDBasedID
 from pyehr.core.its.json_tools import decode_json
 from pyehr.core.rm.common.archetyped import Locatable, PyehrInternalProcessedPath
 from pyehr.core.rm.common.change_control import OriginalVersion, VersionedObject
@@ -84,10 +84,10 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
 
     def retrieve_db_metadata(self, uid: Union[UIDBasedID, str], reader = None, record_audit = True):
         uid_str = None
-        if isinstance(uid, UIDBasedID):
-            uid_str = uid.value
-        else:
+        if isinstance(uid, str):
             uid_str = uid
+        else:
+            uid_str = uid.value
 
         meta = self._meta.find_one(uid_str)
         if meta is None:
@@ -173,10 +173,10 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
     
     def retrieve_uid_object(self, obj_type, uid, reader = None):
         uid_str = None
-        if isinstance(uid, UIDBasedID):
-            uid_str = uid.value
-        else:
+        if isinstance(uid, str):
             uid_str = uid
+        else:
+            uid_str = uid.value
         
         collection = self._database.get_collection(obj_type)
 

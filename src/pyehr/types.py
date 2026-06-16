@@ -183,5 +183,10 @@ def get_openehr_type_str(obj: AnyClass) -> str:
             type_str += f"<{PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj._inner_original_version.data())]}>"
         else:
             type_str += f"<{PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj.data())]}>"
+    elif type_str == "ORIGINAL_VERSION" or type_str == "IMPORTED_VERSION":
+        if isinstance(obj, UpdateVersion):
+            type_str = f"VERSION<{PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj._inner_original_version.data())]}>"
+        else:
+            type_str = f"VERSION<{PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj.data())]}>"
 
     return type_str

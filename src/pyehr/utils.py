@@ -8,6 +8,8 @@ from pyehr.core.rm.ehr import EHR
 
 def get_uid_from_object_if_exists(obj: Optional[AnyClass]) -> Optional[ObjectID]:
     """Extract the UID from a UID object type"""
+    if obj is None:
+        return None
     if isinstance(obj, EHR):
         return obj.ehr_id
     uid = obj.uid
