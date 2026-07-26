@@ -189,11 +189,17 @@ class OpenEHRDemographicRestClient(OpenEHRBaseRestClient):
             )
 
             if result.status_code == 400:
-                raise ValueError(f"400 Bad Request: request had invalid content. Inner error {json.dumps(result.json(),indent=1)}")
+                if self.outer.raise_exceptions_on_failure:
+                    raise ValueError(f"400 Bad Request: request had invalid content. Inner error {json.dumps(result.json(),indent=1)}")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             elif result.status_code == 409:
-                raise RuntimeError("409 Conflict: the UID submitted was the same as an existing object in the database")
+                if self.outer.raise_exceptions_on_failure:
+                    raise RuntimeError("409 Conflict: the UID submitted was the same as an existing object in the database")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             elif result.status_code != 201:
-                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation. Inner error {bytes.decode(result.content)}")
+                if self.outer.raise_exceptions_on_failure:
+                    raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation. Inner error {bytes.decode(result.content)}")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             
             obj = decode_json(result.json(), target="CONTRIBUTION", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
             return OpenEHRRestClientResponse(obj, result, self.outer._get_metadata_from_result(result))
@@ -203,8 +209,8 @@ class OpenEHRDemographicRestClient(OpenEHRBaseRestClient):
             target_url = self.outer._url_from_base(f"/demographic/contribution/{contribution_uid.value}")
             return self.outer._get_XXX_by_version_id(target_url, "CONTRIBUTION")
 
-    def __init__(self, base_url, flag_allow_resolved_references = True):
-        super().__init__(base_url, flag_allow_resolved_references)
+    def __init__(self, base_url, flag_allow_resolved_references = True, raise_exceptions_on_failure: bool = True):
+        super().__init__(base_url, flag_allow_resolved_references, raise_exceptions_on_failure)
         self.party = self._PartyClient(self)
         self.versioned_party = self._VersionedPartyClient(self)
         self.contribution = self._ContributionClient(self)

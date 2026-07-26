@@ -1,0 +1,28 @@
+{
+  "policies": [
+    {
+      "actions": [
+        "create",
+        "update",
+        "get"
+      ],
+      "endpoints": [
+        "ehr"
+      ],
+      "archetype_ids": [
+        "test"
+      ],
+      "allow_action": false,
+      "_type": "PYEHR_ACCESS_POLICY_ITEM"
+    },
+    {
+      "allow_action": true,
+      "_type": "PYEHR_ACCESS_POLICY_ITEM"
+    }
+  ],
+  "uid": {
+    "_type": "HIER_OBJECT_ID",
+    "value": "e0000000-0000-0000-FF00-FFFFFFFF1000"
+  },
+  "_type": "PYEHR_ACCESS_CONTROL_SETTINGS"
+}

@@ -43,7 +43,7 @@ def create_ehr_blueprint(auth: IPyehrAuthProvider, db: IDatabaseEngine, vs: Vers
     
     def _get_access_control_settings(ehr_id: HierObjectID) -> Optional[PyehrAccessControlSettings]:
         ea = _get_ehr_access(ehr_id)
-        if isinstance(ea.settings, PyehrAccessControlSettings):
+        if ea is not None and isinstance(ea.settings, PyehrAccessControlSettings):
             return ea.settings
         else:
             return None
@@ -156,7 +156,7 @@ def create_ehr_blueprint(auth: IPyehrAuthProvider, db: IDatabaseEngine, vs: Vers
         met = db.retrieve_db_metadata(hid, auth_party.external_ref)
 
         if met is None or met.obj_type != "EHR":
-            return _create_error_response(f"404 Not Found: No EHR exists with id \'{hid.value}\'")
+            return _create_error_response(f"404 Not Found: No EHR exists with id \'{hid.value}\'", 404)
         
         ehr : EHR = db.retrieve_uid_object("EHR", hid, auth_party.external_ref)
 
@@ -212,7 +212,7 @@ def create_ehr_blueprint(auth: IPyehrAuthProvider, db: IDatabaseEngine, vs: Vers
         policy = _get_access_control_settings(ehid)
         emeta = db.retrieve_db_metadata(ehid)
         if emeta is None or emeta.obj_type is None or emeta.obj_type != "EHR":
-            return _create_error_response(f"404 Not Found: No EHR with ID \'{ehr_id}\' was found")
+            return _create_error_response(f"404 Not Found: No EHR with ID \'{ehr_id}\' was found", 404)
 
         resp, ovid = create_object(auth, vs, "COMPOSITION", ObjectRef("local", "EHR", ehid), log, (policy, PyehrAccessPolicyEndpoint.EHR_COMPOSITION))
         db.add_to_ehr_lists(ehid, ObjectRef("local", "VERSIONED_COMPOSITION", HierObjectID(ovid.object_id().value)))
