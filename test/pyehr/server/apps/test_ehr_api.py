@@ -40,7 +40,10 @@ def app():
 
     yield app
 
-    os.environ["PYEHR_REST_CONFIG"] = old_val
+    if old_val is not None:
+        os.environ["PYEHR_REST_CONFIG"] = old_val
+    else:
+        del os.environ["PYEHR_REST_CONFIG"]
 
 @pytest.fixture(scope="module")
 def client(app):
