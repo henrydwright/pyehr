@@ -315,6 +315,8 @@ def get_versioned_object_version_at_time(auth: IPyehrAuthProvider, db:IDatabaseE
     if obj_type == "FOLDER":
         path_arg = request.args.get("path")
         if path_arg is not None:
+            if obj is None or obj.data() is None:
+                return (_create_not_found_response("FOLDER", hier_object_id.value), None)
             try:
                 obj : Version[Folder] = obj.data().item_at_path(path_arg)
             except ValueError:

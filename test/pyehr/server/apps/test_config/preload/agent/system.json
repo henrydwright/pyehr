@@ -1,0 +1,21 @@
+{
+  "name": {
+    "_type": "DV_TEXT",
+    "value": "AGENT - SYSTEM"
+  },
+  "archetype_node_id": "OpenEHR-DEMOGRAPHIC-AGENT.generic.v1",
+  "uid": {
+    "_type": "HIER_OBJECT_ID",
+    "value": "d0000000-0000-0000-FF00-FFFFFFFF0000"
+  },
+  "archetype_details": {
+    "_type": "ARCHETYPED",
+    "archetype_id": {
+      "_type": "ARCHETYPE_ID",
+      "value": "OpenEHR-DEMOGRAPHIC-AGENT.generic.v1"
+    },
+    "rm_version": "1.1.0"
+  },
+  "identities": [],
+  "_type": "AGENT"
+}

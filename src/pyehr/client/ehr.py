@@ -74,9 +74,13 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
                 }
             )
             if result.status_code == 404:
-                raise RuntimeError("404 Not Found: EHR with supplied subject parameters does not exist.")
+                if self.outer.raise_exceptions_on_failure:
+                    raise RuntimeError("404 Not Found: EHR with supplied subject parameters does not exist.")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             elif result.status_code != 200:
-                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+                if self.outer.raise_exceptions_on_failure:
+                    raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
 
             obj = decode_json(result.json(), target="EHR", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
             return OpenEHRRestClientResponse(obj, result, self.outer._get_metadata_from_result(result))
@@ -103,11 +107,17 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
                 json=request_body
             )
             if result.status_code == 400:
-                raise ValueError(f"400 Bad Request: Server did not accept provided ehr_status. Body: {str(result.content)}")
+                if self.outer.raise_exceptions_on_failure:
+                    raise ValueError(f"400 Bad Request: Server did not accept provided ehr_status. Body: {str(result.content)}")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             elif result.status_code == 409:
-                raise RuntimeError("409 Conflict: Unable to create a new EHR due to a conflict with an already existing EHR with the same subject id, namespace pair, whenever EHR_STATUS is supplied.")
+                if self.outer.raise_exceptions_on_failure:
+                    raise RuntimeError("409 Conflict: Unable to create a new EHR due to a conflict with an already existing EHR with the same subject id, namespace pair, whenever EHR_STATUS is supplied.")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             elif result.status_code != 201:
-                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+                if self.outer.raise_exceptions_on_failure:
+                    raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
 
             obj = decode_json(result.json(), target="EHR", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
             return OpenEHRRestClientResponse(obj, result, self.outer._get_metadata_from_result(result))
@@ -139,11 +149,17 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
                 json=request_body
             )
             if result.status_code == 400:
-                raise ValueError(f"400 Bad Request: Server did not accept provided ehr_status. Body: {str(result.content)}")
+                if self.outer.raise_exceptions_on_failure:
+                    raise ValueError(f"400 Bad Request: Server did not accept provided ehr_status. Body: {str(result.content)}")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             elif result.status_code == 409:
-                raise RuntimeError("409 Conflict: Unable to create a new EHR due to a conflict with an already existing EHR with the same ehr_id or subject id, namespace pair, whenever EHR_STATUS is supplied.")
+                if self.outer.raise_exceptions_on_failure:
+                    raise RuntimeError("409 Conflict: Unable to create a new EHR due to a conflict with an already existing EHR with the same ehr_id or subject id, namespace pair, whenever EHR_STATUS is supplied.")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             elif result.status_code != 201:
-                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+                if self.outer.raise_exceptions_on_failure:
+                    raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             
             obj = decode_json(result.json(), target="EHR", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
             return OpenEHRRestClientResponse(obj, result, self.outer._get_metadata_from_result(result))
@@ -153,7 +169,7 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
         def __init__(self, outer: 'OpenEHREHRRestClient'):
             self.outer = outer
 
-        def get_ehr_status_by_version_id(self, ehr_id : HierObjectID, version_uid : ObjectVersionID) -> Optional[EHRStatus]:
+        def get_ehr_status_by_version_id(self, ehr_id : HierObjectID, version_uid : ObjectVersionID) -> OpenEHRRestClientResponse[EHRStatus]:
             """Retrieves a particular version of the EHR_STATUS identified by `version_uid` and associated with 
             the EHR identified by `ehr_id`.
 
@@ -164,7 +180,7 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
             target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/ehr_status/{version_uid.value}")
             return self.outer._get_XXX_by_version_id(target_url, "EHR_STATUS")
         
-        def get_ehr_status_at_time(self, ehr_id: HierObjectID, version_at_time: Optional[ISODateTime] = None):
+        def get_ehr_status_at_time(self, ehr_id: HierObjectID, version_at_time: Optional[ISODateTime] = None) -> OpenEHRRestClientResponse[EHRStatus]:
             """Retrieves a version of the EHR_STATUS associated with the EHR identified by ehr_id.
 
             If version_at_time is supplied, retrieves the version extant at specified time, otherwise retrieves 
@@ -186,11 +202,17 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
                 params=params
             )
             if result.status_code == 400:
-                raise ValueError(f"400 Bad Request: request had invalid content.")
+                if self.outer.raise_exceptions_on_failure:
+                    raise ValueError(f"400 Bad Request: request had invalid content.")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             elif result.status_code == 404:
-                raise RuntimeError(f"404 Not Found: Either EHR with ehr_id {ehr_id.value} does not exist or no version of EHR_STATUS existed at {version_at_time.as_string()}")
+                if self.outer.raise_exceptions_on_failure:
+                    raise RuntimeError(f"404 Not Found: Either EHR with ehr_id {ehr_id.value} does not exist or no version of EHR_STATUS existed at {version_at_time.as_string()}")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             elif result.status_code != 200:
-                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+                if self.outer.raise_exceptions_on_failure:
+                    raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             
             obj = decode_json(result.json(), target="EHR_STATUS", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
             return OpenEHRRestClientResponse(obj, result, self.outer._get_metadata_from_result(result))
@@ -461,11 +483,17 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
             )
 
             if result.status_code == 400:
-                raise ValueError(f"400 Bad Request: request had invalid content. Inner error {json.dumps(result.json(),indent=1)}")
+                if self.outer.raise_exceptions_on_failure:
+                    raise ValueError(f"400 Bad Request: request had invalid content. Inner error {json.dumps(result.json(),indent=1)}")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             elif result.status_code == 409:
-                raise RuntimeError("409 Conflict: the UID submitted was the same as an existing object in the database")
+                if self.outer.raise_exceptions_on_failure:
+                    raise RuntimeError("409 Conflict: the UID submitted was the same as an existing object in the database")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             elif result.status_code != 201:
-                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation. Inner error {bytes.decode(result.content)}")
+                if self.outer.raise_exceptions_on_failure:
+                    raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation. Inner error {bytes.decode(result.content)}")
+                return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             
             obj = decode_json(result.json(), target="CONTRIBUTION", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
             return OpenEHRRestClientResponse(obj, result, self.outer._get_metadata_from_result(result))
@@ -475,7 +503,10 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
             target_url = self.outer._url_from_base(f"/ehr/{ehr_id.value}/contribution/{contribution_uid.value}")
             return self.outer._get_XXX_by_version_id(target_url, "CONTRIBUTION")
 
-    def __init__(self, base_url: Uri, flag_allow_resolved_references : bool = True):
+    def __init__(self, 
+                 base_url: Uri, 
+                 flag_allow_resolved_references : bool = True,
+                 raise_exceptions_on_failure: bool = True):
         """
         Initialise a new client for communicating with a particular server.
         
@@ -490,10 +521,13 @@ class OpenEHREHRRestClient(OpenEHRBaseRestClient):
                                                objects with resolved references replaced with OBJECT_REFs 
                                                of scheme 'pyehr_decode_json' + GENERIC_IDs with scheme 'list_index'
                                                to match the RM.
+        :param raise_exceptions_on_failure: (default=True) If the status code returned is not the one for success
+                                        for the given method, raise a `RuntimeError` rather than returning
+                                        pyehr_obj = `None` with inner_response set to the relevant contents.
         """
         self.ehr = self._EHRClient(self)
         self.ehr_status = self._EHRStatusClient(self)
         self.composition = self._CompositionClient(self)
         self.contribution = self._ContributionClient(self)
         self.directory = self._DirectoryClient(self)
-        super().__init__(base_url, flag_allow_resolved_references)
+        super().__init__(base_url, flag_allow_resolved_references, raise_exceptions_on_failure)

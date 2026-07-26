@@ -57,8 +57,8 @@ class OpenEHRDefinitionRestClient(OpenEHRBaseRestClient):
     """Procedural-style REST API client for Definition API operations on openEHR servers. Supports API 
     version 1.0.3 only."""
 
-    def __init__(self, base_url, flag_allow_resolved_references = True):
-        super().__init__(base_url, flag_allow_resolved_references)
+    def __init__(self, base_url, flag_allow_resolved_references = True, raise_exceptions_on_failure: bool = True):
+        super().__init__(base_url, flag_allow_resolved_references, raise_exceptions_on_failure)
 
     def adl14_list_templates(self) -> OpenEHRRestClientResponse[list[OpenEHRRestTemplateDefinitionItem]]:
         """List the available ADL 1.4 operational templates (OPT) on the system."""
@@ -69,7 +69,9 @@ class OpenEHRDefinitionRestClient(OpenEHRBaseRestClient):
         )
 
         if result.status_code != 200:
-            raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+            if self.raise_exceptions_on_failure:
+                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+            return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
         
         ret_list = []
         for item in result.json():
@@ -86,13 +88,21 @@ class OpenEHRDefinitionRestClient(OpenEHRBaseRestClient):
         )
 
         if result.status_code == 400:
-            raise ValueError("400 Bad Request: request has invalid (incorrectly formatted) template_id")
+            if self.raise_exceptions_on_failure:
+                raise ValueError("400 Bad Request: request has invalid (incorrectly formatted) template_id")
+            return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
         elif result.status_code == 404:
-            raise RuntimeError("404 Not Found: template with specified template_id does not exist")
+            if self.raise_exceptions_on_failure:
+                raise RuntimeError("404 Not Found: template with specified template_id does not exist")
+            return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
         elif result.status_code == 406:
-            raise RuntimeError("406 Not Acceptable: service cannot produce response in 'application/json' format required by this client")
+            if self.raise_exceptions_on_failure:
+                raise RuntimeError("406 Not Acceptable: service cannot produce response in 'application/json' format required by this client")
+            return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
         elif result.status_code != 200:
-            raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+            if self.raise_exceptions_on_failure:
+                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+            return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
         
         templ_str = bytes.decode(result.content)
         ret = decode_xml(templ_str, "TEMPLATE")
@@ -111,9 +121,17 @@ class OpenEHRDefinitionRestClient(OpenEHRBaseRestClient):
         )
 
         if result.status_code == 400:
-            raise ValueError(f"400 Bad Request: server could not parse template. Further info {str(result.json())}")
+            if self.raise_exceptions_on_failure:
+                raise ValueError(f"400 Bad Request: server could not parse template. Further info {str(result.json())}")
+            return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
         elif result.status_code == 409:
-            raise ValueError(f"409 Conflict: template with same template ID already exists")
+            if self.raise_exceptions_on_failure:
+                raise ValueError(f"409 Conflict: template with same template ID already exists")
+            return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
+        elif result.status_code not in {200, 201}:
+            if self.raise_exceptions_on_failure:
+                raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+            return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
 
         templ_str = bytes.decode(result.content)
         ret = decode_xml(templ_str, "TEMPLATE")

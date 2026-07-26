@@ -50,7 +50,7 @@ class AllowAllAuthProvider(IPyehrAuthProvider):
         return (self.executing_as, self._executing_as_actor)
 
     def action_authorised(self, actor, policy, actions, endpoint, archetype_id = None):
-        self._log.debug(f"PERMIT:actor={actor.uid.value if actor.uid is not None else ""}:policy={policy.uid.value if policy.uid is not None else ""}:actions={str([action.value for action in actions])}:endpoint={endpoint.value}:arch_id={archetype_id if archetype_id is not None else "*"}")
+        self._log.debug(f"PERMIT:actor={actor.uid.value if actor.uid is not None else ""}:policy={policy.uid.value if policy is not None and policy.uid is not None else ""}:actions={str([action.value for action in actions])}:endpoint={endpoint.value}:arch_id={archetype_id if archetype_id is not None else "*"}")
         return True
     
     def action_authorised_for_authenticated_actor(self, policy, actions, endpoint, archetype_id = None):

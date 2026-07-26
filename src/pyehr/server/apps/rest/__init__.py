@@ -8,7 +8,7 @@ import sys
 from flask import Flask, jsonify, make_response, request
 from dotenv import load_dotenv
 
-from pyehr.core.base.base_types.identification import HierObjectID, PartyRef
+from pyehr.core.base.base_types.identification import HierObjectID, ObjectVersionID, PartyRef
 from pyehr.core.its.json_tools import decode_json
 from pyehr.core.rm.common.generic import PartyIdentified
 from pyehr.core.rm.support.terminology import TerminologyService
@@ -78,6 +78,11 @@ def create_app():
     log.info(f"SYSTEM_ID_HID: {app.config["SYSTEM_ID_HID"]}")
     log.info(f"BASE_URL: {app.config["BASE_URL"]}")
 
+    try:
+        test_ovid = ObjectVersionID(app.config["SYSTEM_ID_HID"] + "::" + app.config["SYSTEM_ID_STR"] + "::1")
+    except ValueError:
+        log.critical("Either SYSTEM_ID_HID was not a valid UUID or SYSTEM_ID_STR was not a valid internet id (i.e. not like 'net.example')")
+        sys.exit(1)
     
     db = None
     if app.config["DB_TYPE"] == "InMemory":
