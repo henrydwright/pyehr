@@ -35,7 +35,7 @@ DEFINED_CONTRIBUTION_ID = HierObjectID("9866c697-6c41-49d1-86e8-5ba0b791f948")
 @pytest.fixture(scope="module")
 def app():
     old_val = os.environ.get("PYEHR_REST_CONFIG")
-    os.environ["PYEHR_REST_CONFIG"] = f"{os.getcwd()}/test/pyehr/server/apps/test_config/config.cfg"
+    os.environ["PYEHR_REST_CONFIG"] = f"{os.getcwd()}/test/pyehr/endtoend/test_config/config.cfg"
 
     app = create_app()
 

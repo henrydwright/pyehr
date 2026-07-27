@@ -1,4 +1,5 @@
 from pyehr.client.ehr import OpenEHREHRRestClient
+from pyehr.client.exceptions import OpenEHRRestObjectAlreadyExistsError, OpenEHRRestObjectNotFoundError
 from pyehr.core.base.base_types.identification import ArchetypeID, GenericID, HierObjectID, ObjectRef, ObjectVersionID, PartyRef, TerminologyID
 
 from pyehr.core.base.foundation_types.time import ISODateTime
@@ -30,7 +31,7 @@ DEFINED_CONTRIBUTION_ID = HierObjectID("09cb9c21-4987-4e4f-b75a-17962512634e")
 @pytest.fixture(scope="module")
 def app():
     old_val = os.environ.get("PYEHR_REST_CONFIG")
-    os.environ["PYEHR_REST_CONFIG"] = f"{os.getcwd()}/test/pyehr/server/apps/test_config/config.cfg"
+    os.environ["PYEHR_REST_CONFIG"] = f"{os.getcwd()}/test/pyehr/endtoend/test_config/config.cfg"
 
     app = create_app()
 
@@ -66,6 +67,12 @@ def test_005_get_ehr_by_id_doesnt_exist(c):
     assert resp.inner_response.status_code == 404
     assert resp.inner_response.json()["error"] == f"404 Not Found: No EHR exists with id '{DEFINED_EHR_ID.value}'"
 
+    c.raise_exceptions_on_failure = True
+    with pytest.raises(OpenEHRRestObjectNotFoundError):
+        c.ehr.get_ehr_by_id(DEFINED_EHR_ID)
+
+    c.raise_exceptions_on_failure = False
+
 def test_010_create_ehr_with_id_works_first_time_fails_on_conflict(c):
     sub = PartySelf(PartyRef("nhs_pds", "PERSON", GenericID("9449306583", "nhs_number")))
     resp1 = c.ehr.create_ehr_with_id(ehr_id=DEFINED_EHR_ID, 
@@ -97,6 +104,24 @@ def test_010_create_ehr_with_id_works_first_time_fails_on_conflict(c):
                                       uid=DEFINED_EHR_STATUS_ID
                                   ))
     assert resp2.inner_response.status_code == 409
+
+    c.raise_exceptions_on_failure = True
+    sub = PartySelf(PartyRef("nhs_pds", "PERSON", GenericID("9449306583", "nhs_number")))
+    with pytest.raises(OpenEHRRestObjectAlreadyExistsError):
+        resp2 = c.ehr.create_ehr_with_id(ehr_id=DEFINED_EHR_ID, 
+                                ehr_status=EHRStatus(
+                                    name=DVText("EHR status (with nhs number)"),
+                                    archetype_node_id="openEHR-EHR-EHR_STATUS.generic.v1",
+                                    subject=sub,
+                                    is_queryable=True,
+                                    is_modifiable=True,
+                                    archetype_details=Archetyped(
+                                        archetype_id=ArchetypeID("openEHR-EHR-EHR_STATUS.generic.v1"),
+                                        rm_version="1.1.0"
+                                    ),
+                                    uid=DEFINED_EHR_STATUS_ID
+                                ))
+    c.raise_exceptions_on_failure = False
 
 def test_015_get_ehr_by_id_does_exist(c):
     resp = c.ehr.get_ehr_by_id(DEFINED_EHR_ID)

@@ -4,6 +4,7 @@ interacting with OpenEHR REST API compliant servers"""
 from types import NoneType
 from typing import Optional, Union
 
+from pyehr.client.exceptions import OpenEHRRestBadRequestError, OpenEHRRestConstraintError, OpenEHRRestObjectNotFoundError, OpenEHRRestOperationError, OpenEHRRestVersionMismatchError
 import requests
 import json
 
@@ -181,9 +182,9 @@ class OpenEHRBaseRestClient():
         if not (result.status_code == 200 or result.status_code == 204):
             if self.raise_exceptions_on_failure:
                 if result.status_code == 404:
-                    raise RuntimeError("404 Not Found: Either EHR with ehr_id does not exist, or given version_uid does not exist.")
+                    raise OpenEHRRestObjectNotFoundError("Either EHR with ehr_id does not exist, or given version_uid does not exist.", 404, result.text)
                 else:
-                    raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+                    raise OpenEHRRestOperationError(f"Received status code \'{result.status_code}\' when attempting operation", result.status_code, result.text)
             else:
                 return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
         
@@ -209,13 +210,13 @@ class OpenEHRBaseRestClient():
         if result.status_code != 201:
             if self.raise_exceptions_on_failure:
                 if result.status_code == 400:
-                    raise ValueError(f"400 Bad Request: request had invalid content. Inner error {json.dumps(result.json(),indent=1)}")
+                    raise OpenEHRRestBadRequestError("Request had invalid content.", 400, result.text)
                 elif result.status_code == 404:
-                    raise RuntimeError(f"404 Not Found: EHR with given ehr_id does not exist")
+                    raise OpenEHRRestObjectNotFoundError("EHR with given ehr_id does not exist", 404, result.text)
                 elif result.status_code == 422:
-                    raise ValueError(f"422 Unprocessable Entity: content could be converted to desired type but there are semantic validation errors (e.g. template not known or not validating supplied composition)")
+                    raise OpenEHRRestConstraintError("Content could be converted to desired type but there are semantic validation errors (e.g. template not known or not validating supplied composition)", 422, result.text)
                 else:
-                    raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation. Inner error {bytes.decode(result.content)}")
+                    raise OpenEHRRestOperationError(f"Received status code \'{result.status_code}\' when attempting operation.", result.status_code, result.text)
             else:
                 return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
         
@@ -245,13 +246,13 @@ class OpenEHRBaseRestClient():
         if not (result.status_code == 200 or result.status_code == 204):
             if self.raise_exceptions_on_failure:
                 if result.status_code == 400:
-                    raise ValueError(f"400 Bad Request: request had invalid content. Inner error {json.dumps(result.json(),indent=1)}")
+                    raise OpenEHRRestBadRequestError("Request had invalid content.", 400, result.text)
                 elif result.status_code == 404:
-                    raise RuntimeError(f"404 Not Found: Either EHR with given ehr_id does not exist or the object with UID trying to be updated does not exist")
+                    raise OpenEHRRestObjectNotFoundError(f"Either EHR with given ehr_id does not exist or the object with UID trying to be updated does not exist", 404, result.text)
                 elif result.status_code == 412:
-                    raise RuntimeError(f"412 Precondition Failed: preceding_version_uid of {preceding_version_uid.value} did not match latest version on service side.")
+                    raise OpenEHRRestVersionMismatchError(f"preceding_version_uid of {preceding_version_uid.value} did not match latest version on service side.", 412, result.text)
                 else:
-                    raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+                    raise OpenEHRRestOperationError(f"Received status code \'{result.status_code}\' when attempting operation.", result.status_code, result.text)
             else:
                 return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
         
@@ -274,13 +275,13 @@ class OpenEHRBaseRestClient():
         if result.status_code != 204:
             if self.raise_exceptions_on_failure:
                 if result.status_code == 400:
-                    raise ValueError("400 Bad Request: request could not be parsed or is invalid")
+                    raise OpenEHRRestBadRequestError("Request could not be parsed or is invalid", 400, result.text)
                 elif result.status_code == 404:
-                    raise RuntimeError("404 Not Found: server could not find an object with given ID to delete")
+                    raise OpenEHRRestObjectNotFoundError("Server could not find an object with given ID to delete", 404, result.text)
                 elif result.status_code == 409:
-                    raise RuntimeError("409 Conflict: the given ID was not for the latest version of the object, so could not be deleted.")
+                    raise OpenEHRRestVersionMismatchError("The given ID was not for the latest version of the object, so could not be deleted.", 409, result.text)
                 else:
-                    raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+                    raise OpenEHRRestOperationError(f"Received status code \'{result.status_code}\' when attempting operation.", result.status_code, result.text)
             else:
                 return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
         
@@ -294,9 +295,9 @@ class OpenEHRBaseRestClient():
         if result.status_code != 200:
             if self.raise_exceptions_on_failure:
                 if result.status_code == 404:
-                    raise RuntimeError(f"404 Not Found: Either EHR with given ehr_id does not exist or object with versioned_object_uid does not exist")
+                    raise OpenEHRRestObjectNotFoundError("Either EHR with given ehr_id does not exist or object with versioned_object_uid does not exist", 404, result.text)
                 else:
-                    raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+                    raise OpenEHRRestOperationError(f"Received status code \'{result.status_code}\' when attempting operation.", result.status_code, result.text)
             else:
                 return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
 
@@ -312,9 +313,9 @@ class OpenEHRBaseRestClient():
         if result.status_code != 200:
             if self.raise_exceptions_on_failure:
                 if result.status_code == 404:
-                    raise RuntimeError(f"404 Not Found: Either EHR with given ehr_id or object with given versioned_object_uid as not found")
+                    raise OpenEHRRestObjectNotFoundError("Either EHR with given ehr_id or object with given versioned_object_uid as not found", 404, result.text)
                 else:
-                    raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+                    raise OpenEHRRestOperationError(f"Received status code \'{result.status_code}\' when attempting operation.", result.status_code, result.text)
             else:
                 return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
 
@@ -340,11 +341,11 @@ class OpenEHRBaseRestClient():
         if result.status_code != 200:
             if self.raise_exceptions_on_failure:
                 if result.status_code == 400:
-                    raise ValueError(f"400 Bad Request: request had invalid content.")
+                    raise OpenEHRRestBadRequestError(f"Request had invalid content.", 400, result.text)
                 elif result.status_code == 404:
-                    raise RuntimeError(f"404 Not Found: Either EHR with given ehr_id does not exist or no version of {target_type} existed at {version_at_time.as_string()}")
+                    raise OpenEHRRestObjectNotFoundError(f"Either EHR with given ehr_id does not exist or no version of {target_type} existed at {version_at_time.as_string()}", 404, result.text)
                 else:
-                    raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+                    raise OpenEHRRestOperationError(f"Received status code \'{result.status_code}\' when attempting operation.", result.status_code, result.text)
             else:
                 return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
         
@@ -370,9 +371,9 @@ class OpenEHRBaseRestClient():
         if result.status_code != 200:
             if self.raise_exceptions_on_failure:
                 if result.status_code == 404:
-                    raise RuntimeError(f"404 Not Found: Either EHR with ehr_id does not exist, or {target_type} with version_uid does not exist.")
+                    raise OpenEHRRestObjectNotFoundError(f"Either EHR with ehr_id does not exist, or {target_type} with version_uid does not exist.", 404, result.text)
                 else:
-                    raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+                    raise OpenEHRRestOperationError(f"Received status code \'{result.status_code}\' when attempting operation.", result.status_code, result.text)
             else:
                 return OpenEHRRestClientResponse(None, result, self._get_metadata_from_result(result))
         
@@ -403,6 +404,6 @@ class OpenEHRBaseRestClient():
             headers=self._build_headers()
         )
         if result.status_code != 200:
-            raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation")
+            raise OpenEHRRestOperationError(f"Received status code \'{result.status_code}\' when attempting operation.", result.status_code, result.text)
         
         return OpenEHRRestClientResponse(result.json(), result, self._get_metadata_from_result(result))
