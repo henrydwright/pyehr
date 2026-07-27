@@ -4,6 +4,7 @@ import json
 from types import NoneType
 from typing import Optional, Union
 
+from pyehr.client.exceptions import OpenEHRRestBadRequestError, OpenEHRRestObjectAlreadyExistsError, OpenEHRRestOperationError
 import requests
 from pyehr.client import OpenEHRBaseRestClient, OpenEHRRestClientResponse
 from pyehr.core.base.base_types.identification import HierObjectID, ObjectVersionID
@@ -190,15 +191,15 @@ class OpenEHRDemographicRestClient(OpenEHRBaseRestClient):
 
             if result.status_code == 400:
                 if self.outer.raise_exceptions_on_failure:
-                    raise ValueError(f"400 Bad Request: request had invalid content. Inner error {json.dumps(result.json(),indent=1)}")
+                    raise OpenEHRRestBadRequestError(f"Request had invalid content.", 400, result.text)
                 return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             elif result.status_code == 409:
                 if self.outer.raise_exceptions_on_failure:
-                    raise RuntimeError("409 Conflict: the UID submitted was the same as an existing object in the database")
+                    raise OpenEHRRestObjectAlreadyExistsError("The UID submitted was the same as an existing object in the database", 409, result.text)
                 return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             elif result.status_code != 201:
                 if self.outer.raise_exceptions_on_failure:
-                    raise RuntimeError(f"Received status code \'{result.status_code}\' when attempting operation. Inner error {bytes.decode(result.content)}")
+                    raise OpenEHRRestOperationError(f"Received status code \'{result.status_code}\' when attempting operation.", result.status_code, result.text)
                 return OpenEHRRestClientResponse(None, result, self.outer._get_metadata_from_result(result))
             
             obj = decode_json(result.json(), target="CONTRIBUTION", flag_allow_resolved_references=self.outer.flag_allow_resolved_references)
