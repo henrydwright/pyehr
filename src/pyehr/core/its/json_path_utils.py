@@ -1,5 +1,7 @@
 from pyehr.core.rm.common.archetyped import PyehrInternalPathPredicateType, PyehrInternalProcessedPath
 
+__all__ = ['json_has_path', 'json_get_path']
+
 
 def json_has_path(js_dict, path) -> bool:
     """Return whether a given path exists in an as_json() dict output"""

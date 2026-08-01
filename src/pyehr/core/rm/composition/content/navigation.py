@@ -8,6 +8,8 @@ from pyehr.core.rm.common.archetyped import Archetyped, FeederAudit, Link, Patha
 from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.composition.content import ContentItem
 
+__all__ = ['Section']
+
 
 class Section(ContentItem):
     """Represents a heading in a heading structure, or section tree. Created 

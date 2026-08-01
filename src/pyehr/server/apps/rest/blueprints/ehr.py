@@ -21,6 +21,8 @@ from pyehr.server.database import IDatabaseEngine
 from pyehr.server.security.access_control import PyehrAccessControlSettings, PyehrAccessPolicyEndpoint, PyehrAccessPolicyEndpointAction
 from pyehr.server.security.auth import IPyehrAuthProvider
 
+__all__ = ['create_ehr_blueprint']
+
 
 def create_ehr_blueprint(auth: IPyehrAuthProvider, db: IDatabaseEngine, vs: VersionedStore):
     ehr_bp = Blueprint("ehr", __name__, url_prefix="/ehr")

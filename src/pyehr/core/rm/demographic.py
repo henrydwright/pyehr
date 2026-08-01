@@ -16,6 +16,7 @@ from pyehr.core.rm.data_types.quantity import DVInterval
 from pyehr.core.rm.data_types.quantity.date_time import DVDate
 from pyehr.core.rm.data_types.text import DVText
 
+__all__ = ['PartyIdentity', 'Address', 'Contact', 'PartyRelationship', 'Party', 'Actor', 'Person', 'Organisation', 'Group', 'Agent', 'VersionedParty', 'Capability', 'Role']
 
 class PartyIdentity(Locatable):
     """An identity owned by a Party, such as a person name or company name, and 

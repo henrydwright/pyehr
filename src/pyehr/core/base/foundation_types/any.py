@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Union
 
+__all__ = ['AnyClass']
+
 class AnyClass(ABC):
     """
     Defines a bare minimum of operations.

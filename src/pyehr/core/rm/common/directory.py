@@ -11,6 +11,8 @@ from pyehr.core.rm.data_structures.item_structure import ItemStructure
 from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.base.foundation_types.structure import is_equal_value
 
+__all__ = ['Folder', 'VersionedFolder']
+
 class Folder(Locatable):
     """The concept of a named folder."""
 

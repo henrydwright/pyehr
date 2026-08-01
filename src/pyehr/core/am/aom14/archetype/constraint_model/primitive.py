@@ -14,6 +14,8 @@ from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.base.foundation_types.time import ISODate, ISODateTime, ISODuration, ISOTime
 from pyehr.core.its.xml import IXMLSupport
 
+__all__ = ['CPrimitive', 'CBoolean', 'CString', 'CInteger', 'CReal', 'CDate', 'CTime', 'CDateTime', 'CDuration']
+
 
 class CPrimitive(AnyClass, IXMLSupport):
     """(Abstract) Parent of types representing constraints on primitive types."""

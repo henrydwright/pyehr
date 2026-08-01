@@ -15,6 +15,9 @@ from pyehr.core.rm.support.terminology import TerminologyService, OpenEHRCodeSet
 
 from pyehr.term import PyehrGlobalTerminologyService
 
+__all__ = ['DVEncapsulated', 'DVMultimedia', 'DVParsable']
+
+
 class DVEncapsulated(DataValue):
     """Abstract class defining the common meta-data of all types of encapsulated data."""
 

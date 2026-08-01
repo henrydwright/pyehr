@@ -23,6 +23,8 @@ from pyehr.server.security.access_control import PyehrAccessControlSettings, Pye
 from pyehr.server.security.auth import IPyehrAuthProvider
 from pyehr.types import get_openehr_type_str
 
+__all__ = ['create_demographic_blueprint']
+
 def create_demographic_blueprint(auth: IPyehrAuthProvider, db: IDatabaseEngine, vs: VersionedStore):
     demo_bp = Blueprint("demographic", __name__, url_prefix="/demographic")
 

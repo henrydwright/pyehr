@@ -16,6 +16,9 @@ from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
 from pyehr.core.rm.common.generic import RevisionHistory
 from pyehr.core.rm.data_types.text import CodePhrase
 
+__all__ = ['FlatArchetypeOntology', 'Annotation', 'TComplexObject', 'TAttribute', 'TConstraint', 'TViewConstraint', 'TView', 'OperationalTemplate']
+
+
 class FlatArchetypeOntology(ArchetypeOntology):
     archetype_id: str
 

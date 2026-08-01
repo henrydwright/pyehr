@@ -1,3 +1,4 @@
+__all__ = ['OpenEHRRestClientError', 'OpenEHRRestOperationError', 'OpenEHRRestBadRequestError', 'OpenEHRRestObjectAlreadyExistsError', 'OpenEHRRestObjectNotFoundError', 'OpenEHRRestVersionMismatchError', 'OpenEHRRestConstraintError']
 
 
 class OpenEHRRestClientError(RuntimeError):

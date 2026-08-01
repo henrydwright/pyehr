@@ -6,6 +6,8 @@ from pyehr.core.rm.common.generic import PartyIdentified, PartyProxy
 from pyehr.core.rm.demographic import Actor, Party
 from pyehr.server.security.access_control import PyehrAccessControlSettings, PyehrAccessPolicyEndpoint, PyehrAccessPolicyEndpointAction
 
+__all__ = ['IPyehrAuthProvider']
+
 
 class IPyehrAuthProvider(ABC):
 

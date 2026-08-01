@@ -5,6 +5,9 @@ import xml.etree.ElementTree as ET
 
 from pyehr.core.its.xml import IXMLSupport
 
+__all__ = ['BaseDefinitions', 'OpenEHRDefinitions', 'ValidityKind', 'VersionStatus']
+
+
 class BaseDefinitions:
     """Defines globally used constant values."""
 

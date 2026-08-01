@@ -3,6 +3,9 @@ from abc import ABC, abstractmethod
 from typing import Optional
 import xml.etree.ElementTree as ET
 
+__all__ = ['IXMLSupport', 'get_pyehr_type_from_element']
+
+
 class IXMLSupport(ABC):
     """Interface denoting that this pyehr class supports being serialised to,
     and de-serialised from, the XML (1.0.2) defined in OpenEHR ITS."""

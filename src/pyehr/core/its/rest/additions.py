@@ -13,8 +13,10 @@ from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.data_types.text import DVCodedText, DVText
 from pyehr.core.rm.data_types.uri import DVEHRUri
 from pyehr.core.rm.support.terminology import TerminologyService
-
 from pyehr.term import PyehrGlobalTerminologyService
+
+__all__ = ['UpdateAudit', 'UpdateAttestation', 'UpdateVersion', 'UpdateContribution', 'ADL14TemplateListItem', 'ADL14TemplateList']
+
 
 class UpdateAudit(AnyClass):
     """Similar to AUDIT_DETAILS but with reduced fields, used for clients

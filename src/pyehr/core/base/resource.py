@@ -11,6 +11,8 @@ from pyehr.core.base.foundation_types.terminology import TerminologyCode
 from pyehr.core.its.xml import IXMLSupport
 from pyehr.core.rm.data_types.text import CodePhrase
 
+__all__ = ['ResourceDescription', 'ResourceAnnotations', 'TranslationDetails', 'AuthoredResource', 'ResourceDescriptionItem']
+
 class ResourceDescription(AnyClass, IXMLSupport):
     """Defines the descriptive meta-data of a resource."""
     

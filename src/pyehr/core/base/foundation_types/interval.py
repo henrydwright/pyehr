@@ -12,6 +12,9 @@ from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.base.foundation_types.time import ISODateTime, ISOType
 from pyehr.core.its.xml import IXMLSupport
 
+__all__ = ['Interval', 'PointInterval', 'ProperInterval', 'MultiplicityInterval', 'Cardinality']
+
+
 class Interval[T : ordered](AnyClass, IXMLSupport):
     """Interval abstraction, featuring upper and lower limits that may be open or closed, 
     included or not included. Interval of ordered items."""

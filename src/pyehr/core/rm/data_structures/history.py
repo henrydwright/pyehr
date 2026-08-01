@@ -20,6 +20,9 @@ from pyehr.core.rm.support.terminology import TerminologyService, util_verify_co
 
 from pyehr.term import PyehrGlobalTerminologyService
 
+__all__ = ['Event', 'PointEvent', 'IntervalEvent', 'History']
+
+
 class Event[T : ItemStructure](Locatable):
     """Defines the abstract notion of a single event in a series. This class 
     is generic, allowing types to be generated which are locked to particular 

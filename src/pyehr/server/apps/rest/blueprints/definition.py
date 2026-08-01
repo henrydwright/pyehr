@@ -19,6 +19,7 @@ from pyehr.server.security.access_control import PyehrAccessControlSettings, Pye
 from pyehr.server.security.auth import IPyehrAuthProvider
 from pyehr.utils import get_uid_from_object_if_exists
 
+__all__ = ['create_definition_blueprint']
 
 def create_definition_blueprint(auth: IPyehrAuthProvider, db: IDatabaseEngine, vs: VersionedStore):
     def_bp = Blueprint("definition", __name__, url_prefix="/definition")

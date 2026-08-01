@@ -22,6 +22,8 @@ from pyehr.core.rm.support.terminology import TerminologyService, util_verify_co
 
 from pyehr.term import PyehrGlobalTerminologyService
 
+__all__ = ['DVOrdered', 'DVInterval', 'ReferenceRange', 'DVOrdinal', 'DVScale', 'DVQuantified', 'DVAmount', 'DVQuantity', 'DVCount', 'ProportionKind', 'DVProportion', 'DVAbsoluteQuantity']
+
 # wrapper around an 'ordered' datatype
 class DVOrdered(DataValue, IXMLSupport):
     """Abstract class defining the concept of ordered values, which includes ordinals 

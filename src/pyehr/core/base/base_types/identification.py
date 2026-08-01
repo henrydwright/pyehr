@@ -7,6 +7,9 @@ from xml.etree import ElementTree
 from pyehr.core.base.foundation_types import AnyClass
 from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
 
+__all__ = ['UID', 'ISOOID', 'UUID', 'InternetID', 'ObjectID', 'UIDBasedID', 'HierObjectID', 'VersionTreeID', 'ObjectVersionID', 'ArchetypeID', 'TemplateID', 'TerminologyID', 'GenericID', 'ObjectRef', 'PartyRef', 'LocatableRef']
+
+
 class UID(AnyClass, ABC):
     """Abstract parent of classes representing unique identifiers 
     which identify information entities in a durable way. UIDs only ever 

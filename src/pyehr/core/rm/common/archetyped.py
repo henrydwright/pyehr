@@ -15,6 +15,9 @@ from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.data_types.uri import DVEHRUri
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 
+__all__ = ['PyehrInternalPathPredicateType', 'PyehrInternalProcessedPath', 'Pathable', 'FeederAuditDetails', 'FeederAudit', 'Link', 'Archetyped', 'Locatable']
+
+
 class PyehrInternalPathPredicateType(Enum):
     """INTERNAL CLASS, NOT PART OF RM. 
     

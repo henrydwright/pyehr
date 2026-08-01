@@ -15,11 +15,14 @@ from pyehr.core.base.base_types.identification import HierObjectID, ObjectVersio
 from pyehr.core.base.foundation_types.primitive_types import Uri
 from pyehr.core.base.foundation_types.time import ISODateTime
 from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion, Version
+
 from pyehr.core.rm.common.generic import PartyProxy, RevisionHistory
 from pyehr.core.rm.composition import Composition
 from pyehr.core.rm.ehr import EHR, EHRAccess, EHRStatus, VersionedComposition, VersionedEHRStatus
 
 from pyehr.core.its.json_tools import decode_json
+
+__all__ = ['OpenEHREHRRestClient']
 
 class OpenEHREHRRestClient(OpenEHRBaseRestClient):
     """Procedural-style REST API client for EHR API operations on openEHR servers. Supports API 

@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+__all__ = ['MeasurementService']
+
 class MeasurementService(ABC):
     """Defines an object providing proxy access to a measurement information service."""
 

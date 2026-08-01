@@ -16,6 +16,9 @@ from pyehr.core.rm.data_types.uri import DVUri
 
 from pyehr.term import PyehrGlobalTerminologyService
 
+__all__ = ['CodePhrase', 'TermMapping', 'DVText', 'DVCodedText', 'DVParagraph']
+
+
 class CodePhrase(AnyClass, IXMLSupport):
     """A fully coordinated (i.e. all coordination has been performed) term from a terminology service (as distinct from a particular terminology)."""
     

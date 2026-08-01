@@ -25,6 +25,9 @@ from pyehr.server.security.auth.noauth import AllowAllAuthProvider
 from pyehr.term import PyehrGlobalTerminologyService
 from pyehr.utils import get_uid_from_object_if_exists
 
+__all__ = ['preload_content', 'create_app']
+
+
 def preload_content(root: Path, db: IDatabaseEngine, term_svc: TerminologyService, log: logging.Logger):
     """Preload all content under a given folder structure into the EHR, checking if it already
     exists in the database"""

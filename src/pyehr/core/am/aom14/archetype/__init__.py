@@ -14,6 +14,7 @@ from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID
 from pyehr.core.base.foundation_types.terminology import TerminologyCode
 from pyehr.core.base.resource import AuthoredResource, ResourceAnnotations
 
+__all__ = ['Archetype']
 
 class Archetype(AuthoredResource):
     """Archetype equivalent to ARCHETYPED class in Common reference model. Defines 

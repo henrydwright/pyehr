@@ -20,6 +20,9 @@ from pyehr.server.database import DBActionItem, DBActionType, DBMetadata, IDatab
 from pyehr.types import get_openehr_type_str
 from pyehr.utils import get_uid_from_object_if_exists
 
+__all__ = ['MongoDBDatabaseEngine']
+
+
 class MongoDBDatabaseEngine(IDatabaseEngine):
     """Provides a persistent pyehr database with MongoDB"""
     

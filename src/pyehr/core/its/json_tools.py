@@ -27,8 +27,9 @@ from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText, DVUri
 from pyehr.core.rm.demographic import Address, Agent, Contact, Organisation, PartyIdentity, Person, VersionedParty
 from pyehr.core.rm.ehr import EHR, EHRStatus, VersionedEHRStatus
 from pyehr.core.rm.support.terminology import TerminologyService
-
 from pyehr.term import PyehrGlobalTerminologyService
+
+__all__ = ['OpenEHREncoder', '_obj_uid_or_none', 'decode_json']
 
 _possible_object_refs = {
     "EHR": {
