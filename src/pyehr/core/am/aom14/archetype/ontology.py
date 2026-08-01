@@ -393,7 +393,7 @@ class ArchetypeOntology(AnyClass, IXMLSupport):
         
         return constraint_bind
 
-    def from_xml(root: ET.ElementTree, **kwargs):
+    def extract_xml_elements(root: ET.ElementTree) -> tuple[list[CodeDefinitionSet], Optional[list[CodeDefinitionSet]], Optional[list['TermBindingSet']], Optional[ConstraintBindingSet]]:
         tds_els = root.findall("./term_definitions")
         term_defs = []
         for tds_el in tds_els:
@@ -419,6 +419,11 @@ class ArchetypeOntology(AnyClass, IXMLSupport):
             constraint_binds = []
             for cbs_el in cbs_els:
                 constraint_binds.append(ConstraintBindingSet.from_xml(cbs_el))
+
+        return (term_defs, constraint_defs, term_binds, constraint_binds)
+
+    def from_xml(root: ET.ElementTree, **kwargs):
+        term_defs, constraint_defs, term_binds, constraint_binds = ArchetypeOntology.extract_xml_elements(root)
 
         return ArchetypeOntology(term_defs, constraint_defs, term_binds, constraint_binds)
 
@@ -601,7 +606,7 @@ class TermBindingSet(AnyClass, IXMLSupport):
         }
         if self.items is not None:
             draft["items"] = [item.as_json() for item in self.items]
-        draft["_type"] = "TermBindingSet"
+        draft["_type"] = "TERM_BINDING_SET"
         return draft
     
     def as_xml(self, root_tag = None):

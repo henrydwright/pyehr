@@ -1,8 +1,12 @@
 from pyehr.core.am.aom14.archetype import Archetype
-from pyehr.core.am.aom14.archetype.constraint_model.primitive import CString
+from pyehr.core.am.aom14.archetype.assertion import Assertion, AssertionVariable, ExprBinaryOperator, ExprItem, ExprLeaf, ExprUnaryOperator
+from pyehr.core.am.aom14.archetype.constraint_model import AMNonTerminalState, AMStateMachine, AMTerminalState, AMTransition, ArchetypeInternalRef, ArchetypeSlot, CArchetypeRoot, CCodePhrase, CComplexObject, CDVOrdinal, CDVQuantity, CDVState, CDomainPlaceholder, CMultipleAttribute, CPrimitiveObject, CQuantityItem, CSingleAttribute, ConstraintRef
+from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
+from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, CodeDefinitionSet, ConstraintBindingItem, ConstraintBindingSet, TermBindingItem, TermBindingSet
+from pyehr.core.am.opt14 import FlatArchetypeOntology, TViewConstraint, TView, OperationalTemplate
 from pyehr.core.am.opt14 import OperationalTemplate
 from pyehr.core.base.base_types.identification import ISOOID, UUID, ArchetypeID, HierObjectID, LocatableRef, ObjectRef, ObjectVersionID, TemplateID, VersionTreeID
-from pyehr.core.base.foundation_types.interval import Interval
+from pyehr.core.base.foundation_types.interval import Cardinality, Interval
 from pyehr.core.base.foundation_types.terminology import TerminologyCode, TerminologyTerm
 from pyehr.core.base.foundation_types.time import ISODate, ISODateTime, ISODuration, ISOTime
 from pyehr.core.base.resource import ResourceDescription, ResourceDescriptionItem, TranslationDetails
@@ -49,6 +53,7 @@ OPENEHR_TYPE_MAP = {
     "DATE_TIME": ISODateTime,
     "DURATION": ISODuration,
     "INTERVAL": Interval,
+    "CARDINALITY": Cardinality,
     "TERMINOLOGY_CODE": TerminologyCode,
     "TERMINOLOGY_TERM": TerminologyTerm,
     "TIME": ISOTime,
@@ -164,7 +169,52 @@ OPENEHR_TYPE_MAP = {
     # AM
     "TEMPLATE": OperationalTemplate,
     "ARCHETYPE": Archetype,
+    # AM : Assertion
+    "EXPR_LEAF": ExprLeaf,
+    "EXPR_UNARY_OPERATOR": ExprUnaryOperator,
+    "EXPR_BINARY_OPERATOR": ExprBinaryOperator,
+    "ASSERTION_VARIABLE": AssertionVariable,
+    "ASSERTION": Assertion,
+    # AM : Ontology
+    "CONSTRAINT_BINDING_ITEM": ConstraintBindingItem,
+    "CONSTRAINT_BINDING_SET": ConstraintBindingSet,
+    "CODE_DEFINITION_SET": CodeDefinitionSet,
+    "ARCHETYPE_ONTOLOGY": ArchetypeOntology,
+    "ARCHETYPE_TERM": ArchetypeTerm,
+    "TERM_BINDING_ITEM": TermBindingItem,
+    "TERM_BINDING_SET": TermBindingSet,
+    # AM : Constraint Model
+    "C_SINGLE_ATTRIBUTE": CSingleAttribute,
+    "C_MULTIPLE_ATTRIBUTE": CMultipleAttribute,
+    "C_COMPLEX_OBJECT": CComplexObject,
+    "C_PRIMITIVE_OBJECT": CPrimitiveObject,
+    "C_CODE_PHRASE": CCodePhrase,
+    "ARCHETYPE_SLOT": ArchetypeSlot,
+    "ARCHETYPE_INTERNAL_REF": ArchetypeInternalRef,
+    "CONSTRAINT_REF": ConstraintRef,
+    "C_ARCHETYPE_ROOT": CArchetypeRoot,
+    "C_DOMAIN_PLACEHOLDER": CDomainPlaceholder,
+    "C_QUANTITY_ITEM": CQuantityItem,
+    "C_DV_QUANTITY": CDVQuantity,
+    "C_DV_ORDINAL": CDVOrdinal,
+    "TRANSITION": AMTransition,
+    "NON_TERMINAL_STATE": AMNonTerminalState,
+    "TERMINAL_STATE": AMTerminalState,
+    "STATE_MACHINE": AMStateMachine,
+    "C_DV_STATE": CDVState,
+    # AM : Constraint Model (primitives)
+    "C_BOOLEAN": CBoolean,
     "C_STRING": CString,
+    "C_INTEGER": CInteger,
+    "C_REAL": CReal,
+    "C_DATE": CDate,
+    "C_TIME": CTime,
+    "C_DATE_TIME": CDateTime,
+    "C_DURATION": CDuration,
+    # AM : opt classes
+    "T_VIEW": TView,
+    "T_VIEW_CONSTRAINT": TViewConstraint,
+    "FLAT_ARCHETYPE_ONTOLOGY": FlatArchetypeOntology,
     # PYEHR CLASSES
     "PYEHR_ACCESS_CONTROL_SETTINGS": PyehrAccessControlSettings,
     "PYEHR_ACCESS_POLICY_ITEM": PyehrAccessPolicyItem,

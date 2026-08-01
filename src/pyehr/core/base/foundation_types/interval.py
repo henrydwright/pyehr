@@ -228,9 +228,9 @@ class Interval[T : ordered](AnyClass, IXMLSupport):
     def from_xml(root: ET.Element, typ, **kwargs) -> 'Interval':
         # typ is the class for the contents of lower/upper
         low_inc_el = root.findtext("./lower_included")
-        low_inc = (low_inc_el.capitalize() == "True") if low_inc_el is not None else None
+        low_inc = (low_inc_el.capitalize() == "True") if low_inc_el is not None else False
         up_inc_el = root.findtext("./upper_included")
-        up_inc = (up_inc_el.capitalize() == "True") if up_inc_el is not None else None
+        up_inc = (up_inc_el.capitalize() == "True") if up_inc_el is not None else False
         
         low = None
         up = None
@@ -446,9 +446,9 @@ class Cardinality(AnyClass, IXMLSupport):
     is_unique : bool = False
     """True if the members of the container attribute to which this cardinality refers are unique."""
 
-    def __init__(self, ordered : bool, unique : bool, interval : MultiplicityInterval):
-        self.is_ordered = ordered
-        self.is_unique = unique
+    def __init__(self, is_ordered : bool, is_unique : bool, interval : MultiplicityInterval):
+        self.is_ordered = is_ordered
+        self.is_unique = is_unique
         self.interval = interval
 
     def is_equal(self, other) -> bool:
@@ -475,7 +475,8 @@ class Cardinality(AnyClass, IXMLSupport):
         return {
             "interval": self.interval.as_json(),
             "is_ordered": self.is_ordered,
-            "is_unique": self.is_unique
+            "is_unique": self.is_unique,
+            "_type": "CARDINALITY"
         }
     
     def as_xml(self, root_tag = None):

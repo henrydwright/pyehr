@@ -238,7 +238,7 @@ def test_its_json_base_resource_description():
     res = TestAuthoredResourceImplementation(TerminologyCode("ISO639-1", "en"), uid=UUID("139940b4-8435-463e-93e6-d9e13b02c282"))
     t_rd = ResourceDescription(
         original_author={"Author name": "Joe Bloggs", "Organisation": "Anytown NHS Trust", "Email": "joe@example.net", "Date originally authored": "2017-11-30"},
-        lifecycle_state=TerminologyCode("openehr", "532"),
+        lifecycle_state="draft",
         details={"en": ResourceDescriptionItem(
             language=TerminologyCode("ISO_639-1", "en"),
             purpose="Not Specified"

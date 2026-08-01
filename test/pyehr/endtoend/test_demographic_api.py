@@ -39,7 +39,7 @@ def app():
 
     app = create_app()
 
-    test_server = threading.Thread(target=app.run, kwargs={"host": "127.0.0.1", "port": 8081}, daemon=True)
+    test_server = threading.Thread(target=app.run, kwargs={"host": "127.0.0.1", "port": 8082}, daemon=True)
     test_server.start()
     time.sleep(1.0)
 
@@ -56,7 +56,7 @@ def client(app):
 
 @pytest.fixture(scope="module")
 def cdem(app):
-    return OpenEHRDemographicRestClient("http://127.0.0.1:8081", False, False)
+    return OpenEHRDemographicRestClient("http://127.0.0.1:8082", False, False)
 
 def test_000_create_person(cdem):
     p1_result = cdem.party.create_party(

@@ -463,7 +463,7 @@ def test_its_xml_archetype_c_duration():
 def test_its_xml_resource_resource_description():
     t_rd = ResourceDescription(
         original_author={"Author name": "Joe Bloggs", "Organisation": "Anytown NHS Trust", "Email": "joe@example.net", "Date originally authored": "2017-11-30"},
-        lifecycle_state=TerminologyCode("openehr", "532"),
+        lifecycle_state="draft",
         details={"en": ResourceDescriptionItem(
             language=TerminologyCode("ISO_639-1", "en"),
             purpose="Not Specified"

@@ -40,7 +40,7 @@ def test_translations_valid():
     with pytest.raises(Exception):
         res.add_translation(TranslationDetails(lang_de, {"name": "Herr Beispiel Urheber"}), ResourceDescriptionItem(lang_de, "Testressource zum Testen von Invarianten auf Sprachen"))
 
-    lifecycle = TerminologyCode("lifecycle", "DRAFT")
+    lifecycle = "DRAFT"
     meta = ResourceDescription({"name": "Mr Test Author"}, lifecycle, {"en": ResourceDescriptionItem(lang, "Test resource to test invariant on languages")} ,res)
     res.set_description(meta)
 
@@ -64,7 +64,7 @@ def test_description_valid():
 
     res = TestAuthoredResourceImplementation(lang)
 
-    lifecycle = TerminologyCode("lifecycle", "DRAFT")
+    lifecycle = "lifecycle"
 
     meta = ResourceDescription({"name", "Mr Test Author"}, lifecycle, {"en": ResourceDescriptionItem(lang, "Test resource to test invariant on languages")}, res)
     
@@ -90,7 +90,7 @@ def test_description_valid():
         
 def test_resource_description_is_equal_true():
     lang = TerminologyCode("ISO639-1", "en")
-    lifecycle = TerminologyCode("lifecycle", "DRAFT")
+    lifecycle = "DRAFT"
     parent = TestAuthoredResourceImplementation(lang)
     author = {"name": "Mr Test Author"}
 
@@ -115,7 +115,7 @@ def test_resource_description_is_equal_true():
 
 def test_resource_description_is_equal_false_different_author():
     lang = TerminologyCode("ISO639-1", "en")
-    lifecycle = TerminologyCode("lifecycle", "DRAFT")
+    lifecycle = "DRAFT"
     parent = TestAuthoredResourceImplementation(lang)
     author1 = {"name": "Mr Test Author"}
     author2 = {"name": "Ms Other Author"}
@@ -127,7 +127,7 @@ def test_resource_description_is_equal_false_different_author():
 
 def test_resource_description_is_equal_false_different_details():
     lang = TerminologyCode("ISO639-1", "en")
-    lifecycle = TerminologyCode("lifecycle", "DRAFT")
+    lifecycle = "DRAFT"
     parent = TestAuthoredResourceImplementation(lang)
     author = {"name": "Mr Test Author"}
 
@@ -138,7 +138,7 @@ def test_resource_description_is_equal_false_different_details():
 
 def test_resource_description_is_equal_false_different_type():
     lang = TerminologyCode("ISO639-1", "en")
-    lifecycle = TerminologyCode("lifecycle", "DRAFT")
+    lifecycle = "DRAFT"
     parent = TestAuthoredResourceImplementation(lang)
     author = {"name": "Mr Test Author"}
 

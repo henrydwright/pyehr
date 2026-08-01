@@ -26,8 +26,9 @@ class ResourceDescription(AnyClass, IXMLSupport):
     other_contributors : Optional[list[str]] = None
     """Other contributors to the resource, each listed in "name <email>" form."""
 
-    lifecycle_state : TerminologyCode
+    lifecycle_state : str
     """Lifecycle state of the resource, typically including states such as: initial, in_development, in_review, published, superseded, obsolete."""
+    # spec says this should be TerminologyCode, but in real world use and all ITS specs it's a simple str, so going with that
 
     parent_resource : 'AuthoredResource'
     """Reference to owning resource."""
@@ -82,7 +83,7 @@ class ResourceDescription(AnyClass, IXMLSupport):
 
     def __init__(self, 
                  original_author: dict[str, str], 
-                 lifecycle_state: TerminologyCode, 
+                 lifecycle_state: str, 
                  details: dict[str, 'ResourceDescriptionItem'],
                  parent_resource: Optional['AuthoredResource'] = None,
                  original_namespace: Optional[str] = None,
@@ -140,11 +141,11 @@ class ResourceDescription(AnyClass, IXMLSupport):
     
     def as_json(self):
         # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Resource/RESOURCE_DESCRIPTION.json
-        # TODO: the spec and the JSON schema (as for all resource classes it seems, disagree) so as usual going with the spec
+        # TODO: the spec and the JSON schema (as for all resource classes it seems, disagree) so going with the ITS as this is in use
         draft = {
             "_type": "RESOURCE_DESCRIPTION",
             "original_author": self.original_author,
-            "lifecycle_state": self.lifecycle_state.code_string
+            "lifecycle_state": self.lifecycle_state
         }
         det_list = []
         for rdi in self.details.values():
@@ -196,7 +197,7 @@ class ResourceDescription(AnyClass, IXMLSupport):
 
         # lifecycle_state is a string in v1.0.2, not TERMINOLOGY_CODE
         lf_state = ET.Element("lifecycle_state")
-        lf_state.text = self.lifecycle_state.code_string
+        lf_state.text = self.lifecycle_state
         root.append(lf_state)
 
         if self.resource_package_uri is not None:
@@ -231,8 +232,7 @@ class ResourceDescription(AnyClass, IXMLSupport):
             for other_contrib_el in other_contrib_els:
                 other_contributors.append(other_contrib_el.text)
 
-        lf_state_el = root.find("./lifecycle_state")
-        lf_state = TerminologyCode("openehr", lf_state_el.text)
+        lf_state = root.findtext("./lifecycle_state")
 
         rpu = root.findtext("./resource_package_uri")
 

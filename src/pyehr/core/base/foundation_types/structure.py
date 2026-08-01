@@ -8,6 +8,7 @@ container = Union[dict, list, set, np.ndarray]
 
 def is_equal_value(a, b) -> bool:
     """Utility function to test if two arbitrary pyehr classes are equal in value (rather than in reference)"""
+    #print(f"?|{str(a)}:{str(b)}")
     if type(a) != type(b):
         return False
     elif isinstance(a, AnyClass):
