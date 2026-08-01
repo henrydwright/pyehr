@@ -7,6 +7,8 @@ from pydantic import BaseModel
 
 from pyehr.core.base.foundation_types.time import temporal
 
+__all__ = ['Uri']
+
 class Uri(str):
     """
     A string constrained to obey the syntax of RFC 3986

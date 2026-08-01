@@ -18,6 +18,9 @@ from pyehr.core.rm.data_types.basic import DVState
 from pyehr.core.rm.data_types.quantity import DVOrdinal, DVQuantity
 from pyehr.core.rm.data_types.text import CodePhrase
 
+__all__ = ['ArchetypeConstraint', 'CObject', 'CDefinedObject', 'CAttribute', 'CSingleAttribute', 'CMultipleAttribute', 'CComplexObject', 'CPrimitiveObject', 'CDomainType', 'CCodePhrase', 'CReferenceObject', 'ArchetypeSlot', 'ArchetypeInternalRef', 'ConstraintRef', 'CArchetypeRoot', 'CDomainPlaceholder', 'CQuantityItem', 'CDVQuantity', 'CDVOrdinal', 'AMState', 'AMTransition', 'AMNonTerminalState', 'AMTerminalState', 'AMStateMachine', 'CDVState']
+
+
 # TODO: implement tests for member methods
 
 class ArchetypeConstraint(AnyClass, IXMLSupport):

@@ -24,6 +24,8 @@ from pyehr.server.security.access_control import PyehrAccessControlSettings, Pye
 from pyehr.server.security.auth import IPyehrAuthProvider
 from pyehr.types import PYTHON_TYPE_TO_STRING_TYPE_MAP, get_openehr_type_str
 
+__all__ = ['commit_contribution_set', 'create_object', 'get_object', 'update_object', 'delete_object', 'get_versioned_object_version_by_id', 'get_versioned_object_version_at_time', 'get_versioned_object_revision_history', 'get_versioned_object', 'get_contribution_by_id']
+
 def commit_contribution_set(auth: IPyehrAuthProvider, db: IDatabaseEngine, owner_id: ObjectRef, log: Logger, policy_and_endpoint: Optional[tuple[PyehrAccessControlSettings, PyehrAccessPolicyEndpoint]] = None):
     body_obj : UpdateContribution = _parse_request_body("UPDATE_CONTRIBUTION")
     if isinstance(body_obj, Response):

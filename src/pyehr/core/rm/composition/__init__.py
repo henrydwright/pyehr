@@ -16,6 +16,9 @@ from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers, OpenEHR
 
 from pyehr.term import PyehrGlobalTerminologyService
 
+__all__ = ['EventContext', 'Composition']
+
+
 class EventContext(Pathable):
     """Documents the context information of a healthcare event involving the 
     subject of care and the health system. The context information recorded 

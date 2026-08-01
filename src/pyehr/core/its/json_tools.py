@@ -6,8 +6,11 @@ import json
 from typing import Union, Optional
 
 import numpy as np
+from pyehr.core.am.aom14.archetype.assertion import OperatorKind
+from pyehr.core.base.base_types.definitions import ValidityKind
 from pyehr.core.base.foundation_types.interval import PointInterval, ProperInterval
 from pyehr.core.base.foundation_types.structure import is_equal_value
+from pyehr.core.base.resource import ResourceDescriptionItem
 from pyehr.core.its.rest.additions import UpdateAttestation, UpdateAudit, UpdateContribution, UpdateVersion
 from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion, VersionedObject
 from pyehr.core.rm.common.generic import Attestation, AuditDetails, PartyIdentified, PartySelf, RevisionHistory, RevisionHistoryItem
@@ -24,8 +27,9 @@ from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText, DVUri
 from pyehr.core.rm.demographic import Address, Agent, Contact, Organisation, PartyIdentity, Person, VersionedParty
 from pyehr.core.rm.ehr import EHR, EHRStatus, VersionedEHRStatus
 from pyehr.core.rm.support.terminology import TerminologyService
-
 from pyehr.term import PyehrGlobalTerminologyService
+
+__all__ = ['OpenEHREncoder', '_obj_uid_or_none', 'decode_json']
 
 _possible_object_refs = {
     "EHR": {
@@ -114,6 +118,7 @@ def decode_json(json_obj: dict,
 
     arg_dict = dict()
     for (param_name, param) in json_obj.items():
+        #print(f"{param_name}:{param}:{type(param)}")
         if type(param) == str or type(param) == bool:
             arg_dict[param_name] = param
         elif type(param) == int:
@@ -131,6 +136,12 @@ def decode_json(json_obj: dict,
                 continue
             elif (target_type == "POINT_EVENT" or target_type == "INTERVAL_EVENT") and (python_params is None):
                 raise ValueError("Cannot decode 'POINT_EVENT' or 'INTERVAL_EVENT' unless they are part of 'events' in a HISTORY.")
+            elif target_type == "ARCHETYPE_TERM" and param_name == "items":
+                arg_dict[param_name] = param
+                continue
+            elif target_type == "T_VIEW_CONSTRAINT" and param_name == "items":
+                arg_dict[param_name] = param
+                continue
             
             type_hint = None
             
@@ -163,6 +174,17 @@ def decode_json(json_obj: dict,
             elif target_type == "ADL14_TEMPLATE_LIST":
                 # type hint as schema doesn't use _type for the inner items
                 arg_dict[param_name] = [decode_json(list_item, target="ADL14_TEMPLATE_LIST_ITEM", terminology_service=terminology_service) for list_item in param]
+                continue
+            elif target_type == "C_INTEGER":
+                arg_dict[param_name] = [np.int32(item) for item in param]
+                continue
+            elif target_type == "RESOURCE_DESCRIPTION" and param_name == "details":
+                rdi_lst : list[ResourceDescriptionItem] = [decode_json(rdi_json) for rdi_json in param]
+
+                details_dict = dict()
+                for rdi in rdi_lst:
+                    details_dict[rdi.language.code_string] = rdi
+                arg_dict[param_name] = details_dict
                 continue
             arg_dict[param_name] = [decode_json(list_item, terminology_service=terminology_service) for list_item in param]
         else:
@@ -277,6 +299,54 @@ def decode_json(json_obj: dict,
             arg_dict["archetype_ids"] = set(arg_dict["archetype_ids"])
         if "organisations" in arg_dict:
             arg_dict["organisations"] = set(arg_dict["organisations"])
+    elif target_type == "EXPR_LEAF":
+        arg_dict["type_var"] = arg_dict["type"]
+        del arg_dict["type"]
+    elif target_type == "EXPR_BINARY_OPERATOR" or target_type == "EXPR_UNARY_OPERATOR":
+        arg_dict["type_var"] = arg_dict["type"]
+        del arg_dict["type"]
+        arg_dict["operator"] = OperatorKind(arg_dict["operator"])
+    elif (target_type == "C_STRING" 
+          or target_type == "C_INTEGER" 
+          or target_type == "C_REAL"
+          or target_type == "C_DV_ORDINAL") and "list" in arg_dict:
+        arg_dict["list_var"] = arg_dict["list"]
+        del arg_dict["list"]
+    elif target_type == "C_DATE":
+        if "day_validity" in arg_dict:
+            arg_dict["day_validity"] = ValidityKind(arg_dict["day_validity"])
+        if "month_validity" in arg_dict:
+            arg_dict["month_validity"] = ValidityKind(arg_dict["month_validity"])
+        if "timezone_validity" in arg_dict:
+            arg_dict["timezone_validity"] = ValidityKind(arg_dict["timezone_validity"])
+    elif target_type == "C_TIME":
+        if "minute_validity" in arg_dict:
+            arg_dict["minute_validity"] = ValidityKind(arg_dict["minute_validity"])
+        if "second_validity" in arg_dict:
+            arg_dict["second_validity"] = ValidityKind(arg_dict["second_validity"])
+        if "timezone_validity" in arg_dict:
+            arg_dict["timezone_validity"] = ValidityKind(arg_dict["timezone_validity"])
+    elif target_type == "C_DATE_TIME":
+        if "day_validity" in arg_dict:
+            arg_dict["day_validity"] = ValidityKind(arg_dict["day_validity"])
+        if "month_validity" in arg_dict:
+            arg_dict["month_validity"] = ValidityKind(arg_dict["month_validity"])
+        if "hour_validity" in arg_dict:
+            arg_dict["hour_validity"] = ValidityKind(arg_dict["hour_validity"])
+        if "minute_validity" in arg_dict:
+            arg_dict["minute_validity"] = ValidityKind(arg_dict["minute_validity"])
+        if "second_validity" in arg_dict:
+            arg_dict["second_validity"] = ValidityKind(arg_dict["second_validity"])
+        if "timezone_validity" in arg_dict:
+            arg_dict["timezone_validity"] = ValidityKind(arg_dict["timezone_validity"])
+    elif target_type == "C_DV_QUANTITY":
+        if "property" in arg_dict:
+            arg_dict["property_var"] = arg_dict["property"]
+            del arg_dict["property"]
+        if "list" in arg_dict:
+            arg_dict["list_var"] = arg_dict["list"]
+            del arg_dict["list"]
+
 
     instance_list = []
     if flag_allow_resolved_references:

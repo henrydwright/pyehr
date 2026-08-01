@@ -19,6 +19,7 @@ from pyehr.core.rm.support.terminology import OpenEHRCodeSetIdentifiers, OpenEHR
 
 from pyehr.term import PyehrGlobalTerminologyService
 
+__all__ = ['Entry', 'AdminEntry', 'CareEntry', 'Observation', 'Evaluation', 'Activity', 'Instruction', 'InstructionDetails', 'ISMTransition', 'Action']
 
 class Entry(ContentItem):
     """The abstract parent of all ENTRY subtypes. An ENTRY is the root of a 

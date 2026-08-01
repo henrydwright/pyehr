@@ -23,6 +23,9 @@ from pyehr.core.rm.support.terminology import TerminologyService, util_verify_co
 
 from pyehr.term import PyehrGlobalTerminologyService
 
+__all__ = ['Version', 'OriginalVersion', 'ImportedVersion', 'VersionedObject', 'Contribution']
+
+
 class Version[T: AnyClass](AnyClass):
     """Abstract model of one Version within a Version container, containing data, commit audit 
     trail, and the identifier of its Contribution."""

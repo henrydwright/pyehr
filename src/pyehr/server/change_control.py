@@ -20,6 +20,9 @@ from pyehr.utils import get_uid_from_object_if_exists
 
 from pyehr.term import PyehrGlobalTerminologyService
 
+__all__ = ['AuditChangeType', 'VersionLifecycleState', 'VersionedStore']
+
+
 class AuditChangeType(Enum):
     """Enum of coded audit change types to use with VersionedStore methods for ease."""
     CREATION = DVCodedText("creation", CodePhrase("openehr", "249"))

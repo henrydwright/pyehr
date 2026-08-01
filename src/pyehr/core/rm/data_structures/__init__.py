@@ -8,6 +8,8 @@ from abc import abstractmethod
 from pyehr.core.rm.common.archetyped import Locatable
 from pyehr.core.rm.data_structures.representation import Item
 
+__all__ = ['DataStructure']
+
 class DataStructure(Locatable):
     """Abstract parent class of all data structure types. Includes the as_hierarchy function 
     which can generate the equivalent CEN EN13606 single hierarchy for each subtype's physical 

@@ -17,6 +17,8 @@ from pyehr.core.rm.data_types.text import DVText
 from pyehr.core.rm.demographic import Party, Person, VersionedParty
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState
 
+__all__ = ['OpenEHRPartyType', 'OpenEHRDemographicRestClient']
+
 class OpenEHRPartyType(StrEnum):
     """Enum for different subclasses of PARTY that may be interacted with on a demographic server"""
     AGENT = "AGENT"

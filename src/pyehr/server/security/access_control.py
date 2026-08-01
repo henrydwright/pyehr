@@ -9,6 +9,8 @@ from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.rm.common.change_control import VersionedObject
 from pyehr.core.rm.ehr import AccessControlSettings
 
+__all__ = ['PyehrAccessPolicyEndpoint', 'PyehrAccessPolicyEndpointAction', 'PyehrAccessPolicyItem', 'PyehrAccessControlSettings', 'VersionedPyehrAccessControlSettings']
+
 class PyehrAccessPolicyEndpoint(Enum):
     """Enum of the different REST API endpoints an access policy may act upon."""
 

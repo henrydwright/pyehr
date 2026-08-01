@@ -7,7 +7,7 @@ packages = ["src/pyehr"]
 
 [project]
 name="pyehr-openehr"
-version="0.1.4"
+version="0.1.6"
 authors = [
     {name="Henry Wright"}
 ]

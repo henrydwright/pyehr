@@ -6,8 +6,11 @@ from pyehr.core.base.foundation_types import AnyClass
 
 container = Union[dict, list, set, np.ndarray]
 
+__all__ = ['is_equal_value', 'list_is_equal', 'dict_is_equal', 'set_is_equal']
+
 def is_equal_value(a, b) -> bool:
     """Utility function to test if two arbitrary pyehr classes are equal in value (rather than in reference)"""
+    #print(f"?|{str(a)}:{str(b)}")
     if type(a) != type(b):
         return False
     elif isinstance(a, AnyClass):

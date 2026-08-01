@@ -16,6 +16,8 @@ from pyehr.core.its.json_tools import decode_json
 from pyehr.core.rm.common.generic import Attestation, AuditDetails, PartyIdentified, PartyProxy, RevisionHistory
 from pyehr.server.change_control import AuditChangeType, VersionLifecycleState
 
+__all__ = ['OpenEHRRestOperationMetadata', 'OpenEHRRestClientResponse', 'OpenEHRBaseRestClient']
+
 class OpenEHRRestOperationMetadata():
     """Class representing metadata that may be returned on executing an 
     OpenEHRRestClient operation (e.g. `Location` and `ETag`)."""

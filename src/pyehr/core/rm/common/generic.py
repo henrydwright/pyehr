@@ -23,6 +23,8 @@ from pyehr.core.rm.support.terminology import TerminologyService, util_verify_co
 
 from pyehr.term import PyehrGlobalTerminologyService
 
+__all__ = ['PartyProxy', 'PartySelf', 'PartyIdentified', 'PartyRelated', 'Participation', 'AuditDetails', 'Attestation', 'RevisionHistoryItem', 'RevisionHistory']
+
 class PartyProxy(AnyClass, IXMLSupport):
     """Abstract concept of a proxy description of a party, including an optional link 
     to data for this party in a demographic or other identity management system. Sub-typed 

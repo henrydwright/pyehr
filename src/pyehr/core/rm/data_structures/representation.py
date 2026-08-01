@@ -14,6 +14,9 @@ from pyehr.core.rm.support.terminology import TerminologyService, util_verify_co
 
 from pyehr.term import PyehrGlobalTerminologyService
 
+__all__ = ['Item', 'Cluster', 'Element']
+
+
 class Item(Locatable):
     """The abstract parent of CLUSTER and ELEMENT representation classes."""
 

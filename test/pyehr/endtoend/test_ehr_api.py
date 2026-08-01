@@ -35,7 +35,7 @@ def app():
 
     app = create_app()
 
-    test_server = threading.Thread(target=app.run, kwargs={"host": "127.0.0.1", "port": 8080}, daemon=True)
+    test_server = threading.Thread(target=app.run, kwargs={"host": "127.0.0.1", "port": 8083}, daemon=True)
     test_server.start()
     time.sleep(1.0)
 
@@ -52,7 +52,7 @@ def client(app):
 
 @pytest.fixture(scope="module")
 def c(app):
-    return OpenEHREHRRestClient("http://127.0.0.1:8080", False, False)
+    return OpenEHREHRRestClient("http://127.0.0.1:8083", False, False)
 
 def test_000_options(c):
     resp = c.options()

@@ -14,6 +14,8 @@ from pyehr.core.rm.data_structures import DataStructure
 from pyehr.core.rm.data_structures.representation import Element, Cluster, Item
 from pyehr.core.rm.data_types.text import DVText
 
+__all__ = ['ItemStructure', 'ItemSingle', 'ItemList', 'ItemTable', 'ItemTree']
+
 class ItemStructure(DataStructure):
     """Abstract parent class of all spatial data types."""
 

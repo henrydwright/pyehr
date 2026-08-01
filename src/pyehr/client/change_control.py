@@ -21,6 +21,8 @@ from pyehr.utils import get_uid_from_object_if_exists
 
 from pyehr.term import PyehrGlobalTerminologyService
 
+__all__ = ['VersionedStoreClient']
+
 DEMOGRAPHIC_CLIENT_TYPE = {"AGENT", "GROUP", "ORGANISATION", "PERSON", "ROLE"}
 
 class VersionedStoreClient():

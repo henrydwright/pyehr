@@ -6,6 +6,8 @@ from pyehr.core.base.base_types.identification import ObjectID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.rm.ehr import EHR
 
+__all__ = ['get_uid_from_object_if_exists']
+
 def get_uid_from_object_if_exists(obj: Optional[AnyClass]) -> Optional[ObjectID]:
     """Extract the UID from a UID object type"""
     if obj is None:

@@ -15,6 +15,9 @@ from pyehr.core.rm.data_types.encapsulated import DVParsable
 from pyehr.core.rm.data_types.text import CodePhrase
 from pyehr.core.rm.data_types.quantity.date_time import DVDuration, DVDateTime
 
+__all__ = ['DVTimeSpecification', 'DVPeriodicTimeSpecification', 'DVGeneralTimeSpecification']
+
+
 TERMINOLOGY_ID_CALENDAR_CYCLE = TerminologyID("CalendarCycle")
 TERMINOLOGY_ID_TIMING_EVENT = TerminologyID("TimingEvent")
 

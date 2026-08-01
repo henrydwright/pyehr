@@ -16,6 +16,8 @@ from pyehr.server.database import DBActionItem, DBActionType, IDatabaseEngine, D
 
 from uuid import uuid4
 
+__all__ = ['InMemoryDB']
+
 
 class InMemoryDB(IDatabaseEngine):
     """In memory 'database' designed for exploration and testing use. Does NOT persist data."""

@@ -4,10 +4,11 @@ SECTION, ENTRY and related types."""
 
 from abc import abstractmethod
 from typing import Optional
-
 from pyehr.core.base.base_types.identification import UIDBasedID
 from pyehr.core.rm.common.archetyped import Archetyped, FeederAudit, Link, Locatable, Pathable
 from pyehr.core.rm.data_types.text import DVText
+
+__all__ = ['ContentItem']
 
 
 class ContentItem(Locatable):

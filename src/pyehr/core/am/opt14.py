@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 import numpy as np
 
 from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeConstraint, CArchetypeRoot, CAttribute, CComplexObject
-from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, TermBindingItem, TermBindingSet
+from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, CodeDefinitionSet, ConstraintBindingSet, TermBindingItem, TermBindingSet
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, TemplateID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.interval import Interval
@@ -16,8 +16,43 @@ from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
 from pyehr.core.rm.common.generic import RevisionHistory
 from pyehr.core.rm.data_types.text import CodePhrase
 
+__all__ = ['FlatArchetypeOntology', 'Annotation', 'TComplexObject', 'TAttribute', 'TConstraint', 'TViewConstraint', 'TView', 'OperationalTemplate']
+
+
 class FlatArchetypeOntology(ArchetypeOntology):
-    pass
+    archetype_id: str
+
+    def __init__(self, 
+                term_definitions: list[CodeDefinitionSet],
+                archetype_id: str,
+                constraint_definitions: Optional[list[CodeDefinitionSet]] = None,
+                term_bindings: Optional[list['TermBindingSet']] = None,
+                constraint_bindings: Optional[list[ConstraintBindingSet]] = None,
+                parent_archetype = None,
+                specialisation_depth: Optional[np.int32] = None,
+                term_attribute_names: Optional[list[str]] = None,
+                **kwargs):
+        self.archetype_id = archetype_id
+        super().__init__(term_definitions, constraint_definitions, term_bindings, constraint_bindings, parent_archetype, specialisation_depth, term_attribute_names, **kwargs)
+
+    def from_xml(root: ET.Element, **kwargs):
+        term_defs, constraint_defs, term_binds, constraint_binds = ArchetypeOntology.extract_xml_elements(root)
+
+        arch_id = root.attrib["archetype_id"]
+
+        return FlatArchetypeOntology(term_defs, arch_id, constraint_defs, term_binds, constraint_binds)
+
+    def as_xml(self, root_tag=None):
+        draft = super().as_xml(root_tag)
+
+        draft.attrib["archetype_id"] = self.archetype_id
+
+        return draft
+
+    def as_json(self):
+        draft = super().as_json()
+        draft["archetype_id"] = self.archetype_id
+        draft["_type"] = "FLAT_ARCHETYPE_ONTOLOGY"
 
 class Annotation(AnyClass, IXMLSupport):
     pass
@@ -52,7 +87,8 @@ class TViewConstraint(AnyClass, IXMLSupport):
     def as_json(self):
         return {
             "path": self.path,
-            "items": self.items
+            "items": self.items,
+            "_type": "T_VIEW_CONSTRAINT"
         }
     
     def as_xml(self, root_tag = None):
@@ -219,10 +255,11 @@ class OperationalTemplate(AnyClass, IXMLSupport):
         tag = "template" if root_tag is None else root_tag
         root = ET.Element(tag)
         root.append(self.language.as_xml("language"))
-        
-        is_cont = ET.Element("is_controlled")
-        is_cont.text = str(self.is_controlled).lower()
-        root.append(is_cont)
+
+        if self.is_controlled is not None:
+            is_cont = ET.Element("is_controlled")
+            is_cont.text = str(self.is_controlled).lower()
+            root.append(is_cont)
 
         if self.description is not None:
             root.append(self.description.as_xml("description"))
@@ -253,7 +290,10 @@ class OperationalTemplate(AnyClass, IXMLSupport):
     
     def from_xml(root: ET.Element, **kwargs) -> 'OperationalTemplate':
         lang = CodePhrase.from_xml(root.find("./language"))
-        is_cont = (root.findtext("./is_controlled") == "true")
+
+        is_cont_str = root.findtext("./is_controlled")
+        is_cont = None if is_cont_str is None else (is_cont_str == "true")
+
         desc = root.find("./description")
         if desc is not None:
             desc = ResourceDescription.from_xml(desc)
@@ -288,14 +328,27 @@ class OperationalTemplate(AnyClass, IXMLSupport):
     def as_json(self):
         draft = {
             "language": self.language.as_json(),
-            "is_controlled": self.is_controlled,
             "template_id": self.template_id.as_json(),
             "concept": self.concept
         }
+        if self.is_controlled is not None:
+            draft["is_controlled"] = self.is_controlled
+        if self.description is not None:
+            draft["description"] = self.description.as_json()
         if self.revision_history is not None:
             draft["revision_history"] = self.revision_history.as_json()
+        if self.uid is not None:
+            draft["uid"] = self.uid.as_json()
         if self.definition is not None:
             draft["definition"] = self.definition.as_json()
+        if self.ontology is not None:
+            draft["ontology"] = self.ontology.as_json()
+        if self.component_ontologies is not None:
+            draft["component_ontologies"] = self.component_ontologies.as_json()
+        if self.annotations is not None:
+            draft["annotations"] = [annotation.as_json() for annotation in self.annotations]
+        if self.constraints is not None:
+            draft["constraints"] = self.constraints.as_json() 
         if self.view is not None:
             draft["view"] = self.view.as_json()
         draft["_type"] = "TEMPLATE"

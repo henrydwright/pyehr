@@ -2,6 +2,8 @@ from pyehr.core.base.foundation_types import AnyClass
 from pyehr.core.base.foundation_types.primitive_types import Uri
 from typing import Optional
 
+__all__ = ['TerminologyTerm', 'TerminologyCode']
+
 class TerminologyTerm(AnyClass):
     """Leaf type representing a standalone term from a terminology, which consists 
     of the term text and the code, i.e. a concept reference.

@@ -6,6 +6,8 @@ import xml.etree.ElementTree as ET
 from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
 from pyehr.term import PyehrGlobalTerminologyService
 
+__all__ = ['from_arbitrary_xml', 'decode_xml', 'make_xml_text_element']
+
 
 def from_arbitrary_xml(root: ET.Element,
                        target: Optional[str] = None,

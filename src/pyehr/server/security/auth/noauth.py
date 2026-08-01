@@ -9,6 +9,8 @@ from pyehr.server.database import IDatabaseEngine
 from pyehr.server.security.access_control import PyehrAccessPolicyEndpoint
 from pyehr.server.security.auth import IPyehrAuthProvider
 
+__all__ = ['AllowAllAuthProvider']
+
 
 class AllowAllAuthProvider(IPyehrAuthProvider):
     """Auth provider which allows all actions for any role, executing

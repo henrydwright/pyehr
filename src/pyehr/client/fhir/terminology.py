@@ -8,6 +8,7 @@ import requests as r
 
 from pyehr.core.base.foundation_types.primitive_types import Uri
 
+__all__ = ['FHIRTerminologyClient']
 
 class FHIRTerminologyClient:
     """Client for working with remote FHIR terminology servers using

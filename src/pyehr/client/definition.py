@@ -10,6 +10,8 @@ from pyehr.client import OpenEHRBaseRestClient, OpenEHRRestClientResponse
 from pyehr.core.base.base_types.identification import ArchetypeID
 from pyehr.core.base.foundation_types.time import ISODateTime
 
+__all__ = ['OpenEHRRestTemplateDefinitionItem', 'OpenEHRDefinitionRestClient']
+
 class OpenEHRRestTemplateDefinitionItem():
     """Represents metadata for a single ADL 1.4 operational template
     as returned by the 'List templates' Definition API operation"""

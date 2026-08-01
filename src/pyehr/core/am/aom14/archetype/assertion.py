@@ -13,6 +13,9 @@ from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
 from pyehr.core.its.xml_tools import from_arbitrary_xml
 
+__all__ = ['ExprItem', 'ExprLeaf', 'OperatorKind', 'ExprOperator', 'ExprUnaryOperator', 'ExprBinaryOperator', 'AssertionVariable', 'Assertion']
+
+
 class ExprItem(AnyClass, IXMLSupport):
     """Abstract parent of all expression tree items."""
     

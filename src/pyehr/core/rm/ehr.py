@@ -18,6 +18,8 @@ from pyehr.core.rm.common.archetyped import Locatable, Archetyped, Link, FeederA
 from pyehr.core.rm.common.change_control import VersionedObject
 from pyehr.core.rm.composition import Composition
 
+__all__ = ['EHR', 'EHRStatus', 'AccessControlSettings', 'EHRAccess', 'VersionedEHRAccess', 'VersionedEHRStatus', 'VersionedComposition']
+
 class EHR(AnyClass):
     """The EHR object is the root object and access point of an EHR for a subject 
     of care."""
