@@ -1,4 +1,6 @@
 from uuid import uuid4
+from pyehr.core.am.opt14 import OperationalTemplate
+from pyehr.core.its.xml_tools import decode_xml
 from pyehr.core.rm.common.directory import Folder, VersionedFolder
 from pyehr.core.rm.ehr import EHR
 import pytest

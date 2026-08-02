@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 
 from pyehr.core.am.opt14 import OperationalTemplate
 from pyehr.core.base.base_types.builtins import Env
-from pyehr.core.base.base_types.identification import HierObjectID
+from pyehr.core.base.base_types.identification import HierObjectID, TemplateID
 from pyehr.core.its.rest.additions import ADL14TemplateList, ADL14TemplateListItem
 from pyehr.core.its.xml_tools import decode_xml
 from pyehr.server.apps.rest.blueprints.shared import _create_empty_response, _create_error_response, _create_not_found_response, _create_object_response, _process_headers
@@ -64,7 +64,7 @@ def create_definition_blueprint(auth: IPyehrAuthProvider, db: IDatabaseEngine, v
     
     @def_bp.route("/template/adl1.4/<template_id>")
     def get_template(template_id: str):
-        obj = db.retrieve_uid_object("TEMPLATE", template_id)
+        obj = db.retrieve_uid_object("TEMPLATE", TemplateID(template_id))
 
         if obj is None:
             return _create_not_found_response("TEMPLATE", template_id)
