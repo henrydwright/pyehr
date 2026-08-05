@@ -5,12 +5,13 @@ from typing import Optional, Union
 from antlr4 import CommonTokenStream, InputStream, TerminalNode
 import numpy as np
 from pyehr.core.am.aom14.archetype import Archetype
+from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, CodeDefinitionSet, ConstraintBindingItem, ConstraintBindingSet, TermBindingItem, TermBindingSet
 from pyehr.core.base.base_types.identification import ISOOID, UUID, ArchetypeID, TerminologyID, VersionTreeID, GenericID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.interval import Interval, ProperInterval
 from pyehr.core.base.foundation_types.terminology import TerminologyCode
 from pyehr.core.base.foundation_types.time import ISODate, ISODateTime, ISODuration, ISOTime
-from pyehr.core.base.resource import ResourceDescription
+from pyehr.core.base.resource import ResourceDescription, ResourceDescriptionItem
 from pyehr.core.its.adl14.grammar.Adl14Lexer import Adl14Lexer
 from pyehr.core.its.adl14.grammar.Adl14Parser import Adl14Parser
 from pyehr.core.its.adl14.grammar.Cadl14Lexer import Cadl14Lexer
@@ -99,7 +100,7 @@ def _odin_primitive_object(prim): # -> Union[odin_primitive_value_types, odin_pr
         for child in prim.children[0].children:
             if not isinstance(child, TerminalNode):
                 lst.append(_odin_primitive_object(child))
-
+        return lst
     elif isinstance(prim, OdinParser.PrimitiveIntervalValueContext):
         interval_txt = prim.getText()
         # cases to deal with... [source: https://specifications.openehr.org/releases/LANG/latest/odin.html#_primitive_types]
@@ -255,6 +256,112 @@ def _decode_specialise(ctx: Adl14Parser.SpecializeSectionContext) -> Optional[Ar
         return None
     return ArchetypeID(str(ctx.ARCHETYPE_REF()))
 
+def _decode_description(ctx: OdinParser.OdinObjectContext) -> ResourceDescription:
+    desc_dict = _odin_to_dict(ctx)
+
+    ex_original_author = desc_dict["original_author"]
+    ex_lifecycle_state = desc_dict["lifecycle_state"]
+
+    ex_details = dict()
+    details_dict : dict = desc_dict["details"]
+    for (lang_code, rdi_dict) in details_dict.items():
+        lang_cp : CodePhrase = rdi_dict["language"]
+        ex_lang = TerminologyCode(lang_cp.terminology_id.value, lang_cp.code_string, lang_cp.terminology_id.version_id() if lang_cp.terminology_id.version_id() != "" else None)
+        ex_purp = rdi_dict["purpose"]
+        ex_keywords = rdi_dict.get("keywords")
+        ex_use = rdi_dict.get("use")
+        ex_misuse = rdi_dict.get("misuse")
+        ex_original_resource_uri = rdi_dict.get("original_resource_uri")
+        ex_lang_other_details = rdi_dict.get("other_details")
+
+        ex_detail = ResourceDescriptionItem(ex_lang, ex_purp, ex_keywords, ex_use, ex_misuse, ex_original_resource_uri, ex_lang_other_details)
+        ex_details[lang_code] = ex_detail
+
+    ex_original_namespace = desc_dict.get("original_namespace")
+    ex_original_publisher = desc_dict.get("original_publisher")
+    ex_other_contributors = desc_dict.get("other_contributors")
+    ex_custodian_namespace = desc_dict.get("custodian_namespace")
+    ex_custodian_organisation = desc_dict.get("custodian_organisation")
+    ex_copyright = desc_dict.get("copyright")
+    ex_licence = desc_dict.get("licence")
+    ex_ip_acknowledgements = desc_dict.get("ip_acknowledgements")
+    ex_references = desc_dict.get("references")
+    ex_resource_package_uri = desc_dict.get("resource_package_uri")
+    ex_conversion_details = desc_dict.get("conversion_details")
+    ex_other_details = desc_dict.get("other_details")
+
+    return ResourceDescription(
+        ex_original_author,
+        ex_lifecycle_state,
+        ex_details,
+        None,
+        ex_original_namespace,
+        ex_original_publisher,
+        ex_other_contributors,
+        ex_custodian_namespace,
+        ex_custodian_organisation,
+        ex_copyright,
+        ex_licence,
+        ex_ip_acknowledgements,
+        ex_references,
+        ex_resource_package_uri,
+        ex_conversion_details,
+        ex_other_details
+    )
+
+def _process_code_definition_set(cds_dict: dict) -> list[CodeDefinitionSet]:
+    codes_def_list = []
+
+    for (ex_lang, code_definition_dict) in cds_dict.items():
+        items_dict = code_definition_dict.get("items")
+        ex_items = None
+        if items_dict is not None:
+            ex_items = []
+            for (ex_code, ex_term_items) in items_dict.items():
+                ex_items.append(ArchetypeTerm(ex_code, ex_term_items))
+
+        codes_def_list.append(CodeDefinitionSet(ex_lang, ex_items))
+
+    return codes_def_list
+
+def _decode_terminology(ctx: OdinParser.OdinObjectContext) -> ArchetypeOntology:
+    term_dict = _odin_to_dict(ctx)
+
+    term_def_dict : dict = term_dict["term_definitions"]
+    ex_term_defs = _process_code_definition_set(term_def_dict)
+
+    cons_def_dict = term_dict.get("constraint_definitions")
+    ex_cons_defs = None
+    if cons_def_dict is not None:
+        ex_cons_defs = _process_code_definition_set(cons_def_dict)
+
+    term_binds_dict : dict = term_dict.get("term_bindings")
+    ex_term_binds = None
+    if term_binds_dict is not None:
+        ex_term_binds = []
+        for (ex_terminology, items_dict) in term_binds_dict.items():
+            ex_items = []
+            for (binding, code_phrase) in items_dict.get("items").items():
+                ex_items.append(TermBindingItem(binding, code_phrase))
+            ex_term_binds.append(TermBindingSet(ex_terminology, ex_items))
+
+    cons_binds_dict : dict = term_dict.get("constraint_bindings")
+    ex_cons_binds = None
+    if cons_binds_dict is not None:
+        ex_cons_binds = []
+        for (ex_terminology, items_dict) in cons_binds_dict.items():
+            ex_items = []
+            for (ex_code, ex_value) in items_dict.items():
+                ex_items.append(ConstraintBindingItem(ex_value, ex_code))
+            ex_cons_binds.append(ConstraintBindingSet(ex_terminology, ex_items))
+
+    return ArchetypeOntology(
+        ex_term_defs,
+        ex_cons_defs,
+        ex_term_binds,
+        ex_cons_binds
+    )
+
 def decode_adl14(adl14_str: str) -> Archetype:
     # conduct first pass to break down the ADL v1.4 into sections
     lex_adl = Adl14Lexer(InputStream(adl14_str))
@@ -296,6 +403,7 @@ def decode_adl14(adl14_str: str) -> Archetype:
     # descriptionSection
     lex_desc_odin = OdinLexer(InputStream(authored_archetype.descriptionSection().odinText().getText()))
     par_desc_odin = OdinParser(CommonTokenStream(lex_desc_odin))
+    ret_description = _decode_description(par_desc_odin.odinObject())
 
     # definitionSection
     lex_def_cadl = Cadl14Lexer(InputStream(authored_archetype.definitionSection().cadlText().getText()))
@@ -306,12 +414,12 @@ def decode_adl14(adl14_str: str) -> Archetype:
     # terminologySection
     lex_term_odin = OdinLexer(InputStream(authored_archetype.terminologySection().odinText().getText()))
     par_term_odin = OdinParser(CommonTokenStream(lex_term_odin))
+    ret_terminology = _decode_terminology(par_term_odin.odinObject())
 
     # annotationsSection
     lex_anno_odin = OdinLexer(InputStream(authored_archetype.annotationsSection().odinText().getText()))
     par_anno_odin = OdinParser(CommonTokenStream(lex_anno_odin))
 
-    ResourceDescription()
 
 
     

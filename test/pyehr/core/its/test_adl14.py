@@ -2,7 +2,7 @@ from antlr4 import CommonTokenStream, InputStream
 from pyehr.core.base.base_types.identification import UUID, ArchetypeID
 from pyehr.core.its.adl14.grammar.Adl14Lexer import Adl14Lexer
 from pyehr.core.its.adl14.grammar.Adl14Parser import Adl14Parser
-from pyehr.core.its.adl14 import _decode_header, _decode_concept, _decode_specialise, _odin_to_raw_json, _odin_to_dict
+from pyehr.core.its.adl14 import _decode_header, _decode_concept, _decode_specialise, _odin_to_raw_json, _odin_to_dict, _decode_description, _decode_terminology
 from pyehr.core.its.adl14.grammar.OdinLexer import OdinLexer
 from pyehr.core.its.adl14.grammar.OdinParser import OdinParser
 import pytest
@@ -67,3 +67,20 @@ def test_odin_to_dict_terminology(archetype_terminology_parsed : OdinParser.Odin
     assert raw["term_definitions"]["en"]["items"]["at0000"]["text"] == "Blood pressure"
     assert raw["term_definitions"]["ca"]["items"]["at0001"]["text"] == "Antecedents"
     assert raw["term_bindings"]["SNOMED-CT"]["items"]["at0000"]["code_string"] == "364090009"
+
+def test_description_decode(archetype_description_parsed: OdinParser.OdinObjectContext):
+    desc = _decode_description(archetype_description_parsed)
+
+    assert desc.original_author["name"] == "Sam Heard"
+    assert len(desc.details) == 17
+    assert desc.lifecycle_state == "published"
+    assert desc.custodian_namespace is None
+    assert desc.other_details.get("revision") == "2.0.16"
+
+def test_terminology_decode(archetype_terminology_parsed: OdinParser.OdinObjectContext):
+    term = _decode_terminology(archetype_terminology_parsed)
+
+    assert term.has_language("de")
+    assert term.term_definition("at1040", "en").items["text"] == "Invasive"
+    assert term.term_definition("at0025", "es").items["text"] == "Brazo derecho"
+    assert term.term_binding("SNOMED-CT", "at0000").value.code_string == "364090009"

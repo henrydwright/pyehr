@@ -462,6 +462,7 @@ class TerminologyID(ObjectID, IXMLSupport):
             raise ValueError("Invalid syntax for terminology ID")
         parts = re.split(TerminologyID.TERMINOLOGY_ID_REGEX, value)
         self._name = parts[1]
+        self._version = None
         if parts[2] is not None:
             self._version = parts[2].replace("(", "").replace(")", "")
         super().__init__(value, **kwargs)
