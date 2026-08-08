@@ -844,7 +844,7 @@ def _cadl_to_cobject(cadl) -> CObject:
 def _code_phrase_to_term_code(cp: CodePhrase) -> TerminologyCode:
     return TerminologyCode(cp.terminology_id.value, cp.code_string, cp.terminology_id.version_id() if cp.terminology_id.version_id() != "" else None)
 
-def _decode_languages(ctx: OdinParser.OdinObjectContext) -> tuple[TerminologyCode, dict[str, TranslationDetails]]:
+def _decode_languages(ctx: OdinParser.OdinObjectContext) -> tuple[TerminologyCode, Optional[dict[str, TranslationDetails]]]:
     odict = _odin_to_dict(ctx)
 
     ret_olang = _code_phrase_to_term_code(odict["original_language"])
@@ -910,9 +910,10 @@ def decode_adl14(adl14_str: str) -> Archetype:
     par_desc_odin = OdinParser(CommonTokenStream(lex_desc_odin))
     ret_description = _decode_description(par_desc_odin.odinObject())
 
-    for lang_code in ret_translation_details.keys():
-        if lang_code not in ret_description.details:
-            _invalid_err(f"Language {lang_code} was found in languages, but not in the description section.")
+    if ret_translation_details is not None:
+        for lang_code in ret_translation_details.keys():
+            if lang_code not in ret_description.details:
+                _invalid_err(f"Language {lang_code} was found in languages, but not in the description section.")
 
     # definitionSection
     lex_def_cadl = Cadl14Lexer(InputStream(authored_archetype.definitionSection().cadlText().getText()))

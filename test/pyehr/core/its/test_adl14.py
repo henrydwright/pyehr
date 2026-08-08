@@ -111,3 +111,7 @@ def test_cadl_object_decode(archetype_definition_parsed: Cadl14Parser.CComplexOb
 def test_adl14_decode_no_errors(adl_test_file):
     arch : Archetype = decode_adl14(adl_test_file)
     # if there are no errors we're good to go!
+
+def test_adl14_with_no_translations_decodes():
+    with open("test/pyehr/core/its/noTranslation.adl14") as f:
+        arch = decode_adl14(f.read())
