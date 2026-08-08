@@ -9,7 +9,7 @@ from pyehr.core.am.aom14.archetype.assertion import Assertion, ExprBinaryOperato
 from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeConstraint, ArchetypeInternalRef, ArchetypeSlot, CArchetypeRoot, CAttribute, CComplexObject, CDVQuantity, CMultipleAttribute, CObject, CPrimitiveObject, CQuantityItem, CSingleAttribute, CCodePhrase
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import *
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, CodeDefinitionSet, ConstraintBindingItem, ConstraintBindingSet, TermBindingItem, TermBindingSet
-from pyehr.core.base.base_types.identification import ISOOID, UUID, ArchetypeID, TerminologyID, VersionTreeID, GenericID
+from pyehr.core.base.base_types.identification import ISOOID, UUID, ArchetypeID, HierObjectID, TerminologyID, VersionTreeID, GenericID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.interval import Cardinality, Interval, MultiplicityInterval, PointInterval, ProperInterval
 from pyehr.core.base.foundation_types.terminology import TerminologyCode
@@ -33,7 +33,7 @@ class Adl14ParseError(RuntimeError):
 def _invalid_err(explanation: str):
     raise Adl14ParseError("Invalid ADL v1.4 string: " + explanation)
 
-def _metadata_dict(ctx: Adl14Parser.MetaDataContext) -> dict[str, Union[ArchetypeID, UUID, VersionTreeID, str, ISOOID, set[str]]]:
+def _metadata_dict(ctx: Adl14Parser.MetaDataContext) -> dict[str, Union[ArchetypeID, HierObjectID, VersionTreeID, str, ISOOID, set[str]]]:
     """Turns the metadata in ADL v1.4 header into key, value dict"""
     ret_dict = dict()
     if ctx is None:
@@ -47,7 +47,7 @@ def _metadata_dict(ctx: Adl14Parser.MetaDataContext) -> dict[str, Union[Archetyp
                 if val.ARCHETYPE_REF():
                     val = ArchetypeID(str(val.ARCHETYPE_REF()))
                 elif val.GUID():
-                    val = UUID(str(val.GUID()))
+                    val = HierObjectID(str(val.GUID()))
                 elif val.VERSION_ID():
                     val = VersionTreeID(str(val.VERSION_ID()))
                 elif val.ALPHANUM_ID():

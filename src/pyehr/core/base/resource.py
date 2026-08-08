@@ -366,7 +366,7 @@ class TranslationDetails(AnyClass, IXMLSupport):
         lang_cp = CodePhrase(self.language.terminology_id, self.language.code_string)
         root.append(lang_cp.as_xml("language"))
 
-        for (id, value) in self.author:
+        for (id, value) in self.author.items():
             author_el = ET.Element("author")
             author_el.attrib["id"] = id
             author_el.text = value
@@ -585,7 +585,7 @@ class AuthoredResource(AnyClass, IXMLSupport):
         if self._description is not None:
             root.append(self._description.as_xml("description"))
         if self._translations is not None:
-            for (_, translation_details) in self._translations:
+            for translation_details in self._translations.values():
                 root.append(translation_details.as_xml("translations"))
         # this version of rm does not have revision_history
         return root
@@ -705,7 +705,7 @@ class ResourceDescriptionItem(AnyClass, IXMLSupport):
             for keyword_str in self.keywords:
                 keyword = ET.Element("keywords")
                 keyword.text = keyword_str
-                root.append(keyword_str)
+                root.append(keyword)
 
         if self.use is not None:
             use = ET.Element("use")

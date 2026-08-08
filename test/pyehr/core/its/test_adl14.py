@@ -3,7 +3,7 @@ import json
 from antlr4 import CommonTokenStream, InputStream
 from pyehr.core.am.aom14.archetype import Archetype
 from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject
-from pyehr.core.base.base_types.identification import UUID, ArchetypeID
+from pyehr.core.base.base_types.identification import UUID, ArchetypeID, HierObjectID
 from pyehr.core.its.adl14.grammar.Adl14Lexer import Adl14Lexer
 from pyehr.core.its.adl14.grammar.Adl14Parser import Adl14Parser
 from pyehr.core.its.adl14 import decode_adl14, _decode_header, _decode_concept, _decode_specialise, _odin_to_raw_json, _odin_to_dict, _decode_description, _decode_terminology, _cadl_to_cobject
@@ -53,7 +53,7 @@ def test_header_decode(adl_test_file_parsed : Adl14Parser.AuthoredArchetypeConte
 
     assert arch_id.is_equal(ArchetypeID("openEHR-EHR-OBSERVATION.blood_pressure.v2"))
     assert adl_ver == "1.4"
-    assert uid.is_equal(UUID("1811b084-29c0-4bec-bde3-c70b7a5bc28e"))
+    assert uid.is_equal(HierObjectID("1811b084-29c0-4bec-bde3-c70b7a5bc28e"))
     assert is_cont == False
 
 def test_concept_decode(adl_test_file_parsed : Adl14Parser.AuthoredArchetypeContext):
