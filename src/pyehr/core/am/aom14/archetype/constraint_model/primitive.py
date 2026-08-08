@@ -432,6 +432,28 @@ class CDate(CPrimitive):
         draft["_type"] = "C_DATE"
         return draft
 
+    @staticmethod
+    def constraint_pattern_to_validity_kinds(pattern: str) -> tuple[ValidityKind, ValidityKind]:
+        """Returns day_validity, month_validity as VALIDITY_KIND"""
+        day_val = None
+        month_val = None
+        if pattern is not None:
+            pat_split = pattern.split("-")
+            if pat_split[1] == "XX":
+                month_val = ValidityKind.PROHIBITED
+            elif pat_split[1] == "??":
+                month_val = ValidityKind.OPTIONAL
+            elif pat_split[1].upper() == "MM":
+                month_val = ValidityKind.MANDATORY
+
+            if pat_split[2] == "XX":
+                day_val = ValidityKind.PROHIBITED
+            elif pat_split[2] == "??":
+                day_val = ValidityKind.OPTIONAL
+            elif pat_split[2].upper() == "DD":
+                day_val = ValidityKind.MANDATORY
+        return (day_val, month_val)
+
     def as_xml(self, root_tag = None):
         root = ET.Element("c_date" if root_tag is None else root_tag)
         if self.month_validity is not None or self.day_validity is not None:
@@ -475,23 +497,7 @@ class CDate(CPrimitive):
     
     def from_xml(root: ET.Element, **kwargs):
         pattern = root.findtext("./pattern")
-        day_val = None
-        month_val = None
-        if pattern is not None:
-            pat_split = pattern.split("-")
-            if pat_split[1] == "XX":
-                month_val = ValidityKind.PROHIBITED
-            elif pat_split[1] == "??":
-                month_val = ValidityKind.OPTIONAL
-            elif pat_split[1].upper() == "MM":
-                month_val = ValidityKind.MANDATORY
-
-            if pat_split[2] == "XX":
-                day_val = ValidityKind.PROHIBITED
-            elif pat_split[2] == "??":
-                day_val = ValidityKind.OPTIONAL
-            elif pat_split[2].upper() == "DD":
-                day_val = ValidityKind.MANDATORY
+        day_val, month_val = CDate.constraint_pattern_to_validity_kinds(pattern)
         
         tz_val_el = root.find("./timezone_validity")
         tz_val = ValidityKind.from_xml(tz_val_el) if tz_val_el is not None else None
@@ -621,8 +627,8 @@ class CTime(CPrimitive):
         return root
 
     @staticmethod
-    def from_xml(root: ET.Element, **kwargs):
-        pattern = root.findtext("./pattern")
+    def constraint_pattern_to_validity_kinds(pattern: str) -> tuple[ValidityKind, ValidityKind]:
+        """Returns minute_validity, second_validity"""
         minute_val = None
         second_val = None
         if pattern is not None:
@@ -646,6 +652,12 @@ class CTime(CPrimitive):
                     second_val = ValidityKind.OPTIONAL
                 elif second_part.upper() == "SS":
                     second_val = ValidityKind.MANDATORY
+            return (minute_val, second_val)
+
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs):
+        pattern = root.findtext("./pattern")
+        minute_val, second_val = CTime.constraint_pattern_to_validity_kinds(pattern)
         
         tz_val_el = root.find("./timezone_validity")
         tz_val = ValidityKind.from_xml(tz_val_el) if tz_val_el is not None else None
@@ -882,8 +894,8 @@ class CDateTime(CPrimitive):
         return root
 
     @staticmethod
-    def from_xml(root: ET.Element, **kwargs):
-        pattern = root.findtext("./pattern")
+    def constraint_pattern_to_validity_kinds(pattern: str) -> tuple[ValidityKind, ValidityKind, ValidityKind, ValidityKind, ValidityKind]:
+        """Returns month_validity, day_validity, hour_validity, minute_validity, second_validity"""
         month_val = None
         day_val = None
         hour_val = None
@@ -930,6 +942,12 @@ class CDateTime(CPrimitive):
                         second_val = ValidityKind.OPTIONAL
                     elif time_fields[2].lower() == "ss":
                         second_val = ValidityKind.MANDATORY
+        return (month_val, day_val, hour_val, minute_val, second_val)
+
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs):
+        pattern = root.findtext("./pattern")
+        month_val, day_val, hour_val, minute_val, second_val = CDateTime.constraint_pattern_to_validity_kinds(pattern)
 
         tz_val_el = root.find("./timezone_validity")
         tz_val = ValidityKind.from_xml(tz_val_el) if tz_val_el is not None else None
@@ -966,25 +984,25 @@ class CDuration(CPrimitive):
     # these have cardinality 0..1 in spec but are 1..1 here due to how XML spec is implemented
     #  as the pattern either allows it, or not, nowhere inbetween.
 
-    years_allowed: bool
+    years_allowed: Optional[bool]
     """True if years are allowed in the constrained Duration"""
 
-    months_allowed: bool
+    months_allowed: Optional[bool]
     """True if months are allowed in the constrained Duration"""
 
-    weeks_allowed: bool
+    weeks_allowed: Optional[bool]
     """True if weeks are allowed in the constrained Duration"""
 
-    days_allowed: bool
+    days_allowed: Optional[bool]
     """True if days are allowed in the constrained Duration"""
 
-    hours_allowed: bool
+    hours_allowed: Optional[bool]
     """True if hours are allowed in the constrained Duration"""
 
-    minutes_allowed: bool
+    minutes_allowed: Optional[bool]
     """True if minutes are allowed in the constrained Duration"""
 
-    seconds_allowed: bool
+    seconds_allowed: Optional[bool]
     """True if seconds are allowed in the constrained Duration"""
 
     # the spec includes a section for fractional_seconds_allowed but this is
@@ -997,7 +1015,7 @@ class CDuration(CPrimitive):
     """The value to assume if this item is not included in data, due to being 
     part of an optional structure."""
 
-    def __init__(self, years_allowed: bool = False, months_allowed: bool = False, weeks_allowed: bool = False, days_allowed: bool = False, hours_allowed: bool = False, minutes_allowed: bool = False, seconds_allowed: bool = False, range: Optional[Interval[ISODuration]] = None, assumed_value: Optional[ISODuration] = None, **kwargs):
+    def __init__(self, years_allowed: bool = None, months_allowed: bool = None, weeks_allowed: bool = None, days_allowed: bool = None, hours_allowed: bool = None, minutes_allowed: bool = None, seconds_allowed: bool = None, range: Optional[Interval[ISODuration]] = None, assumed_value: Optional[ISODuration] = None, **kwargs):
         self.years_allowed = years_allowed
         self.months_allowed = months_allowed
         self.weeks_allowed = weeks_allowed
@@ -1090,16 +1108,22 @@ class CDuration(CPrimitive):
         return root
 
     @staticmethod
-    def from_xml(root: ET.Element, **kwargs):
-        pattern = root.findtext("./pattern")
-        years = False
-        months = False
-        weeks = False
-        days = False
-        hours = False
-        minutes = False
-        seconds = False
+    def constraint_pattern_to_allowed_flags(pattern: Optional[str]) -> tuple[bool, bool, bool, bool, bool, bool, bool]:
+        years = None
+        months = None
+        weeks = None
+        days = None
+        hours = None
+        minutes = None
+        seconds = None
         if pattern is not None:
+            years = False
+            months = False
+            weeks = False
+            days = False
+            hours = False
+            minutes = False
+            seconds = False
             # Normalize and strip leading 'P' if present
             pat = pattern.strip()
             if len(pat) > 0 and (pat[0] == 'P' or pat[0] == 'p'):
@@ -1134,6 +1158,12 @@ class CDuration(CPrimitive):
                     minutes = True
                 if 'S' in time_part:
                     seconds = True
+        return (years, months, weeks, days, hours, minutes, seconds)
+
+    @staticmethod
+    def from_xml(root: ET.Element, **kwargs):
+        pattern = root.findtext("./pattern")
+        years, months, weeks, days, hours, minutes, seconds = CDuration.constraint_pattern_to_allowed_flags(pattern)
 
         rang_el = root.find("./range")
         rang = Interval.from_xml(rang_el, ISODuration) if rang_el is not None else None

@@ -5,8 +5,8 @@ from typing import Optional, Union
 from antlr4 import CommonTokenStream, InputStream, TerminalNode
 import numpy as np
 from pyehr.core.am.aom14.archetype import Archetype
-from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeConstraint, ArchetypeSlot, CArchetypeRoot, CAttribute, CComplexObject, CDVQuantity, CMultipleAttribute, CObject, CPrimitiveObject, CQuantityItem, CSingleAttribute
-from pyehr.core.am.aom14.archetype.constraint_model.primitive import CPrimitive, CString
+from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeConstraint, ArchetypeInternalRef, ArchetypeSlot, CArchetypeRoot, CAttribute, CComplexObject, CDVQuantity, CMultipleAttribute, CObject, CPrimitiveObject, CQuantityItem, CSingleAttribute, CCodePhrase
+from pyehr.core.am.aom14.archetype.constraint_model.primitive import *
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, CodeDefinitionSet, ConstraintBindingItem, ConstraintBindingSet, TermBindingItem, TermBindingSet
 from pyehr.core.base.base_types.identification import ISOOID, UUID, ArchetypeID, TerminologyID, VersionTreeID, GenericID
 from pyehr.core.base.foundation_types.any import AnyClass
@@ -23,6 +23,8 @@ from pyehr.core.its.adl14.grammar.ElParser import ElParser
 from pyehr.core.its.adl14.grammar.OdinLexer import OdinLexer
 from pyehr.core.its.adl14.grammar.OdinParser import OdinParser
 from pyehr.core.rm.data_types.text import CodePhrase
+
+from warnings import warn
 
 class Adl14ParseError(RuntimeError):
     pass
@@ -62,7 +64,7 @@ def _metadata_dict(ctx: Adl14Parser.MetaDataContext) -> dict[str, Union[Archetyp
 # odin_primitive_list_value_types = list[odin_primitive_value_types]
 # odin_primitive_interval_value_types = Interval[Union[np.int32, np.float32, ISODate, ISOTime, ISODateTime, ISODuration]]
 
-def _odin_primitive_object(prim): # -> Union[odin_primitive_value_types, odin_primitive_list_value_types, odin_primitive_interval_value_types]:
+def _odin_primitive_object(prim, ignore_type_and_decode_as_interval=False): # -> Union[odin_primitive_value_types, odin_primitive_list_value_types, odin_primitive_interval_value_types]:
     if isinstance(prim, OdinParser.PrimitiveObjectContext):
         if prim.primitiveValue():
             return _odin_primitive_object(prim.primitiveValue())
@@ -105,7 +107,7 @@ def _odin_primitive_object(prim): # -> Union[odin_primitive_value_types, odin_pr
             if not isinstance(child, TerminalNode):
                 lst.append(_odin_primitive_object(child))
         return lst
-    elif isinstance(prim, OdinParser.PrimitiveIntervalValueContext):
+    elif isinstance(prim, OdinParser.PrimitiveIntervalValueContext) or ignore_type_and_decode_as_interval:
         interval_txt = prim.getText()
         prim = prim.children[0]
         # cases to deal with... [source: https://specifications.openehr.org/releases/LANG/latest/odin.html#_primitive_types]
@@ -462,11 +464,249 @@ def _cadl_to_cattributes(cadl: Union[Cadl14Parser.CAttributeContext, list[Cadl14
             csa = CSingleAttribute(ex_rm_attribute_name, ex_existence, children=ex_children)
             r_lst.append(csa)
 
-    return r_lst
+    return (r_lst if len(r_lst) > 0 else None)
 
 def _cadl_to_cprimitive(cadl: Cadl14Parser.CInlinePrimitiveObjectContext) -> tuple[CPrimitive, str]:
     """Returns a C_PRIMITIVE and the rm_type_name associated with it"""
-    return (CString(list_open=True, list_var=["Hello, World"]), "C_STRING")
+    if isinstance(cadl, Cadl14Parser.CInlinePrimitiveObjectContext):
+        if cadl.cInlineOrderedObject() is not None:
+            return _cadl_to_cprimitive(cadl.cInlineOrderedObject())
+        elif cadl.cString() is not None:
+            return _cadl_to_cprimitive(cadl.cString())
+        elif cadl.cTerminologyCode() is not None:
+            return _cadl_to_cprimitive(cadl.cTerminologyCode())
+        elif cadl.cBoolean() is not None:
+            return _cadl_to_cprimitive(cadl.cBoolean())
+        else:
+            _invalid_err("Invalid child of cInlinePrimitiveObject")
+    elif isinstance(cadl, Cadl14Parser.CInlineOrderedObjectContext):
+        if cadl.cInteger() is not None:
+            return _cadl_to_cprimitive(cadl.cInteger())
+        elif cadl.cReal() is not None:
+            return _cadl_to_cprimitive(cadl.cReal())
+        elif cadl.cInlineDTemporalObject() is not None:
+            return _cadl_to_cprimitive(cadl.cInlineDTemporalObject())
+        else:
+            _invalid_err("Invalid child of cInlineOrderedObject")
+    elif isinstance(cadl, Cadl14Parser.CInlineDTemporalObjectContext):
+        if cadl.cDate() is not None:
+            return _cadl_to_cprimitive(cadl.cDate())
+        elif cadl.cTime() is not None:
+            return _cadl_to_cprimitive(cadl.cTime())
+        elif cadl.cDateTime() is not None:
+            return _cadl_to_cprimitive(cadl.cDateTime())
+        elif cadl.cDuration() is not None:
+            return _cadl_to_cprimitive(cadl.cDuration())
+        else:
+            _invalid_err("Invalid child of cInlineDTemporalObject")
+    elif isinstance(cadl, Cadl14Parser.CStringContext):
+        ex_assumed_value = cadl.assumedStringValue().stringValue().getText() if cadl.assumedStringValue() is not None else None
+        ex_pattern = None
+        ex_list_var = None
+        if cadl.stringValue() is not None:
+            ex_list_var = [cadl.stringValue().getText()]
+        elif cadl.stringValues() is not None:
+            ex_list_var = []
+            for str_value in cadl.stringValues().stringValue():
+                ex_list_var.append(str_value.getText())
+        elif cadl.DELIMITED_REGEX() is not None:
+            ex_pattern = str(cadl.DELIMITED_REGEX())
+        return (CString(pattern=ex_pattern, list_var=ex_list_var, assumed_value=ex_assumed_value), "DV_TEXT")
+    elif isinstance(cadl, Cadl14Parser.CTerminologyCodeContext):
+        # others are from Cadl2PrimitiveConstraintsParser.g4 but this comes from Cadl14PrimitiveConstraintsParser.g4
+        ex_code_list = None
+        ex_assumed_value = None
+        ex_terminology_id = None
+        if cadl.terminologyLocalCode() is not None:
+            ex_code_list = [cadl.terminologyLocalCode().adl14_at_code().getText()]
+            ex_terminology_id = TerminologyID("local")
+        elif cadl.valueSetCode() is not None:
+            warn("Terminology code value set encountered and not expanded as not supported by pyehr. Will result in empty code list unless default code provided.")
+            ex_terminology_id = TerminologyID("local")
+            if cadl.valueSetCode().termCodeDefault() is not None:
+                ex_assumed_value = CodePhrase("local", cadl.valueSetCode().termCodeDefault().adl14_at_code().getText())
+                ex_code_list = []
+            else:
+                ex_code_list = []
+        elif cadl.cLocalTermCode() is not None:
+            ex_code_list = []
+            ex_terminology_id = TerminologyID("local")
+            lcode_list = cadl.cLocalTermCode().localCodesList()
+            if lcode_list is not None:
+                if cadl.cLocalTermCode().termCodeDefault() is not None:
+                    ex_assumed_value = CodePhrase("local", cadl.cLocalTermCode().termCodeDefault().adl14_at_code().getText())
+                ex_code_list.append(lcode_list.adl14_at_code().getText())
+                if lcode_list.termCodeItem() is not None:
+                    tcis = lcode_list.termCodeItem()
+                    for tci in tcis:
+                        ex_code_list.append(tci.adl14_at_code().getText())
+        elif cadl.cExternalTermCode() is not None:
+            ex_code_list = []
+            tc_start_str = str(cadl.cExternalTermCode().C_EXTERNAL_TERM_CODE_START())
+            ex_terminology_id = TerminologyID(tc_start_str.split("::")[0][1:])
+            ecode_list = cadl.cExternalTermCode().externalCodesList()
+            if ecode_list is not None:
+                if cadl.cExternalTermCode().externalTermCodeDefault() is not None:
+                    ex_assumed_value = CodePhrase(ex_terminology_id, str(cadl.cExternalTermCode().externalTermCodeDefault().C_EXTERNAL_TERM_CODE_STRING()))
+                ex_code_list.append(str(ecode_list.C_EXTERNAL_TERM_CODE_STRING()))
+                if ecode_list.externalTermCodeItem() is not None:
+                    ecis = ecode_list.externalTermCodeItem()
+                    for eci in ecis:
+                        ex_code_list.append(str(eci.C_EXTERNAL_TERM_CODE_STRING()))
+        elif cadl.QUALIFIED_TERM_CODE_REF() is not None:
+            code_str = str(cadl.QUALIFIED_TERM_CODE_REF())
+            code_str = code_str[1:-1] # remove outer [] brackets
+            code_str_split = code_str.split("::")
+            ex_terminology_id = TerminologyID(code_str_split[0])
+            ex_code_list = [code_str_split[1].split("|")[0]]
+            ex_assumed_value = CodePhrase(ex_terminology_id, ex_code_list[0])
+        else:
+            _invalid_err("Invalid cTerminologyCode encountered.")
+        
+        return (CCodePhrase("CODE_PHRASE", _cadl_coccurences_to_interval(None), "", assumed_value=ex_assumed_value, terminology_id=ex_terminology_id, code_list=ex_code_list), "CODE_PHRASE")
+    elif isinstance(cadl, Cadl14Parser.CBooleanContext):
+        ex_true_valid = False
+        ex_false_valid = False
+        ex_assumed_value = None
+        if cadl.booleanValue() is not None:
+            if cadl.booleanValue().getText().lower() == "true":
+                ex_true_valid = True
+            else:
+                ex_false_valid = True
+        elif cadl.booleanValues() is not None:
+            ex_false_valid = True
+            ex_true_valid = True
+        if cadl.assumedBooleanValue() is not None:
+            ex_assumed_value = (cadl.assumedBooleanValue().booleanValue().getText().lower() == "true")
+
+        return (CBoolean(ex_true_valid, ex_false_valid, ex_assumed_value), "DV_BOOLEAN")
+    elif isinstance(cadl, Cadl14Parser.CIntegerContext):
+        ex_list_var = None
+        ex_range = None
+        ex_assumed_value = None
+        if cadl.assumedIntegerValue() is not None:
+            ex_assumed_value = np.int32(cadl.assumedIntegerValue().integerValue().getText())
+
+        if cadl.integerValue() is not None:
+            ex_list_var = [np.int32(cadl.integerValue().getText())]
+        elif cadl.integerValues() is not None:
+            ex_list_var = []
+            ivs = cadl.integerValues().integerValue()
+            for iv in ivs:
+                ex_list_var.append(np.int32(iv.getText()))
+        elif cadl.integerInterval() is not None:
+            ex_range = _odin_primitive_object(cadl.integerInterval().integerIntervalRange(), ignore_type_and_decode_as_interval=True)
+        else:
+            _invalid_err("Multiple integer intervals are not possible in ADL v1.4")
+
+        return (CInteger(ex_list_var, ex_range, ex_assumed_value), "DV_INTEGER")
+    elif isinstance(cadl, Cadl14Parser.CRealContext):
+        ex_list_var = None
+        ex_range = None
+        ex_assumed_value = None
+        if cadl.assumedRealValue() is not None:
+            ex_assumed_value = np.float32(cadl.assumedRealValue().realValue().getText())
+
+        if cadl.realValue() is not None:
+            ex_list_var = [np.float32(cadl.realValue().getText())]
+        elif cadl.realValues() is not None:
+            ex_list_var = []
+            rvs = cadl.realValues().realValue()
+            for rv in rvs:
+                ex_list_var.append(np.float32(rv.getText()))
+        elif cadl.realInterval() is not None:
+            ex_range = _odin_primitive_object(cadl.realInterval().realIntervalRange(), ignore_type_and_decode_as_interval=True)
+        else:
+            _invalid_err("Multiple real intervals are not possible in ADL v1.4")
+
+        return (CReal(ex_list_var, ex_range, ex_assumed_value), "DV_REAL")
+    elif isinstance(cadl, Cadl14Parser.CDateContext):
+        ex_month_validity = None
+        ex_day_validity = None
+        ex_range = None
+        ex_assumed_value = None
+        if cadl.assumedDateValue() is not None:
+            ex_assumed_value = ISODate(cadl.assumedDateValue().dateValue().getText())
+
+        if cadl.DATE_CONSTRAINT_PATTERN() is not None:
+            pattern = str(cadl.DATE_CONSTRAINT_PATTERN())
+            ex_month_validity, ex_day_validity = CDate.constraint_pattern_to_validity_kinds(pattern)
+        elif cadl.dateValue() is not None:
+            ex_range = PointInterval(ISODate(cadl.dateValue().getText()))
+        elif cadl.dateInterval() is not None:
+            ex_range = _odin_primitive_object(cadl.dateInterval().dateIntervalRange(), ignore_type_and_decode_as_interval=True)
+        else:
+            _invalid_err("List of date values not possible in ADL v1.4")
+
+        return (CDate(ex_month_validity, ex_day_validity, range=ex_range, assumed_value=ex_assumed_value), "DV_DATE")
+    elif isinstance(cadl, Cadl14Parser.CTimeContext):
+        ex_minute_validity = None
+        ex_second_validity = None
+        ex_range = None
+        ex_assumed_value = None
+        if cadl.assumedTimeValue() is not None:
+            ex_assumed_value = ISOTime(cadl.assumedTimeValue().timeValue().getText())
+
+        if cadl.TIME_CONSTRAINT_PATTERN() is not None:
+            pattern = str(cadl.TIME_CONSTRAINT_PATTERN())
+            ex_minute_validity, ex_second_validity = CTime.constraint_pattern_to_validity_kinds(pattern)
+        elif cadl.timeValue() is not None:
+            ex_range = PointInterval(ISODuration(cadl.timeValue().getText()))
+        elif cadl.timeInterval() is not None:
+            ex_range = _odin_primitive_object(cadl.timeInterval().timeIntervalRange(), ignore_type_and_decode_as_interval=True)
+        else:
+            _invalid_err("List of time values not possible in ADL v1.4")
+
+        return (CTime(ex_minute_validity, ex_second_validity, range=ex_range, assumed_value=ex_assumed_value), "DV_TIME")
+    elif isinstance(cadl, Cadl14Parser.CDateTimeContext):
+        ex_month_validity = None
+        ex_day_validity = None
+        ex_hour_validity = None
+        ex_minute_validity = None
+        ex_second_validity = None
+        ex_range = None
+        ex_assumed_value = None
+        if cadl.assumedDateTimeValue() is not None:
+            ex_assumed_value = ISODateTime(cadl.assumedDateTimeValue().dateTimeValue().getText())
+
+        if cadl.DATE_TIME_CONSTRAINT_PATTERN() is not None:
+            pattern = str(cadl.DATE_TIME_CONSTRAINT_PATTERN())
+            ex_month_validity, ex_day_validity, ex_hour_validity, ex_minute_validity, ex_second_validity = CDateTime.constraint_pattern_to_validity_kinds(pattern)
+        elif cadl.dateTimeValue() is not None:
+            ex_range = PointInterval(ISODateTime(cadl.dateTimeValue().getText()))
+        elif cadl.dateTimeInterval() is not None:
+            ex_range = _odin_primitive_object(cadl.dateTimeInterval().dateTimeIntervalRange(), ignore_type_and_decode_as_interval=True)
+        else:
+            _invalid_err("List of datetime values not possible in ADL v1.4")
+
+        return (CDateTime(ex_month_validity, ex_day_validity, ex_hour_validity, ex_minute_validity, ex_second_validity, range=ex_range, assumed_value=ex_assumed_value), "DV_DATE_TIME")
+    elif isinstance(cadl, Cadl14Parser.CDurationContext):
+        ex_years_allowed = None
+        ex_months_allowed = None
+        ex_weeks_allowed = None
+        ex_days_allowed = None
+        ex_hours_allowed = None
+        ex_minutes_allowed = None
+        ex_seconds_allowed = None
+        ex_range = None
+        ex_assumed_value = None
+
+        if cadl.assumedDurationValue() is not None:
+            ex_assumed_value = ISODuration(cadl.assumedDurationValue().durationValue().getText())
+
+        if cadl.DURATION_CONSTRAINT_PATTERN() is not None:
+            pattern = str(cadl.DURATION_CONSTRAINT_PATTERN())
+            ex_years_allowed, ex_months_allowed, ex_weeks_allowed, ex_days_allowed, ex_hours_allowed, ex_minutes_allowed, ex_seconds_allowed = CDuration.constraint_pattern_to_allowed_flags(pattern)
+        elif cadl.durationValue() is not None:
+            ex_range = PointInterval(ISODuration(cadl.durationValue().getText()))
+        elif cadl.durationInterval() is not None:
+            ex_range = _odin_primitive_object(cadl.durationInterval().durationIntervalRange(), ignore_type_and_decode_as_interval=True)
+        else:
+            _invalid_err("List of duration values not possible in ADL v1.4")
+
+        return (CDuration(ex_years_allowed, ex_months_allowed, ex_weeks_allowed, ex_days_allowed, ex_hours_allowed, ex_minutes_allowed, ex_seconds_allowed, range=ex_range, assumed_value=ex_assumed_value), "DV_DURATION")
+    else:
+        _invalid_err(f"Given type cannot be converted to C_PRIMITIVE {str(type(cadl))}")
 
 def _cadl_to_cobject(cadl) -> CObject:
     # add cInlinePrimitiveObject from Cadl2PrimitiveConstraintsParser.g4
@@ -518,11 +758,18 @@ def _cadl_to_cobject(cadl) -> CObject:
         ex_item = None
         if cadl.cInlinePrimitiveObject() is not None:
             ex_item, _ = _cadl_to_cprimitive(cadl.cInlinePrimitiveObject())
+            if isinstance(ex_item, CCodePhrase):
+                # C_CODE_PHRASE is actually a domain type, but a primitive in the grammar
+                return ex_item
         return CPrimitiveObject(ex_rm_type_name, ex_occurrences, ex_node_id, ex_item)
     elif isinstance(cadl, Cadl14Parser.CInlinePrimitiveObjectContext):
         # this is in here despite not really being a CObject to allow for it to be turned into one
         #  in the course of parsing an CAttribute which is a common need
         ex_item, ex_rm_type_name = _cadl_to_cprimitive(cadl)
+        if isinstance(ex_item, CCodePhrase):
+            # C_CODE_PHRASE is actually a domain type, but a primitive in the grammar
+            ex_item.rm_type_name = ex_rm_type_name
+            return ex_item
         return CPrimitiveObject(ex_rm_type_name, _cadl_coccurences_to_interval(None), "", ex_item)
     elif isinstance(cadl, Cadl14Parser.DomainSpecificExtensionContext):
         # the only domain specific extension supported is C_DV_QUANTITY
@@ -546,7 +793,10 @@ def _cadl_to_cobject(cadl) -> CObject:
         else:
             _invalid_err(f"Domain specific extension of type {block_start} not recognised/supported by pyehr.")
     elif isinstance(cadl, Cadl14Parser.CComplexObjectProxyContext):
-        return CPrimitiveObject("C_COMPLEX_OBJECT_PROXY", _cadl_coccurences_to_interval(None), "")
+        ex_rm_type_name = cadl.rmTypeId().getText()
+        ex_occurrences = _cadl_coccurences_to_interval(cadl.cOccurrences())
+        ex_target_path = cadl.adlPath().getText()
+        return ArchetypeInternalRef(ex_rm_type_name, ex_occurrences, "", target_path=ex_target_path)
     else:
         # cComplexObjectProxy and cOrdinal are not yet supported
         _invalid_err(f"Object type {str(type(cadl))} not yet supported by pyehr.")
