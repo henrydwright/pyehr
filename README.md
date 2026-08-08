@@ -61,6 +61,27 @@ new_date = start_date + duration
 print(str(new_date)) 
 ```
 
+* Convert seamlessly between ADL v1.4 (read only) and XML and JSON versions of Archetypes
+```python
+from xml.etree import ElementTree as ET
+import json
+
+from pyehr.core.its.adl14 import decode_adl14
+from pyehr.core.am.aom14.archetype import Archetype
+
+with open("/path/to/file.adl14") as adl_f:
+    arch : Archetype = decode_adl14(adl_f.read())
+
+    xml_version = arch.as_xml()
+    with open("/path/to/file.xml", "w") as xml_f:
+        ET.indent(xml_version)
+        xml_f.write(ET.tostring(xml_version, encoding="unicode"))
+
+    json_version = arch.as_json()
+    with open("/path/to/file.json", "w") as json_f:
+        json_f.write(json.dumps(json_version, indent=1))
+```
+
 ### Support level
 
 |Specification part|Status|
@@ -69,9 +90,9 @@ print(str(new_date))
 |Reference model (RM)|✅ Complete (aside from rm.extract and rm.integration) |
 |Implementation technology (ITS) - JSON|✅ Serialisation and deserialisation complete and stable for all implemented classes |
 | Archetype model (AOM v1.4 and OPT v1.4) | 🟠 Partial implementation for serialisation/deserialisation but methods unimplemented |
-|Implementation technology (ITS) - XML|🟠 Some support for parsing AOM v1.4 archetypes and templates, limited support elsewhere |
-| Archetype model (AOM v2) | ❌ Unsupported |
-| Archetype model (ADL v1.4 or ADL v2) | ❌ Unsupported |
+| Archetype model (ADL v1.4) | 🟠 Partial support for parsing ADL v1.4 files (aside from rules and annotations sections). Output in ADL v1.4 not supported.
+|Implementation technology (ITS) - XML|🟠 Supported for parsing and serialising AOM v1.4 archetypes and templates, limited support elsewhere |
+| Archetype model (AOM v2 or ADL v2) | ❌ Unsupported |
 
 ## pyehr.client
 pyehr provides both a transactional REST API client as well as a more sophisticated client for working more easily with versioned objects.
@@ -112,7 +133,7 @@ object_version_id, contribution, versioned_object = store.create(
 ```
 
 ## pyehr.server
-pyehr provides an under-development Flask-based server with accompanying database and authentication backends.
+pyehr provides an under-development Flask-based Clinical Data Repository server with accompanying database and authentication backends.
 
 ## Disclaimer
 openEHR® is the registered trademark of the openEHR Foundation and is used with the permission of openEHR International. Use of the trademark does not constitute endorsement of this product by openEHR International or openEHR Foundation.

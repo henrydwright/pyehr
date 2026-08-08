@@ -56,7 +56,7 @@ class Archetype(AuthoredResource):
                 adl_version: Optional[str] = None,
                 parent_archetype_id: Optional[ArchetypeID] = None,
                 invariants: Optional[list[Assertion]] = None,
-                uid: Optional[UUID] = None,
+                uid: Optional[HierObjectID] = None,
                 is_controlled: Optional[bool] = None,
                 annotations: Optional[ResourceAnnotations] = None):
         self.definition = definition

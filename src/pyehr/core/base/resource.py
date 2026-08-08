@@ -366,7 +366,7 @@ class TranslationDetails(AnyClass, IXMLSupport):
         lang_cp = CodePhrase(self.language.terminology_id, self.language.code_string)
         root.append(lang_cp.as_xml("language"))
 
-        for (id, value) in self.author:
+        for (id, value) in self.author.items():
             author_el = ET.Element("author")
             author_el.attrib["id"] = id
             author_el.text = value
@@ -585,13 +585,14 @@ class AuthoredResource(AnyClass, IXMLSupport):
         if self._description is not None:
             root.append(self._description.as_xml("description"))
         if self._translations is not None:
-            for (_, translation_details) in self._translations:
+            for translation_details in self._translations.values():
                 root.append(translation_details.as_xml("translations"))
         # this version of rm does not have revision_history
         return root
     
-    def extract_xml_elements(root: ET.Element) -> tuple[CodePhrase, Optional[bool], Optional[ResourceDescription], Optional[list[TranslationDetails]]]:
-        cphr = CodePhrase.from_xml(root.find("./original_language"))
+    def extract_xml_elements(root: ET.Element) -> tuple[TerminologyCode, Optional[bool], Optional[ResourceDescription], Optional[list[TranslationDetails]]]:
+        cphr : CodePhrase = CodePhrase.from_xml(root.find("./original_language"))
+        tc = TerminologyCode(cphr.terminology_id.value, cphr.code_string, cphr.terminology_id.version_id() if cphr.terminology_id.version_id() != "" else None)
 
         is_cont_el = root.findtext("./is_controlled")
         is_cont = None
@@ -612,7 +613,7 @@ class AuthoredResource(AnyClass, IXMLSupport):
         if rev_his_el != None:
             warnings.warn("REVISION_HISTORY found within AUTHORED_RESOURCE when parsing XML v1.4. Library is on rm v1.10 and does not support REVISION_HISTORY in AUTHORED_RESOURCE. Ignoring.")
             
-        return (cphr, is_cont, desc, trans)
+        return (tc, is_cont, desc, trans)
 
 class ResourceDescriptionItem(AnyClass, IXMLSupport):
     """Language-specific detail of resource description. When a resource is translated for use in another language environment, each `ResourceDescriptionItem` needs to be copied and translated into the new language."""
@@ -704,7 +705,7 @@ class ResourceDescriptionItem(AnyClass, IXMLSupport):
             for keyword_str in self.keywords:
                 keyword = ET.Element("keywords")
                 keyword.text = keyword_str
-                root.append(keyword_str)
+                root.append(keyword)
 
         if self.use is not None:
             use = ET.Element("use")

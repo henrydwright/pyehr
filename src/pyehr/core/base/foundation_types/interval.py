@@ -376,7 +376,7 @@ class ProperInterval[T: ordered](Interval[T]):
     )
     """Upper bound."""
     
-class MultiplicityInterval(ProperInterval[np.int32]):
+class MultiplicityInterval(Interval[np.int32]):
     """An Interval of Integer, used to represent multiplicity, cardinality and 
     optionality in models."""
 
@@ -384,7 +384,13 @@ class MultiplicityInterval(ProperInterval[np.int32]):
     MULTIPLICITY_UNBOUNDED_MARKER : str = "*"
 
     def __init__(self, lower: Optional[np.int32] = None, upper: Optional[np.int32] = None):
-        super().__init__(lower=lower, upper=upper)
+        self.lower = lower
+        self.upper = upper
+        if self.lower is not None:
+            self.lower_included = True
+        if self.upper is not None:
+            self.upper_included = True
+        super().__init__()
 
     def _get_upper(self) -> Optional[np.int32]:
         return super()._get_upper()
@@ -414,11 +420,20 @@ class MultiplicityInterval(ProperInterval[np.int32]):
     )
     """Lower bound. Integer value or `None`"""
 
+    # override
     def is_equal(self, other) -> bool:
-        return super().is_equal(other)
-    
+        return (type(self) == type(other) and
+                is_equal_value(self.lower, other.lower) and
+                is_equal_value(self.upper, other.upper) and
+                self.lower_included == other.lower_included and
+                self.upper_included == other.upper_included
+                )
+
+    # override
     def has(self, e: ordered) -> bool:
-        return super().has(e)
+        return (
+            (self.lower_unbounded or (self.lower_included and e >= self.lower) or e > self.lower) and
+            (self.upper_unbounded or (self.upper_included and e <= self.upper) or e < self.upper))
     
     def is_open(self) -> bool:
         """True if this interval imposes no constraints, i.e. is set to 0..*."""

@@ -143,6 +143,10 @@ def test_terminology_id_other_methods_correct():
     assert t.name() == "ICD10AM"
     assert t.version_id() == "3rd_ed"
 
+    t = TerminologyID("SNOMED-CT")
+    assert t.name() == "SNOMED-CT"
+    assert t.version_id() == ""
+
 def test_generic_id_scheme_words():
     g = GenericID("abacus", "local")
     assert g.scheme == "local"
