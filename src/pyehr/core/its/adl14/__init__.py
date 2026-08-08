@@ -210,6 +210,8 @@ def _odin_to_dict(odin) -> dict:
             return d
         elif odin.ODIN_URI() is not None:
             return str(odin.ODIN_URI())
+        elif odin.getText() == "<>":
+            return None
         else:
             _invalid_err("ODIN object value block had no valid children")
     elif isinstance(odin, OdinParser.OdinObjectReferenceBlockContext):

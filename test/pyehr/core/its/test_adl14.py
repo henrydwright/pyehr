@@ -113,5 +113,11 @@ def test_adl14_decode_no_errors(adl_test_file):
     # if there are no errors we're good to go!
 
 def test_adl14_with_no_translations_decodes():
+    # regression for bug where file with no translations would not load
     with open("test/pyehr/core/its/noTranslation.adl14") as f:
         arch = decode_adl14(f.read())
+
+def test_adl14_odin_with_empty_object_value_decodes():
+    # regression for bug where valid appearance of "<>" in ODIN caused "ODIN object value block had no valid children" error
+    with open("test/pyehr/core/its/odinEmptyObjectValue.adl14") as f:
+            arch = decode_adl14(f.read())
