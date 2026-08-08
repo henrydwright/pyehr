@@ -5,6 +5,7 @@ from typing import Optional, Union
 from antlr4 import CommonTokenStream, InputStream, TerminalNode
 import numpy as np
 from pyehr.core.am.aom14.archetype import Archetype
+from pyehr.core.am.aom14.archetype.assertion import Assertion, ExprBinaryOperator, ExprItem, ExprLeaf, OperatorKind
 from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeConstraint, ArchetypeInternalRef, ArchetypeSlot, CArchetypeRoot, CAttribute, CComplexObject, CDVQuantity, CMultipleAttribute, CObject, CPrimitiveObject, CQuantityItem, CSingleAttribute, CCodePhrase
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import *
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, CodeDefinitionSet, ConstraintBindingItem, ConstraintBindingSet, TermBindingItem, TermBindingSet
@@ -13,7 +14,7 @@ from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.interval import Cardinality, Interval, MultiplicityInterval, PointInterval, ProperInterval
 from pyehr.core.base.foundation_types.terminology import TerminologyCode
 from pyehr.core.base.foundation_types.time import ISODate, ISODateTime, ISODuration, ISOTime
-from pyehr.core.base.resource import ResourceDescription, ResourceDescriptionItem
+from pyehr.core.base.resource import ResourceDescription, ResourceDescriptionItem, TranslationDetails
 from pyehr.core.its.adl14.grammar.Adl14Lexer import Adl14Lexer
 from pyehr.core.its.adl14.grammar.Adl14Parser import Adl14Parser
 from pyehr.core.its.adl14.grammar.Cadl14Lexer import Cadl14Lexer
@@ -32,7 +33,7 @@ class Adl14ParseError(RuntimeError):
 def _invalid_err(explanation: str):
     raise Adl14ParseError("Invalid ADL v1.4 string: " + explanation)
 
-def _metadata_dict(ctx: Adl14Parser.MetaDataContext) -> dict[str, Union[ArchetypeID, UUID, VersionTreeID, str, ISOOID]]:
+def _metadata_dict(ctx: Adl14Parser.MetaDataContext) -> dict[str, Union[ArchetypeID, UUID, VersionTreeID, str, ISOOID, set[str]]]:
     """Turns the metadata in ADL v1.4 header into key, value dict"""
     ret_dict = dict()
     if ctx is None:
@@ -57,6 +58,10 @@ def _metadata_dict(ctx: Adl14Parser.MetaDataContext) -> dict[str, Union[Archetyp
                     # unknown metadata item, continue
                     continue
                 ret_dict[str(key_val.ALPHANUM_ID())] = val
+            elif child.metaDataFlag() is not None:
+                if ret_dict.get("_flags") is None:
+                    ret_dict["_flags"] = set()
+                ret_dict["_flags"].add(str(child.metaDataFlag().ALPHANUM_ID()))
 
     return ret_dict
 
@@ -234,10 +239,10 @@ def _odin_to_raw_json(val) -> dict:
         else:
             return val
 
-def _decode_header(ctx: Adl14Parser.HeaderContext) -> tuple[ArchetypeID, Optional[str], Optional[UUID]]:
+def _decode_header(ctx: Adl14Parser.HeaderContext) -> tuple[ArchetypeID, Optional[str], Optional[UUID], bool]:
     """Retrieves details from the header.
     
-    :returns: tuple of `(archetype_id: ArchetypeID, adl_version : str, uid : UUID)`"""
+    :returns: tuple of `(archetype_id: ArchetypeID, adl_version : str, uid : UUID, is_controlled : bool)`"""
 
     if ctx is None or ctx.ARCHETYPE_REF() is None:
         _invalid_err("Valid header not present.")
@@ -251,7 +256,10 @@ def _decode_header(ctx: Adl14Parser.HeaderContext) -> tuple[ArchetypeID, Optiona
         adl_ver = adl_ver.value
     uid = meta_dict.get("uid")
 
-    return (arch_id, adl_ver, uid)
+    flags = meta_dict.get("_flags")
+    is_controlled = ("controlled" in flags) if flags is not None else False
+
+    return (arch_id, adl_ver, uid, is_controlled)
 
 def _decode_concept(ctx: Adl14Parser.ConceptSectionContext) -> str:
     """Retrieves the concept at code from the concept section"""
@@ -260,7 +268,7 @@ def _decode_concept(ctx: Adl14Parser.ConceptSectionContext) -> str:
 
     return str(ctx.ADL14_AT_CODE())
 
-def _decode_specialise(ctx: Adl14Parser.SpecializeSectionContext) -> Optional[ArchetypeID]:
+def _decode_specialise(ctx: Optional[Adl14Parser.SpecializeSectionContext]) -> Optional[ArchetypeID]:
     """Retrieves the parent archetype ID (that this is specialism of, or None)"""
     if ctx is None or ctx.ARCHETYPE_REF() is None:
         return None
@@ -559,7 +567,6 @@ def _cadl_to_cprimitive(cadl: Cadl14Parser.CInlinePrimitiveObjectContext) -> tup
             code_str_split = code_str.split("::")
             ex_terminology_id = TerminologyID(code_str_split[0])
             ex_code_list = [code_str_split[1].split("|")[0]]
-            ex_assumed_value = CodePhrase(ex_terminology_id, ex_code_list[0])
         else:
             _invalid_err("Invalid cTerminologyCode encountered.")
         
@@ -708,6 +715,31 @@ def _cadl_to_cprimitive(cadl: Cadl14Parser.CInlinePrimitiveObjectContext) -> tup
     else:
         _invalid_err(f"Given type cannot be converted to C_PRIMITIVE {str(type(cadl))}")
 
+def _arch_id_constraint_list_to_assertion_list(ctx: list[Cadl14Parser.ArchetypeIdConstraintContext]) -> list[Assertion]:
+    r_lst = []
+    for aid in ctx:
+        arch_id_path = aid.archetypeIdPath().getText()
+        pattern = str(aid.DELIMITED_REGEX())[1:-1]
+        str_expr = arch_id_path + " matches {" + str(aid.DELIMITED_REGEX()) + "}"
+        r_lst.append(Assertion(
+            expression=ExprBinaryOperator(
+                type_var="Boolean",
+                left_operand=ExprLeaf(
+                    type_var="String",
+                    reference_type="attribute",
+                    item=arch_id_path
+                ),
+                operator=OperatorKind.MATCHES,
+                right_operand=ExprLeaf(
+                    type_var="C_STRING",
+                    reference_type="constraint",
+                    item=CString(pattern=pattern)
+                )
+            ),
+            string_expression=str_expr
+        ))
+    return r_lst
+
 def _cadl_to_cobject(cadl) -> CObject:
     # add cInlinePrimitiveObject from Cadl2PrimitiveConstraintsParser.g4
     if isinstance(cadl, Cadl14Parser.CRegularObjectContext):
@@ -750,7 +782,15 @@ def _cadl_to_cobject(cadl) -> CObject:
         ex_rm_type_name = cadl.rmTypeId().getText()
         ex_node_id = cadl.nodeId().adl14_at_code().getText()
         ex_occurrences = _cadl_coccurences_to_interval(cadl.cOccurrences())
-        return ArchetypeSlot(ex_rm_type_name, ex_occurrences, ex_node_id)
+
+        ex_includes = None
+        ex_excludes = None
+        if cadl.cIncludes() is not None:
+            ex_includes = _arch_id_constraint_list_to_assertion_list(cadl.cIncludes().archetypeIdConstraint())
+        if cadl.cExcludes() is not None:
+            ex_excludes = _arch_id_constraint_list_to_assertion_list(cadl.cExcludes().archetypeIdConstraint())
+
+        return ArchetypeSlot(ex_rm_type_name, ex_occurrences, ex_node_id, includes=ex_includes, excludes=ex_excludes)
     elif isinstance(cadl, Cadl14Parser.CRegularPrimitiveObjectContext):
         ex_rm_type_name = cadl.rmTypeId().getText()
         ex_node_id = cadl.nodeId().adl14_at_code().getText()
@@ -801,6 +841,31 @@ def _cadl_to_cobject(cadl) -> CObject:
         # cComplexObjectProxy and cOrdinal are not yet supported
         _invalid_err(f"Object type {str(type(cadl))} not yet supported by pyehr.")
 
+def _code_phrase_to_term_code(cp: CodePhrase) -> TerminologyCode:
+    return TerminologyCode(cp.terminology_id.value, cp.code_string, cp.terminology_id.version_id() if cp.terminology_id.version_id() != "" else None)
+
+def _decode_languages(ctx: OdinParser.OdinObjectContext) -> tuple[TerminologyCode, dict[str, TranslationDetails]]:
+    odict = _odin_to_dict(ctx)
+
+    ret_olang = _code_phrase_to_term_code(odict["original_language"])
+
+    trans_dict = odict.get("translations")
+    ret_trans_dict = None
+    if trans_dict is not None:
+        ret_trans_dict = dict()
+        for (lang_code, trans_detail_dict) in trans_dict.items():
+            td = TranslationDetails(
+                language=_code_phrase_to_term_code(trans_detail_dict["language"]),
+                author=trans_detail_dict["author"],
+                accreditation=trans_detail_dict.get("accreditation"),
+                other_details=trans_detail_dict.get("other_details"),
+                version_last_translated=trans_detail_dict.get("version_last_translated"),
+                other_contributors=trans_detail_dict.get("other_contributors")
+            )
+            ret_trans_dict[lang_code] = td
+
+    return (ret_olang, ret_trans_dict)
+
 def decode_adl14(adl14_str: str) -> Archetype:
     # conduct first pass to break down the ADL v1.4 into sections
     lex_adl = Adl14Lexer(InputStream(adl14_str))
@@ -825,7 +890,7 @@ def decode_adl14(adl14_str: str) -> Archetype:
         _invalid_err("Top-level archetype structure not found or malformed.")
 
     # header
-    ret_id, ret_adl_ver, ret_uid = _decode_header(authored_archetype.header())
+    ret_id, ret_adl_ver, ret_uid, ret_is_cont = _decode_header(authored_archetype.header())
 
     # specializeSection
     ret_parent_id = _decode_specialise(authored_archetype.specializeSection())
@@ -838,20 +903,27 @@ def decode_adl14(adl14_str: str) -> Archetype:
     # languageSection
     lex_lang_odin = OdinLexer(InputStream(authored_archetype.languageSection().odinText().getText()))
     par_lang_odin = OdinParser(CommonTokenStream(lex_lang_odin))
-    # TODO: parse translations information from language section
+    ret_original_language, ret_translation_details = _decode_languages(par_lang_odin.odinObject())
 
     # descriptionSection
     lex_desc_odin = OdinLexer(InputStream(authored_archetype.descriptionSection().odinText().getText()))
     par_desc_odin = OdinParser(CommonTokenStream(lex_desc_odin))
     ret_description = _decode_description(par_desc_odin.odinObject())
 
+    for lang_code in ret_translation_details.keys():
+        if lang_code not in ret_description.details:
+            _invalid_err(f"Language {lang_code} was found in languages, but not in the description section.")
+
     # definitionSection
     lex_def_cadl = Cadl14Lexer(InputStream(authored_archetype.definitionSection().cadlText().getText()))
     par_def_odin = Cadl14Parser(CommonTokenStream(lex_def_cadl))
+    ret_definition = _cadl_to_cobject(par_def_odin.cComplexObject())
 
     # rulesSection
-    lex_rules_el = ElLexer(InputStream(authored_archetype.rulesSection().elText().getText()))
-    par_rules_el = ElParser(CommonTokenStream(lex_rules_el))
+    if authored_archetype.rulesSection() is not None:
+        warn("rules section detected, but skipped as pyehr does not support parsing this.")
+        # lex_rules_el = ElLexer(InputStream(authored_archetype.rulesSection().elText().getText()))
+        # par_rules_el = ElParser(CommonTokenStream(lex_rules_el))
 
     # terminologySection
     lex_term_odin = OdinLexer(InputStream(authored_archetype.terminologySection().odinText().getText()))
@@ -859,9 +931,26 @@ def decode_adl14(adl14_str: str) -> Archetype:
     ret_terminology = _decode_terminology(par_term_odin.odinObject())
 
     # annotationsSection
-    lex_anno_odin = OdinLexer(InputStream(authored_archetype.annotationsSection().odinText().getText()))
-    par_anno_odin = OdinParser(CommonTokenStream(lex_anno_odin))
+    if authored_archetype.annotationsSection() is not None:
+        warn("annotations section detected, but skipped as pyehr does not support parsing this.")
+        # lex_anno_odin = OdinLexer(InputStream(authored_archetype.annotationsSection().odinText().getText()))
+        # par_anno_odin = OdinParser(CommonTokenStream(lex_anno_odin))
 
+    arch = Archetype(
+        original_language=ret_original_language,
+        definition=ret_definition,
+        ontology=ret_terminology,
+        archetype_id=ret_id,
+        concept=ret_conc,
+        adl_version=ret_adl_ver,
+        parent_archetype_id=ret_parent_id,
+        uid=ret_uid,
+        is_controlled=ret_is_cont
+    )
+    arch._description = ret_description
+    arch._translations = ret_translation_details
+
+    return arch
 
 
     

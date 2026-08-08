@@ -1,10 +1,12 @@
 import json
 
 from antlr4 import CommonTokenStream, InputStream
+from pyehr.core.am.aom14.archetype import Archetype
+from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject
 from pyehr.core.base.base_types.identification import UUID, ArchetypeID
 from pyehr.core.its.adl14.grammar.Adl14Lexer import Adl14Lexer
 from pyehr.core.its.adl14.grammar.Adl14Parser import Adl14Parser
-from pyehr.core.its.adl14 import _decode_header, _decode_concept, _decode_specialise, _odin_to_raw_json, _odin_to_dict, _decode_description, _decode_terminology, _cadl_to_cobject
+from pyehr.core.its.adl14 import decode_adl14, _decode_header, _decode_concept, _decode_specialise, _odin_to_raw_json, _odin_to_dict, _decode_description, _decode_terminology, _cadl_to_cobject
 from pyehr.core.its.adl14.grammar.Cadl14Lexer import Cadl14Lexer
 from pyehr.core.its.adl14.grammar.Cadl14Parser import Cadl14Parser
 from pyehr.core.its.adl14.grammar.OdinLexer import OdinLexer
@@ -47,11 +49,12 @@ def archetype_definition_parsed(adl_test_file_parsed) -> Cadl14Parser.CComplexOb
     return par_cadl.cComplexObject()
 
 def test_header_decode(adl_test_file_parsed : Adl14Parser.AuthoredArchetypeContext):
-    arch_id, adl_ver, uid = _decode_header(adl_test_file_parsed.header())
+    arch_id, adl_ver, uid, is_cont = _decode_header(adl_test_file_parsed.header())
 
     assert arch_id.is_equal(ArchetypeID("openEHR-EHR-OBSERVATION.blood_pressure.v2"))
     assert adl_ver == "1.4"
     assert uid.is_equal(UUID("1811b084-29c0-4bec-bde3-c70b7a5bc28e"))
+    assert is_cont == False
 
 def test_concept_decode(adl_test_file_parsed : Adl14Parser.AuthoredArchetypeContext):
     concept = _decode_concept(adl_test_file_parsed.conceptSection())
@@ -97,9 +100,14 @@ def test_terminology_decode(archetype_terminology_parsed: OdinParser.OdinObjectC
     assert term.term_binding("SNOMED-CT", "at0000").value.code_string == "364090009"
 
 def test_cadl_object_decode(archetype_definition_parsed: Cadl14Parser.CComplexObjectContext):
-    # comp = _cadl_to_cobject(archetype_definition_parsed)
+    cobj : CComplexObject = _cadl_to_cobject(archetype_definition_parsed)
 
-    # print(json.dumps(comp.as_json(), indent=1))
+    assert cobj.rm_type_name == "OBSERVATION"
+    assert cobj.node_id == "at0000"
+    assert cobj.attributes[0].rm_attribute_name == "data"
+    assert cobj.attributes[0].children[0].rm_type_name == "HISTORY"
+    assert cobj.attributes[0].children[0].node_id == "at0001"
 
-    # assert True == False
-    pass
+def test_adl14_decode_no_errors(adl_test_file):
+    arch : Archetype = decode_adl14(adl_test_file)
+    # if there are no errors we're good to go!
