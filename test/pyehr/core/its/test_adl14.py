@@ -2,7 +2,7 @@ import json
 
 from antlr4 import CommonTokenStream, InputStream
 from pyehr.core.am.aom14.archetype import Archetype
-from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject
+from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CDVOrdinal
 from pyehr.core.base.base_types.identification import UUID, ArchetypeID, HierObjectID
 from pyehr.core.its.adl14.grammar.Adl14Lexer import Adl14Lexer
 from pyehr.core.its.adl14.grammar.Adl14Parser import Adl14Parser
@@ -121,3 +121,12 @@ def test_adl14_odin_with_empty_object_value_decodes():
     # regression for bug where valid appearance of "<>" in ODIN caused "ODIN object value block had no valid children" error
     with open("test/pyehr/core/its/odinEmptyObjectValue.adl14") as f:
             arch = decode_adl14(f.read())
+
+def test_adl14_cordinal_decodes():
+    with open("test/pyehr/core/its/cOrdinalUse.adl14") as f:
+        arch = decode_adl14(f.read())
+        #                       data         HISTORY     events     POINT_EVENT      data       ITEM_TREE     items       ELEMENT       value      C_DV_ORDINAL
+        ord = arch.definition.attributes[0].children[0].attributes[0].children[0].attributes[0].children[0].attributes[0].children[0].attributes[0].children[0]
+        assert isinstance(ord, CDVOrdinal)
+        assert ord.list_var[0].value == 1
+        assert ord.list_var[0].symbol.defining_code.code_string == "at0028"
