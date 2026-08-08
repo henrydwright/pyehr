@@ -103,7 +103,7 @@ def _odin_primitive_object(prim, ignore_type_and_decode_as_interval=False): # ->
         return ISOTime(prim.getText())
     elif isinstance(prim, OdinParser.DateTimeValueContext):
         return ISODateTime(prim.getText())
-    elif isinstance(prim, OdinParser.DurationValueContext):
+    elif isinstance(prim, OdinParser.DurationValueContext) or isinstance(prim, Cadl14Parser.DurationValueContext):
         return ISODuration(prim.getText())
     elif isinstance(prim, OdinParser.PrimitiveValueContext):
         return _odin_primitive_object(prim.children[0])      
@@ -215,10 +215,8 @@ def _odin_to_dict(odin) -> dict:
             return d
         elif odin.ODIN_URI() is not None:
             return str(odin.ODIN_URI())
-        elif odin.getText() == "<>":
-            return None
         else:
-            _invalid_err("ODIN object value block had no valid children")
+            return None
     elif isinstance(odin, OdinParser.OdinObjectReferenceBlockContext):
         # and object->reference block
         lst = []
@@ -476,9 +474,15 @@ def _cadl_to_cattributes(cadl: Union[Cadl14Parser.CAttributeContext, list[Cadl14
             cma = CMultipleAttribute(ex_rm_attribute_name, ex_existence, ex_cardinality, children=ex_children)
             r_lst.append(cma)
         else:
-            csa = CSingleAttribute(ex_rm_attribute_name, ex_existence, children=ex_children)
-            r_lst.append(csa)
-
+            try:
+                csa = CSingleAttribute(ex_rm_attribute_name, ex_existence, children=ex_children)
+                r_lst.append(csa)
+            except ValueError as ex:
+                if "(invariant: members_valid)" in str(ex):
+                    _invalid_err(f"One or more children of single attribute \'{ex_rm_attribute_name}\' had occurences > 1. Are you missing 'cardinality' declaration for \'{ex_rm_attribute_name}\' to make it a multiple attribute?")
+                else:
+                    raise
+            
     return (r_lst if len(r_lst) > 0 else None)
 
 def _cadl_to_cprimitive(cadl: Cadl14Parser.CInlinePrimitiveObjectContext) -> tuple[CPrimitive, str]:
@@ -827,6 +831,8 @@ def _cadl_to_cobject(cadl) -> CObject:
             lex = OdinLexer(InputStream(inline_odin))
             par = OdinParser(CommonTokenStream(lex))
             odict = _odin_to_dict(par.odinObject())
+            if odict is None:
+                odict = dict()
 
             ex_property = odict.get("property")
             ex_list = None
@@ -849,13 +855,15 @@ def _cadl_to_cobject(cadl) -> CObject:
         ex_list_var = []
         for ot in ots:
             ex_val = ot.ordinalValue()
+            flag_float = False
             if ex_val.integerValue():
                 ex_val = np.int32(ex_val.integerValue().getText())
             elif ex_val.realValue():
-                ex_val = np.int32(ex_val.floatValue().getText())
+                ex_val = np.float32(ex_val.realValue().getText())
+                flag_float = True
             ccp, _ = _cadl_to_cprimitive(ot.cTerminologyCode())
             ex_code = CodePhrase(ccp.terminology_id, ccp.code_list[0])
-            ex_list_var.append(DVOrdinal(ex_val, DVCodedText(value="", defining_code=ex_code)))
+            ex_list_var.append(DVOrdinal(ex_val, DVCodedText(value="", defining_code=ex_code), flag_float_value=flag_float))
         
         return CDVOrdinal("DV_ORDINAL", _cadl_coccurences_to_interval(None), "", ex_list_var)
     else:

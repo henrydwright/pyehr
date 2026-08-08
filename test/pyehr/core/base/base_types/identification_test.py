@@ -98,6 +98,8 @@ def test_archetype_id_only_valid_allowed():
     a = ArchetypeID("openEHR-EHR-OBSERVATION.bp_measurement.v1")
     a = ArchetypeID("openEHR-EHR-OBSERVATION.bp_measurement.v021")
     a = ArchetypeID("openEHR-EHR-OBSERVATION.biochemistry_result-cholesterol.v502")
+    # regression : multi-specialism is allowed
+    a = ArchetypeID("openEHR-EHR-CLUSTER.imaging_exam-lesion-adnexal_mass.v0")
     # OTHER ISSUES
     with pytest.raises(ValueError):
         # lacks concept
@@ -126,11 +128,21 @@ def test_archetype_id_other_methods_correct():
     assert a.specialisation() == "cholesterol"
     assert a.version_id() == "502"
 
+    a = ArchetypeID("openEHR-EHR-CLUSTER.imaging_exam-lesion-adnexal_mass.v0")
+    assert a.qualified_rm_entity() == "openEHR-EHR-CLUSTER"
+    assert a.domain_concept() == "imaging_exam-lesion-adnexal_mass"
+    assert a.rm_originator() == "openEHR"
+    assert a.rm_name() == "EHR"
+    assert a.rm_entity() == "CLUSTER"
+    assert a.specialisation() == "lesion-adnexal_mass"
+    assert a.version_id() == "0"
+
 def test_terminology_id_only_valid_allowed():
     t = TerminologyID("SNOMED-CT")
     # Note: the below is allowed according to 5.3.2.3 but not 5.5
     #        we have taken 5.3.2.3 to be truthful (i.e. below is allowed)
     t = TerminologyID("ICD10AM(3rd_ed)")
+    t = TerminologyID("LOINC(2.80)")
     with pytest.raises(ValueError):
         t = TerminologyID("2ABC") # cannot start with digit
     with pytest.raises(ValueError):

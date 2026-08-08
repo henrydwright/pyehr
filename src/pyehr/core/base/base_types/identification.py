@@ -355,7 +355,7 @@ class ArchetypeID(ObjectID):
     
     Lexical form: `rm_originator '-' rm_name '-' rm_entity '.' concept_name { '-' specialisation }* '.v' number`."""
     
-    ARCHETYPE_ID_REGEX = "^(([a-zA-Z][a-zA-Z0-9_]*)-([a-zA-Z][a-zA-Z0-9_]*)-([a-zA-Z][a-zA-Z0-9_]*))\\.(([a-zA-Z][a-zA-Z0-9_]*)(-[a-zA-Z][a-zA-Z0-9_]*)?)\\.(v[0-9][0-9]*)$"
+    ARCHETYPE_ID_REGEX = "^(([a-zA-Z][a-zA-Z0-9_]*)-([a-zA-Z][a-zA-Z0-9_]*)-([a-zA-Z][a-zA-Z0-9_]*))\\.(([a-zA-Z][a-zA-Z0-9_]*)((?:-[a-zA-Z][a-zA-Z0-9_]*)*)?)\\.(v[0-9][0-9]*)$"
 
     _rm_originator : str
     _rm_name : str
@@ -452,7 +452,7 @@ class TerminologyID(ObjectID, IXMLSupport):
 
     Lexical form: `name [ '(' version ')' ]`."""
 
-    TERMINOLOGY_ID_REGEX = "^([a-zA-Z][a-zA-Z0-9_\\-\\/+]*)(\\([a-zA-Z0-9_\\-\\/+]*\\))?$"
+    TERMINOLOGY_ID_REGEX = "^([a-zA-Z][a-zA-Z0-9_\\-\\/+]*)(\\([a-zA-Z0-9_\\.\\-\\/+]*\\))?$"
 
     _name : str
     _version : Optional[str]
