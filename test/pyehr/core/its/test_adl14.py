@@ -1,8 +1,12 @@
+import json
+
 from antlr4 import CommonTokenStream, InputStream
 from pyehr.core.base.base_types.identification import UUID, ArchetypeID
 from pyehr.core.its.adl14.grammar.Adl14Lexer import Adl14Lexer
 from pyehr.core.its.adl14.grammar.Adl14Parser import Adl14Parser
-from pyehr.core.its.adl14 import _decode_header, _decode_concept, _decode_specialise, _odin_to_raw_json, _odin_to_dict, _decode_description, _decode_terminology
+from pyehr.core.its.adl14 import _decode_header, _decode_concept, _decode_specialise, _odin_to_raw_json, _odin_to_dict, _decode_description, _decode_terminology, _cadl_to_cobject
+from pyehr.core.its.adl14.grammar.Cadl14Lexer import Cadl14Lexer
+from pyehr.core.its.adl14.grammar.Cadl14Parser import Cadl14Parser
 from pyehr.core.its.adl14.grammar.OdinLexer import OdinLexer
 from pyehr.core.its.adl14.grammar.OdinParser import OdinParser
 import pytest
@@ -34,6 +38,13 @@ def archetype_terminology_parsed(adl_test_file_parsed) -> OdinParser.OdinObjectC
     par_odin = OdinParser(CommonTokenStream(lex_odin))
 
     return par_odin.odinObject()
+
+@pytest.fixture(scope="module")
+def archetype_definition_parsed(adl_test_file_parsed) -> Cadl14Parser.CComplexObjectContext:
+    lex_cadl = Cadl14Lexer(InputStream(adl_test_file_parsed.definitionSection().cadlText().getText()))
+    par_cadl = Cadl14Parser(CommonTokenStream(lex_cadl))
+
+    return par_cadl.cComplexObject()
 
 def test_header_decode(adl_test_file_parsed : Adl14Parser.AuthoredArchetypeContext):
     arch_id, adl_ver, uid = _decode_header(adl_test_file_parsed.header())
@@ -84,3 +95,11 @@ def test_terminology_decode(archetype_terminology_parsed: OdinParser.OdinObjectC
     assert term.term_definition("at1040", "en").items["text"] == "Invasive"
     assert term.term_definition("at0025", "es").items["text"] == "Brazo derecho"
     assert term.term_binding("SNOMED-CT", "at0000").value.code_string == "364090009"
+
+def test_cadl_object_decode(archetype_definition_parsed: Cadl14Parser.CComplexObjectContext):
+    # comp = _cadl_to_cobject(archetype_definition_parsed)
+
+    # print(json.dumps(comp.as_json(), indent=1))
+
+    # assert True == False
+    pass
