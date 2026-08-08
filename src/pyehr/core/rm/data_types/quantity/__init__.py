@@ -373,7 +373,7 @@ class DVOrdinal(DVOrdered):
     """A data type that represents integral score values, e.g. pain, Apgar values, etc, where there is:
 
     a) implied ordering, b) no implication that the distance between each value is constant, 
-    c) the total number of values is finite and d) integer values only.
+    c) the total number of values is finite and d) integer values only [unless originating in certain archetypes].
 
     Note that although the term 'ordinal' in mathematics means natural numbers only, here any integer is allowed, 
     since negative and zero values are often used by medical professionals for values around a neutral point. 
@@ -397,8 +397,14 @@ class DVOrdinal(DVOrdered):
     other enumerations of terms such as mild, moderate, severe, or even the same number series as the values, 
     e.g. 1, 2, 3."""
 
-    def __init__(self, value: Union[integer_type, int], symbol: DVCodedText, normal_status = None, normal_range = None, other_reference_ranges = None, terminology_service = None):
-        if not (isinstance(value, integer_type) or isinstance(value, int)):
+    _flag_float_value = False
+
+    def __init__(self, value: Union[integer_type, int], symbol: DVCodedText, normal_status = None, normal_range = None, other_reference_ranges = None, terminology_service = None,
+                 flag_float_value : bool = False):
+        # flag_float_value overrides the type check and allows this type to hold integer values for compatibility with ADL v1.4 cOrdinal with
+        #  floating values for "value" even though this __is__ illegal in the RM.
+        self._flag_float_value = flag_float_value
+        if not (isinstance(value, integer_type) or isinstance(value, int)) and not flag_float_value:
             raise TypeError("DVOrdinal value must be of integer type")
         self.symbol = symbol
         super().__init__(value, normal_status, normal_range, other_reference_ranges, terminology_service)
@@ -410,7 +416,7 @@ class DVOrdinal(DVOrdered):
         # https://specifications.openehr.org/releases/ITS-JSON/development/components/RM/Release-1.1.0/Data_types/DV_ORDINAL.json
         draft = super().as_json()
         draft["_type"] = "DV_ORDINAL"
-        draft["value"] = int(self.value)
+        draft["value"] = int(self.value) if not self._flag_float_value else float(self.value)
         draft["symbol"] = self.symbol.as_json()
         return draft
     
@@ -420,7 +426,7 @@ class DVOrdinal(DVOrdered):
         root = super().as_xml(root_tag)
         
         value_el = ET.Element("value")
-        value_el.text = str(int(self.value))
+        value_el.text = str(int(self.value)) if not self._flag_float_value else str(float(self.value))
         root.append(value_el)
         
         root.append(self.symbol.as_xml("symbol"))

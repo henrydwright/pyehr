@@ -373,7 +373,7 @@ class CSingleAttribute(CAttribute):
             **kwargs):
         if children is not None:
             for child in children:
-                if child.occurrences.upper > 1:
+                if child.occurrences.upper_unbounded or child.occurrences.upper > 1:
                     raise ValueError("Every child in children must have child.occurences.upper <= 1 for C_SINGLE_ATTRIBUTE (invariant: members_valid)")
         super().__init__(rm_attribute_name, existence, parent, parent_container_attribute_name, list_index, children, **kwargs)
 

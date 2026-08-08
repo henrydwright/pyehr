@@ -2,7 +2,7 @@ import json
 
 from antlr4 import CommonTokenStream, InputStream
 from pyehr.core.am.aom14.archetype import Archetype
-from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject
+from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CDVOrdinal
 from pyehr.core.base.base_types.identification import UUID, ArchetypeID, HierObjectID
 from pyehr.core.its.adl14.grammar.Adl14Lexer import Adl14Lexer
 from pyehr.core.its.adl14.grammar.Adl14Parser import Adl14Parser
@@ -111,3 +111,38 @@ def test_cadl_object_decode(archetype_definition_parsed: Cadl14Parser.CComplexOb
 def test_adl14_decode_no_errors(adl_test_file):
     arch : Archetype = decode_adl14(adl_test_file)
     # if there are no errors we're good to go!
+
+def test_adl14_with_no_translations_decodes():
+    # regression for bug where file with no translations would not load
+    with open("test/pyehr/core/its/noTranslation.adl14") as f:
+        arch = decode_adl14(f.read())
+
+def test_adl14_odin_with_empty_object_value_decodes():
+    # regression for bug where valid appearance of "<>" in ODIN caused "ODIN object value block had no valid children" error
+    with open("test/pyehr/core/its/odinEmptyObjectValue.adl14") as f:
+        arch = decode_adl14(f.read())
+
+def test_adl14_cordinal_decodes():
+    with open("test/pyehr/core/its/cOrdinalUse.adl14") as f:
+        arch = decode_adl14(f.read())
+        #                       data         HISTORY     events     POINT_EVENT      data       ITEM_TREE     items       ELEMENT       value      C_DV_ORDINAL
+        ord = arch.definition.attributes[0].children[0].attributes[0].children[0].attributes[0].children[0].attributes[0].children[0].attributes[0].children[0]
+        assert isinstance(ord, CDVOrdinal)
+        assert ord.list_var[0].value == 1
+        assert ord.list_var[0].symbol.defining_code.code_string == "at0028"
+
+def test_adl14_cordinal_with_float_values_decodes():
+    # regression for bug where cOrdinal using float value rather than integer doesn't decode
+    with open("test/pyehr/core/its/cOrdinalFloatUse.adl14") as f:
+        arch = decode_adl14(f.read())
+        #                        data        HISTORY      events      POINT_EVENT     data       ITEM_TREE    items         CLUSTER       items       [at0299]     value      C_DV_ORDINAL
+        ord = arch.definition.attributes[0].children[0].attributes[0].children[0].attributes[0].children[0].attributes[0].children[1].attributes[0].children[6].attributes[0].children[0]
+
+        assert isinstance(ord, CDVOrdinal)
+        assert ord.list_var[1].value == 1.5
+        assert ord.list_var[1].symbol.defining_code.code_string == "at0519"
+
+def test_adl14_empty_c_dv_quantity():
+    # regression for bug where valid empty CDVQuantity caused "ODIN object value block had no valid children error"
+    with open("test/pyehr/core/its/emptyCDVQuantity.adl14") as f:
+        arch = decode_adl14(f.read())
