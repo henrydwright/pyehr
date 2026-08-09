@@ -10,7 +10,7 @@ from pyehr.core.am.aom14.archetype.assertion import OperatorKind
 from pyehr.core.base.base_types.definitions import ValidityKind
 from pyehr.core.base.foundation_types.interval import PointInterval, ProperInterval
 from pyehr.core.base.foundation_types.structure import is_equal_value
-from pyehr.core.base.resource import ResourceDescriptionItem
+from pyehr.core.base.resource import ResourceDescriptionItem, TranslationDetails
 from pyehr.core.its.rest.additions import UpdateAttestation, UpdateAudit, UpdateContribution, UpdateVersion
 from pyehr.core.rm.common.change_control import Contribution, ImportedVersion, OriginalVersion, VersionedObject
 from pyehr.core.rm.common.generic import Attestation, AuditDetails, PartyIdentified, PartySelf, RevisionHistory, RevisionHistoryItem
@@ -142,6 +142,9 @@ def decode_json(json_obj: dict,
             elif target_type == "T_VIEW_CONSTRAINT" and param_name == "items":
                 arg_dict[param_name] = param
                 continue
+            elif target_type == "ARCHETYPE" and param_name == "description":
+                create_parent_first_params["_description"] = param
+                continue
             
             type_hint = None
             
@@ -186,6 +189,11 @@ def decode_json(json_obj: dict,
                     details_dict[rdi.language.code_string] = rdi
                 arg_dict[param_name] = details_dict
                 continue
+            elif target_type == "ARCHETYPE" and param_name == "translations":
+                create_parent_first_params["_translations"] = param
+                continue
+
+
             arg_dict[param_name] = [decode_json(list_item, terminology_service=terminology_service) for list_item in param]
         else:
             raise RuntimeError(f"Could not decode object: unknown type of parameter \'{type(param)}\' encountered during parsing")
@@ -389,11 +397,18 @@ def decode_json(json_obj: dict,
 
     if create_parent_first_params is not None:
         for (param_name, param) in create_parent_first_params.items():
+            parent_params = {"parent": result}
+            include_parent_params = (param_name == "events")
             decoded = None
             if isinstance(param, list):
-                decoded = [decode_json(list_item, python_params={"parent": result}, terminology_service=terminology_service) for list_item in param]
+                decoded = [decode_json(list_item, python_params=(parent_params if include_parent_params else None), terminology_service=terminology_service) for list_item in param]
+                if param_name == "_translations":
+                    translations_dict = dict()
+                    for td in decoded:
+                        translations_dict[td.language.code_string] = td
+                    decoded = translations_dict
             else:
-                decoded = decode_json(param, python_params={"parent": result}, terminology_service=terminology_service)
+                decoded = decode_json(param, python_params=(parent_params if include_parent_params else None), terminology_service=terminology_service)
 
             setattr(result, param_name, decoded)
 

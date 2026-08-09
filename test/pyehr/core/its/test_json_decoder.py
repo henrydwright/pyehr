@@ -1,4 +1,5 @@
 import pytest
+import json
 
 from pyehr.core.its.json_tools import decode_json
 
@@ -8,6 +9,7 @@ from pyehr.core.rm.common.generic import PartySelf
 from pyehr.core.rm.data_types.text import DVText, DVUri
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
 from pyehr.core.rm.ehr import EHR, EHRStatus
+from pyehr.core.am.aom14.archetype import Archetype
 
 def test_decode_json_base_object_version_id():
     j_ovid = {"_type": "OBJECT_VERSION_ID", "value": "154b1047-23aa-4d4d-8713-df848fd4d60a::net.example.ehr::1"}
@@ -92,3 +94,14 @@ def test_decode_json_rm_ehr_ehr_no_type_on_archetyped():
         ehr_access=ObjectRef("null", "VERSIONED_EHR_ACCESS", HierObjectID("00000000-0000-0000-0000-000000000000")),
         time_created=DVDateTime("2026-01-01T17:53:34.631485Z")
     ))
+
+def test_decode_json_am_archetype_parses_description_and_translations():
+    with open("test/pyehr/core/its/blood_pressure.json") as js_file:
+        # should load OK
+        arch: Archetype = decode_json(json.loads(js_file.read()))
+        assert arch.adl_version == "1.4"
+        assert arch.uid.is_equal(HierObjectID("1811b084-29c0-4bec-bde3-c70b7a5bc28e"))
+        assert isinstance(arch._translations, dict)
+        assert arch.translations["fi"].author["organisation"] == "Tietoevry, Finland"
+        assert arch.description.original_author["organisation"] == "Ocean Informatics"
+        assert arch.ontology.term_definition("at0000", "en").items["text"] == "Blood pressure"
