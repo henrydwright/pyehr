@@ -14,6 +14,7 @@ from pyehr.core.base.foundation_types.interval import Cardinality, Interval
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.its.json_path_utils import json_has_path
 from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
+from pyehr.core.rm.common.archetyped import Locatable
 from pyehr.core.rm.data_types.basic import DVState
 from pyehr.core.rm.data_types.quantity import DVOrdinal, DVQuantity
 from pyehr.core.rm.data_types.text import CodePhrase
@@ -227,10 +228,24 @@ class CDefinedObject(CObject):
                 is_equal_value(self.assumed_value, other.assumed_value))
 
     @abstractmethod
-    def valid_value(self, a_value: AnyClass) -> bool:
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False) -> bool:
         """True if a_value is valid with respect to constraint expressed in concrete 
         instance of this type."""
-        pass
+        from pyehr.types import get_openehr_type_str
+        typ = get_openehr_type_str(a_value)
+        if typ != self.rm_type_name:
+            if raise_exceptions:
+                raise ValueError(f"{self.node_id}: expected rm_type_name of {self.rm_type_name} but found {typ}")
+            return False
+
+        if self.node_id != "":
+            if isinstance(a_value, Locatable):
+                if self.node_id != a_value.archetype_node_id:
+                    if raise_exceptions:
+                        raise ValueError(f"{self.node_id}: expected node_id of {self.node_id} but found {a_value.archetype_node_id}")
+                    return False
+
+        return True
 
     @abstractmethod
     def prototype_value(self) -> AnyClass:
@@ -537,8 +552,8 @@ class CComplexObject(CDefinedObject):
     def prototype_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
-        raise NotImplementedError()
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False):
+        return super().valid_value(a_value, raise_exceptions)
 
 class CPrimitiveObject(CDefinedObject):
     """Constraint on a primitive type."""
@@ -588,7 +603,7 @@ class CPrimitiveObject(CDefinedObject):
     def prototype_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False):
         raise NotImplementedError()
     
     def from_xml(root: ET.Element, **kwargs):
@@ -708,7 +723,7 @@ class CCodePhrase(CDomainType):
     def prototype_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False):
         raise NotImplementedError()
 
     def standard_equivalent(self):
@@ -1031,7 +1046,7 @@ class CDomainPlaceholder(CDomainType):
     def standard_equivalent(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False):
         raise NotImplementedError()
 
 class CQuantityItem(AnyClass, IXMLSupport):
@@ -1173,7 +1188,7 @@ class CDVQuantity(CDomainType):
     def standard_equivalent(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False):
         raise NotImplementedError()
 
 class CDVOrdinal(CDomainType):
@@ -1244,7 +1259,7 @@ class CDVOrdinal(CDomainType):
     def standard_equivalent(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False):
         raise NotImplementedError()
 
 class AMState(AnyClass, IXMLSupport):
@@ -1501,7 +1516,7 @@ class CDVState(CDomainType):
     def standard_equivalent(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False):
         raise NotImplementedError()
 
         
