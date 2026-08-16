@@ -553,7 +553,98 @@ class CComplexObject(CDefinedObject):
         raise NotImplementedError()
     
     def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False):
-        return super().valid_value(a_value, raise_exceptions)
+        if not super().valid_value(a_value, raise_exceptions):
+            return False
+
+        from pyehr.types import get_python_attribute_name
+
+        if self.attributes is not None:
+            for attribute in self.attributes:
+                concrete = getattr(a_value, get_python_attribute_name(self.rm_type_name, attribute.rm_attribute_name))
+
+                # CHECK: existence
+                if attribute.existence.lower == 0 and attribute.existence.upper == 0 and concrete is not None:
+                    if raise_exceptions:
+                        raise ValueError(f"{self.node_id}: attribute \'{attribute.rm_attribute_name}\' is prohibited (existence 0..0) but WAS provided")
+                    return False
+                if attribute.existence.lower == 1 and attribute.existence.upper == 1 and concrete is None:
+                    if raise_exceptions:
+                        raise ValueError(f"{self.node_id}: attribute \'{attribute.rm_attribute_name}\' is mandatory (existence 1..1) but WAS NOT provided")
+                    return False
+
+                # CHECK: cardinality
+                if isinstance(attribute, CMultipleAttribute):
+                    attr_cardinality = len(concrete)
+                    if not attribute.cardinality.interval.has(attr_cardinality):
+                        if raise_exceptions:
+                            raise ValueError(f"{self.node_id}: found {attr_cardinality} items in attribute \'{attribute.rm_attribute_name}\' but expected {str(attribute.cardinality.interval).replace(", ", "..")} (cardinality)")
+                        return False
+
+                if attribute.children is not None:
+                    occur_dict = {}
+                    constraint_dict = {}
+
+                    # build up the occurences constraints we need to check
+                    for child in attribute.children:
+                        occur_dict[child.node_id] = child.occurrences
+                        constraint_dict[child.node_id] = child
+
+                    count_dict = {}
+                    items_dict = {}
+
+                    # count the number of items with each node ID in the concrete instance
+                    if isinstance(attribute, CMultipleAttribute):
+                        for item in concrete:
+                            if isinstance(item, Locatable):
+                                if item.archetype_node_id not in count_dict:
+                                    count_dict[item.archetype_node_id] = 0
+                                    items_dict[item.archetype_node_id] = []
+                                count_dict[item.archetype_node_id] += 1
+                                items_dict[item.archetype_node_id].append(item)
+                            else:
+                                if "" not in count_dict:
+                                    count_dict[""] = 0
+                                    items_dict[""] = []
+                                count_dict[""] += 1
+                                items_dict[""].append(item)
+                    elif isinstance(attribute, CSingleAttribute):
+                        item = concrete
+                        if isinstance(item, Locatable):
+                            if item.archetype_node_id not in count_dict:
+                                count_dict[item.archetype_node_id] = 0
+                                items_dict[item.archetype_node_id] = []
+                            count_dict[item.archetype_node_id] += 1
+                            items_dict[item.archetype_node_id].append(item)
+                        else:
+                            if "" not in count_dict:
+                                count_dict[""] = 0
+                                items_dict[""] = []
+                            count_dict[""] += 1
+                            items_dict[""].append(item)
+                    else:
+                        raise TypeError(f"Unknown attribute type {str(type(attribute))} encountered whilst checking valid values")
+
+                    # CHECK: occurences
+                    for node_id in occur_dict.keys():
+                        count = count_dict[node_id] if node_id in count_dict else 0
+                        if not occur_dict[node_id].has(count):
+                            if raise_exceptions:
+                                raise ValueError(f"{node_id}: found {count} occurences but expected {str(occur_dict[node_id]).replace(", ", "..")}")
+                            return False
+
+                    # recurse for each child
+                    for node_id in items_dict.keys():
+                        valid = True
+                        if node_id in constraint_dict:
+                            constraint = constraint_dict[node_id]
+                            if isinstance(constraint, CDefinedObject):
+                                for concrete_item in items_dict[node_id]:
+                                    valid = valid and constraint.valid_value(concrete_item, raise_exceptions)
+                                    if valid == False:
+                                        return valid
+
+        return True
+
 
 class CPrimitiveObject(CDefinedObject):
     """Constraint on a primitive type."""

@@ -242,3 +242,53 @@ def get_openehr_type_str(obj: AnyClass) -> str:
             type_str = f"VERSION<{PYTHON_TYPE_TO_STRING_TYPE_MAP[type(obj.data())]}>"
 
     return type_str
+
+__ATTRIBUTE_NAME_CHANGES = {
+    "OBJECT_REF": {
+        "type": "ref_type"
+    },
+    "DV_IDENTIFIER": {
+        "type": "id_type"
+    },
+    "DV_PROPORTION": {
+        "type": "proportion_type"
+    },
+    "LINK": {
+        "type": "link_type"
+    },
+    "EXPR_LEAF": {
+        "type": "type_var"
+    },
+    "EXPR_BINARY_OPERATOR": {
+        "type": "type_var"
+    },
+    "EXPR_UNARY_OPERATOR": {
+        "type": "type_var"
+    },
+    "C_DV_QUANTITY": {
+        "property": "property_var",
+        "list": "list_var"
+    },
+    "C_STRING": {
+        "list": "list_var"
+    },
+    "C_INTEGER": {
+        "list": "list_var"
+    },
+    "C_REAL": {
+        "list": "list_var"
+    },
+    "C_DV_ORDINAL": {
+        "list": "list_var"
+    },
+}
+
+def get_python_attribute_name(rm_type: str, attribute_name: str) -> str:
+    """For a given OpenEHR type and attribute name, get the name of the python class
+    attribute used. Often this is the same but in the case of reserved python
+    names (e.g. type, etc.) it can be different (e.g. type -> type_val)"""
+    mapper = __ATTRIBUTE_NAME_CHANGES.get(rm_type)
+    if mapper is not None and attribute_name in mapper:
+        return mapper[attribute_name]
+    else:
+        return attribute_name
