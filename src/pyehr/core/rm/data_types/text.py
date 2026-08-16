@@ -76,7 +76,11 @@ class CodePhrase(AnyClass, IXMLSupport):
     
     def from_xml(root: ElementTree.Element, **kwargs) -> 'CodePhrase':
         tid = root.find("./terminology_id")
-        tid = TerminologyID.from_xml(tid)
+        if tid is None:
+            # missing terminology_id, so assume local
+            tid = TerminologyID("local")
+        else:
+            tid = TerminologyID.from_xml(tid)
         cs = root.findtext("./code_string")
         # preferred_term not part of 1.0.2 XML spec, but accept it if present
         pt = root.findtext("./preferred_term")

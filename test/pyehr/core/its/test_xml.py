@@ -1,7 +1,7 @@
 from uuid import UUID
 
 import numpy as np
-from pyehr.core.am.opt14 import TView, TViewConstraint
+from pyehr.core.am.opt14 import FlatArchetypeOntology, OperationalTemplate, TConstraint, TView, TViewConstraint
 from pyehr.core.rm.common.generic import AuditDetails, PartyIdentified, PartyRelated, PartySelf, RevisionHistory, RevisionHistoryItem
 from pyehr.core.rm.data_types.basic import DVIdentifier, DVState
 import pytest
@@ -9,10 +9,12 @@ from xmlschema import XMLSchema
 
 import xml.etree.ElementTree as ET
 
+from pyehr.core.its.xml_tools import decode_xml
+
 from pyehr.core.am.aom14.archetype.assertion import Assertion, AssertionVariable, ExprBinaryOperator, ExprLeaf, ExprUnaryOperator, OperatorKind
 from pyehr.core.am.aom14.archetype.constraint_model import AMNonTerminalState, AMStateMachine, AMTerminalState, AMTransition, CCodePhrase, CComplexObject, CDVOrdinal, CDVQuantity, CDVState, CMultipleAttribute, CQuantityItem, CSingleAttribute
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
-from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingItem
+from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, CodeDefinitionSet, TermBindingItem
 from pyehr.core.base.base_types.definitions import ValidityKind
 from pyehr.core.base.base_types.identification import ArchetypeID, GenericID, HierObjectID, ObjectVersionID, PartyRef, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
@@ -23,7 +25,7 @@ from pyehr.core.base.resource import AuthoredResource, ResourceDescription, Reso
 from pyehr.core.its.xml import IXMLSupport
 from pyehr.core.rm.data_types.quantity import DVCount, DVInterval, DVOrdinal, DVProportion, DVQuantity, DVScale, ProportionKind
 from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVDateTime, DVDuration, DVTime
-from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, TermMapping
+from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText, TermMapping
 from pyehr.core.rm.data_types.uri import DVUri
 
 from pyehr.term import PyehrGlobalTerminologyService
@@ -173,9 +175,17 @@ def test_its_xml_basetypes_dv_proportion():
 
 # DV_PARAGRAPH
 
-# DV_TEXT
+def test_its_xml_basetypes_dv_text():
+    txt = DVText("hello, world", hyperlink=DVUri("http://www.example.net"))
 
-# DV_CODED_TEXT
+    validate(txt, "BaseTypes.xsd", "DV_TEXT")
+    check_from_xml(txt, DVText)
+
+def test_its_xml_basetypes_dv_coded_text():
+    ct = DVCodedText("creation", CodePhrase(TerminologyID("openehr"), "249"))
+
+    validate(ct, "BaseTypes.xsd", "DV_CODED_TEXT")
+    check_from_xml(ct, DVCodedText)
 
 def test_its_xml_basetypes_code_phrase():
     cd_phrse = CodePhrase(TerminologyID("SNOMED-CT"), "1069221000000106")
@@ -600,11 +610,33 @@ def test_its_xml_openehrprofile_transition():
 # =============
 # Template.xsd
 
-# OPERATIONAL_TEMPLATE
+def test_its_xml_template_operational_template():
+    with open("test/pyehr/core/its/testTemplate.xml") as f_xml:
+        opt : OperationalTemplate = decode_xml(f_xml.read())
+
+        assert opt.template_id.value == "csds_care_contact_nhs_health_check"
+        assert isinstance(opt.constraints, TConstraint)
+        assert opt.constraints.attributes[0].rm_attribute_name == "value"
+        assert isinstance(opt.constraints.attributes[0].children[0].default_value, DVCodedText)
+        
 
 # C_ARCHETYPE_ROOT
 
-# FLAT_ARCHETYPE_ONTOLOGY
+def test_its_xml_template_flat_archetype_ontology():
+    t_fao = FlatArchetypeOntology(
+        term_definitions=[
+            CodeDefinitionSet(
+                language="en",
+                items=[
+                    ArchetypeTerm("at0000", items={"text": "Example text", "description": "Explains the example text"})
+                ]
+            )
+        ],
+        archetype_id="openEHR-EHR-OBSERVATION.example.v0"
+    )
+
+    validate(t_fao, "Template.xsd", "FLAT_ARCHETYPE_ONTOLOGY")
+    check_from_xml(t_fao, FlatArchetypeOntology)
 
 # ANNOTATION
 
