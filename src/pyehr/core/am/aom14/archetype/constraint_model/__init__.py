@@ -228,7 +228,7 @@ class CDefinedObject(CObject):
                 is_equal_value(self.assumed_value, other.assumed_value))
 
     @abstractmethod
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False) -> bool:
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "") -> bool:
         """True if a_value is valid with respect to constraint expressed in concrete 
         instance of this type."""
         from pyehr.types import get_openehr_type_str
@@ -552,8 +552,11 @@ class CComplexObject(CDefinedObject):
     def prototype_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False):
-        if not super().valid_value(a_value, raise_exceptions):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
+        if self.node_id != "":
+            path += f"/{self.node_id}"
+
+        if not super().valid_value(a_value, raise_exceptions, path):
             return False
 
         from pyehr.types import get_python_attribute_name
@@ -565,11 +568,11 @@ class CComplexObject(CDefinedObject):
                 # CHECK: existence
                 if attribute.existence.lower == 0 and attribute.existence.upper == 0 and concrete is not None:
                     if raise_exceptions:
-                        raise ValueError(f"{self.node_id}: attribute \'{attribute.rm_attribute_name}\' is prohibited (existence 0..0) but WAS provided")
+                        raise ValueError(f"{path}: attribute \'{attribute.rm_attribute_name}\' is prohibited (existence 0..0) but WAS provided")
                     return False
                 if attribute.existence.lower == 1 and attribute.existence.upper == 1 and concrete is None:
                     if raise_exceptions:
-                        raise ValueError(f"{self.node_id}: attribute \'{attribute.rm_attribute_name}\' is mandatory (existence 1..1) but WAS NOT provided")
+                        raise ValueError(f"{path}: attribute \'{attribute.rm_attribute_name}\' is mandatory (existence 1..1) but WAS NOT provided")
                     return False
 
                 # CHECK: cardinality
@@ -577,7 +580,7 @@ class CComplexObject(CDefinedObject):
                     attr_cardinality = len(concrete)
                     if not attribute.cardinality.interval.has(attr_cardinality):
                         if raise_exceptions:
-                            raise ValueError(f"{self.node_id}: found {attr_cardinality} items in attribute \'{attribute.rm_attribute_name}\' but expected {str(attribute.cardinality.interval).replace(", ", "..")} (cardinality)")
+                            raise ValueError(f"{path}: found {attr_cardinality} items in attribute \'{attribute.rm_attribute_name}\' but expected {str(attribute.cardinality.interval).replace(", ", "..")} (cardinality)")
                         return False
 
                 if attribute.children is not None:
@@ -629,7 +632,7 @@ class CComplexObject(CDefinedObject):
                         count = count_dict[node_id] if node_id in count_dict else 0
                         if not occur_dict[node_id].has(count):
                             if raise_exceptions:
-                                raise ValueError(f"{node_id}: found {count} occurences but expected {str(occur_dict[node_id]).replace(", ", "..")}")
+                                raise ValueError(f"{path}/{attribute.rm_attribute_name}/{node_id}: found {count} occurences of {node_id} but expected {str(occur_dict[node_id]).replace(", ", "..")}")
                             return False
 
                     # recurse for each child
@@ -639,7 +642,7 @@ class CComplexObject(CDefinedObject):
                             constraint = constraint_dict[node_id]
                             if isinstance(constraint, CDefinedObject):
                                 for concrete_item in items_dict[node_id]:
-                                    valid = valid and constraint.valid_value(concrete_item, raise_exceptions)
+                                    valid = valid and constraint.valid_value(concrete_item, raise_exceptions, path=path+"/"+attribute.rm_attribute_name)
                                     if valid == False:
                                         return valid
 
@@ -694,8 +697,11 @@ class CPrimitiveObject(CDefinedObject):
     def prototype_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False):
-        raise NotImplementedError()
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
+        if not super().valid_value(a_value, raise_exceptions, path):
+            return False
+
+        return self.item.valid_value(a_value, raise_exceptions, path)
     
     def from_xml(root: ET.Element, **kwargs):
         rm_typ, occur, nod = CObject.extract_xml_elements(root)
@@ -814,7 +820,7 @@ class CCodePhrase(CDomainType):
     def prototype_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
         raise NotImplementedError()
 
     def standard_equivalent(self):
@@ -1137,7 +1143,7 @@ class CDomainPlaceholder(CDomainType):
     def standard_equivalent(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
         raise NotImplementedError()
 
 class CQuantityItem(AnyClass, IXMLSupport):
@@ -1279,7 +1285,7 @@ class CDVQuantity(CDomainType):
     def standard_equivalent(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
         raise NotImplementedError()
 
 class CDVOrdinal(CDomainType):
@@ -1350,7 +1356,7 @@ class CDVOrdinal(CDomainType):
     def standard_equivalent(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
         raise NotImplementedError()
 
 class AMState(AnyClass, IXMLSupport):
@@ -1607,7 +1613,7 @@ class CDVState(CDomainType):
     def standard_equivalent(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
         raise NotImplementedError()
 
         

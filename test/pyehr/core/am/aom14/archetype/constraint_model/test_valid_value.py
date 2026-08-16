@@ -1,7 +1,8 @@
 # file dedicated to testing that the constraints_met method works in a range of circumstances
 
 import numpy as np
-from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CMultipleAttribute, CSingleAttribute
+from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CMultipleAttribute, CPrimitiveObject, CSingleAttribute
+from pyehr.core.am.aom14.archetype.constraint_model.primitive import CString
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID
 from pyehr.core.base.foundation_types.interval import Cardinality, MultiplicityInterval
 from pyehr.core.rm.common.archetyped import Archetyped
@@ -135,7 +136,7 @@ def test_occurences_constraint_applied(example_evaluation):
     )
     # the above constrains something like example_evaluation but with 1 to 2 at0002s
     assert con.valid_value(example_evaluation) == False
-    with pytest.raises(ValueError, match="at0002: found 3 occurences but expected \\[1\\.\\.2\\]"):
+    with pytest.raises(ValueError, match="/at0000/data/at0001/items/at0002: found 3 occurences of at0002 but expected \\[1\\.\\.2\\]"):
         con.valid_value(example_evaluation, raise_exceptions=True)
 
     del example_evaluation.data.items[2]
@@ -146,7 +147,7 @@ def test_occurences_constraint_applied(example_evaluation):
     del example_evaluation.data.items[0]
 
     assert con.valid_value(example_evaluation) == False
-    with pytest.raises(ValueError, match="at0002: found 0 occurences but expected \\[1\\.\\.2\\]"):
+    with pytest.raises(ValueError, match="/at0000/data/at0001/items/at0002: found 0 occurences of at0002 but expected \\[1\\.\\.2\\]"):
         con.valid_value(example_evaluation, raise_exceptions=True)
 
 def test_existence_constraint_applied(example_observation):
@@ -163,7 +164,7 @@ def test_existence_constraint_applied(example_observation):
     )
 
     assert con.valid_value(example_observation) == False
-    with pytest.raises(ValueError, match="at0000: attribute 'uid' is mandatory \\(existence 1\\.\\.1\\) but WAS NOT provided"):
+    with pytest.raises(ValueError, match="/at0000: attribute 'uid' is mandatory \\(existence 1\\.\\.1\\) but WAS NOT provided"):
         con.valid_value(example_observation, raise_exceptions=True)
 
     example_observation.uid = HierObjectID("ec6b16be-7ae6-4b27-91da-710f6a458c61")
@@ -175,7 +176,7 @@ def test_existence_constraint_applied(example_observation):
     con.attributes[0].existence = MultiplicityInterval(np.int32(0), np.int32(0))
     assert con.valid_value(example_observation) == False
 
-    with pytest.raises(ValueError, match="at0000: attribute 'uid' is prohibited \\(existence 0\\.\\.0\\) but WAS provided"):
+    with pytest.raises(ValueError, match="/at0000: attribute 'uid' is prohibited \\(existence 0\\.\\.0\\) but WAS provided"):
             con.valid_value(example_observation, raise_exceptions=True)
 
 def test_cardinality_constraint_applied(example_evaluation):
@@ -206,7 +207,7 @@ def test_cardinality_constraint_applied(example_evaluation):
     )
     # the above constrains something like example_evaluation but with 1 to 3 items in items
     assert con.valid_value(example_evaluation) == False
-    with pytest.raises(ValueError, match="at0001: found 4 items in attribute 'items' but expected \\[1\\.\\.3\\] \\(cardinality\\)"):
+    with pytest.raises(ValueError, match="/at0000/data/at0001: found 4 items in attribute 'items' but expected \\[1\\.\\.3\\] \\(cardinality\\)"):
         con.valid_value(example_evaluation, raise_exceptions=True)
 
     del example_evaluation.data.items[0]
@@ -218,5 +219,58 @@ def test_cardinality_constraint_applied(example_evaluation):
     del example_evaluation.data.items[0]
 
     assert con.valid_value(example_evaluation) == False
-    with pytest.raises(ValueError, match="at0001: found 0 items in attribute 'items' but expected \\[1\\.\\.3\\] \\(cardinality\\)"):
+    with pytest.raises(ValueError, match="/at0000/data/at0001: found 0 items in attribute 'items' but expected \\[1\\.\\.3\\] \\(cardinality\\)"):
         con.valid_value(example_evaluation, raise_exceptions=True)
+
+def test_c_primitive_object_c_string(example_observation):
+    con = CComplexObject(
+        "OBSERVATION",
+        MultiplicityInterval(np.int32(1), np.int32(1)),
+        "at0000",
+        attributes=[
+            CSingleAttribute(
+                "name",
+                existence=MultiplicityInterval(np.int32(1), np.int32(1)),
+                children=[
+                    CComplexObject(
+                        "DV_TEXT",
+                        occurrences=MultiplicityInterval(np.int32(1), np.int32(1)),
+                        node_id="",
+                        attributes=[
+                            CSingleAttribute(
+                                "value",
+                                existence=MultiplicityInterval(np.int32(1), np.int32(1)),
+                                children=[
+                                    CPrimitiveObject(
+                                        rm_type_name="STRING",
+                                        occurrences=MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        node_id="",
+                                        item=CString(
+                                            list_var=["Test Observation"]
+                                        )
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )
+        ]
+    )
+    assert con.valid_value(example_observation) == True
+
+    example_observation.name.value = "Invalid Value"
+    assert con.valid_value(example_observation) == False
+    with pytest.raises(ValueError, match="/at0000/name/value: value of 'Invalid Value' was not in the permitted list of strings"):
+        con.valid_value(example_observation, raise_exceptions=True)
+
+    con.attributes[0].children[0].attributes[0].children[0].item.list_open = True
+    assert con.valid_value(example_observation) == True
+
+    con.attributes[0].children[0].attributes[0].children[0].item = CString(pattern=r"^(abacus|wall)$")
+    assert con.valid_value(example_observation) == False
+    with pytest.raises(ValueError, match="/at0000/name/value: value of 'Invalid Value' did not match the regex pattern '\\^\\(abacus\\|wall\\)\\$'"):
+        con.valid_value(example_observation, raise_exceptions=True)
+
+    example_observation.name.value = "abacus"
+    assert con.valid_value(example_observation) == True

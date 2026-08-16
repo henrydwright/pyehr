@@ -40,6 +40,8 @@ from pyehr.core.rm.demographic import Address, Contact, Organisation, PartyIdent
 from pyehr.core.rm.ehr import EHR, EHRStatus, VersionedEHRStatus
 from pyehr.server.security.access_control import PyehrAccessControlSettings, PyehrAccessPolicyItem
 
+import numpy as np
+
 __all__ = ['OPENEHR_TYPE_MAP', 'PYTHON_TYPE_TO_STRING_TYPE_MAP', 'get_openehr_type_str']
 
 
@@ -59,6 +61,9 @@ OPENEHR_TYPE_MAP = {
     "TERMINOLOGY_CODE": TerminologyCode,
     "TERMINOLOGY_TERM": TerminologyTerm,
     "TIME": ISOTime,
+    "STRING": str,
+    "INTEGER": np.int32,
+    "REAL": np.float32,
     # BASE
     "INTERNET_ID": InternetID,
     "OBJECT_REF": ObjectRef,

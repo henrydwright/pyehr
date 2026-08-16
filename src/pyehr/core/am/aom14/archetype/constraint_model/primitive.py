@@ -39,7 +39,7 @@ class CPrimitive(AnyClass, IXMLSupport):
         return (self.assumed_value is not None)
     
     @abstractmethod
-    def valid_value(self, a_value: AnyClass) -> bool:
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "") -> bool:
         """True if a_value is valid with respect to constraint expressed in concrete 
         instance of this type."""
         pass
@@ -118,7 +118,7 @@ class CBoolean(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
         raise NotImplementedError()
     
 class CString(CPrimitive):
@@ -208,8 +208,28 @@ class CString(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
-        raise NotImplementedError()
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
+        if self.list_open:
+            return True
+
+        if self.list_var is not None:
+            for allowed_value in self.list_var:
+                if a_value == allowed_value:
+                    return True
+
+            if raise_exceptions:
+                raise ValueError(f"{path}: value of \'{a_value}\' was not in the permitted list of strings")
+            return False
+
+        if self.pattern is not None:
+            if re.match(self.pattern, a_value) is None:
+                if raise_exceptions:
+                    raise ValueError(f"{path}: value of \'{a_value}\' did not match the regex pattern \'{self.pattern}\'")
+                return False
+            else:
+                return True
+
+        return True
 
 class CInteger(CPrimitive):
     """Constraint on instances of Integer."""
@@ -290,7 +310,7 @@ class CInteger(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
         raise NotImplementedError()
 
 class CReal(CPrimitive):
@@ -372,7 +392,7 @@ class CReal(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
         raise NotImplementedError()
 
 class CDate(CPrimitive):
@@ -513,7 +533,7 @@ class CDate(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
         raise NotImplementedError()
     
     def validity_is_range(self) -> bool:
@@ -673,7 +693,7 @@ class CTime(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
 
-    def valid_value(self, a_value):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
         raise NotImplementedError()
 
     def validity_is_range(self) -> bool:
@@ -963,7 +983,7 @@ class CDateTime(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
 
-    def valid_value(self, a_value):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
         raise NotImplementedError()
 
     def validity_is_range(self) -> bool:
@@ -1176,7 +1196,7 @@ class CDuration(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
 
-    def valid_value(self, a_value):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
         raise NotImplementedError()
 
     
