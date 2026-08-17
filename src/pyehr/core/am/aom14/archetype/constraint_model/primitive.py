@@ -119,7 +119,15 @@ class CBoolean(CPrimitive):
         raise NotImplementedError()
     
     def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
-        raise NotImplementedError()
+        if a_value == True and not self.true_valid:
+            if raise_exceptions:
+                raise ValueError(f"{path}: is set to True but only [{'False' if self.false_valid else ''}] is valid")
+            return False
+        if a_value == False and not self.false_valid:
+            if raise_exceptions:
+                raise ValueError(f"{path}: is set to False but only [{'True' if self.true_valid else ''}] is valid")
+            return False
+        return True
     
 class CString(CPrimitive):
     """Constraint on instances of STRING."""
@@ -311,7 +319,19 @@ class CInteger(CPrimitive):
         raise NotImplementedError()
     
     def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
-        raise NotImplementedError()
+        if self.range is not None:
+            if not self.range.has(a_value):
+                if raise_exceptions:
+                    raise ValueError(f"{path}: value of {str(a_value)} was not in interval range {str(self.range)}")
+                return False
+
+        if self.list_var is not None:
+            if a_value not in self.list_var:
+                if raise_exceptions:
+                    raise ValueError(f"{path}: value of {str(a_value)} was not in list of acceptable values")
+                return False
+
+        return True
 
 class CReal(CPrimitive):
     """Constraint on instances of Rnteger."""
@@ -393,7 +413,19 @@ class CReal(CPrimitive):
         raise NotImplementedError()
     
     def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
-        raise NotImplementedError()
+        if self.range is not None:
+            if not self.range.has(a_value):
+                if raise_exceptions:
+                    raise ValueError(f"{path}: value of {str(a_value)} was not in interval range {str(self.range)}")
+                return False
+
+        if self.list_var is not None:
+            if a_value not in self.list_var:
+                if raise_exceptions:
+                    raise ValueError(f"{path}: value of {str(a_value)} was not in list of acceptable values")
+                return False
+
+        return True
 
 class CDate(CPrimitive):
     """ISO 8601-compatible constraint on instances of Date in the form either 

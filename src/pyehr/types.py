@@ -63,7 +63,9 @@ OPENEHR_TYPE_MAP = {
     "TIME": ISOTime,
     "STRING": str,
     "INTEGER": np.int32,
+    "INTEGER64": np.int64,
     "REAL": np.float32,
+    "BOOLEAN": bool,
     # BASE
     "INTERNET_ID": InternetID,
     "OBJECT_REF": ObjectRef,
