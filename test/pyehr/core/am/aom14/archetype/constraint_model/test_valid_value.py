@@ -2,9 +2,11 @@
 
 import numpy as np
 from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CMultipleAttribute, CPrimitiveObject, CSingleAttribute
-from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CInteger, CReal, CString
+from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CInteger, CReal, CString
+from pyehr.core.base.base_types.definitions import ValidityKind
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID
 from pyehr.core.base.foundation_types.interval import Cardinality, MultiplicityInterval, ProperInterval
+from pyehr.core.base.foundation_types.time import ISODate
 from pyehr.core.rm.common.archetyped import Archetyped
 from pyehr.core.rm.common.generic import PartySelf
 from pyehr.core.rm.composition.content.entry import Evaluation, Instruction, Observation
@@ -591,7 +593,97 @@ def test_c_primitive_object_c_real(example_instruction):
     prim.list_var = [np.float32(1.0)]
     assert con.valid_value(example_instruction) == True
 
-# test_c_primitive_object_c_date
+def test_c_primitive_object_c_date(example_instruction):
+    prim = CDate(
+        ValidityKind.MANDATORY,
+        ValidityKind.MANDATORY)
+    con = CComplexObject(
+        "INSTRUCTION",
+        occurrences=MultiplicityInterval(np.int32(1), np.int32(1)),
+        node_id="at0000",
+        attributes=[
+            CSingleAttribute(
+                "protocol",
+                MultiplicityInterval(np.int32(1), np.int32(1)),
+                children=[
+                    CComplexObject(
+                        "ITEM_TREE",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "at0001",
+                        attributes=[
+                            CMultipleAttribute(
+                                "items",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                cardinality=Cardinality(True, False, MultiplicityInterval(np.int32(1))),
+                                children=[
+                                    CComplexObject(
+                                        "ELEMENT",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        "at0007",
+                                        attributes=[
+                                            CSingleAttribute(
+                                                "value",
+                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                children=[
+                                                    CComplexObject(
+                                                        "DV_DATE",
+                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                        "",
+                                                        attributes=[
+                                                            CSingleAttribute(
+                                                                "value",
+                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                children=[
+                                                                    CPrimitiveObject(
+                                                                        "DATE",
+                                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                        "",
+                                                                        item=prim
+                                                                    )
+                                                                ]
+                                                            )
+                                                        ]
+                                                    )
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )
+        ]
+    )
+    # an object like example_instruction but the date needs to have months AND days
+    assert con.valid_value(example_instruction) == False
+    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0007/value/value: date of '1962\\-08' did not fit constraint pattern of YYYY\\-MM\\-DD"):
+        con.valid_value(example_instruction, raise_exceptions=True)
+
+    prim.day_validity = ValidityKind.OPTIONAL
+    assert con.valid_value(example_instruction) == True
+
+    prim.day_validity = ValidityKind.PROHIBITED
+    prim.month_validity = ValidityKind.PROHIBITED
+    assert con.valid_value(example_instruction) == False
+    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0007/value/value: date of '1962\\-08' did not fit constraint pattern of YYYY\\-XX\\-XX"):
+        con.valid_value(example_instruction, raise_exceptions=True)
+
+    prim.month_validity = ValidityKind.OPTIONAL
+    assert con.valid_value(example_instruction) == True
+
+    prim.day_validity = None
+    prim.month_validity = None
+
+    prim.range = ProperInterval[ISODate](ISODate("2020-01"), ISODate("2024-02"), True, True)
+    assert con.valid_value(example_instruction) == False
+    with pytest.raises(ValueError, match="at0000/protocol/at0001/items/at0007/value/value: provided date '1962\\-08' was not in range \\[2020\\-01, 2024\\-02\\]"):
+        con.valid_value(example_instruction, raise_exceptions=True)
+
+    prim.range = ProperInterval[ISODate](ISODate("1952-02-06"), ISODate("2022-09-08"), True, False)
+    assert con.valid_value(example_instruction) == True
+
 
 # test_c_primitive_object_c_time
 

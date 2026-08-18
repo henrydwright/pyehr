@@ -628,3 +628,27 @@ def test_iso_duration_implements_ordered_methods():
     assert (o1 <= o2) == True
     assert (o1 > o2) == False
     assert (o1 >= o2) == False
+
+def test_iso_date_permits_partial_comparisons():
+    assert (ISODate("2020") < ISODate("2024")) == True
+    assert (ISODate("2025-02") > ISODate("1999")) == True
+    assert (ISODate("2021-02-01") > ISODate("1986")) == True
+    assert (ISODate("2020") < ISODate("2024-02")) == True
+    assert (ISODate("2025-02") > ISODate("1999-05")) == True
+    assert (ISODate("2021-02-01") > ISODate("2021-01")) == True
+    assert (ISODate("2020") < ISODate("2024-02-01")) == True
+    assert (ISODate("2025-02") > ISODate("2020-01-01")) == True
+    assert (ISODate("2021-02-01") > ISODate("1986-03-01")) == True
+    # return True only when certain, otherwise False
+    assert (ISODate("2020") > ISODate("2020")) == False
+    assert (ISODate("2020") > ISODate("2020-01")) == False
+    assert (ISODate("2020") > ISODate("2020-01-01")) == False
+    assert (ISODate("2020") >= ISODate("2020")) == True
+    assert (ISODate("2020") >= ISODate("2020-01")) == False
+    assert (ISODate("2020") >= ISODate("2020-01-01")) == False
+
+    assert (ISODate("2020-01") > ISODate("2020-01")) == False
+    assert (ISODate("2020-01") > ISODate("2020-01-01")) == False
+    assert (ISODate("2020-01") >= ISODate("2020-01")) == True
+    assert (ISODate("2020-01") >= ISODate("2020-01-01")) == False
+

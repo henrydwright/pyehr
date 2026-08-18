@@ -506,30 +506,33 @@ class CDate(CPrimitive):
                 day_val = ValidityKind.MANDATORY
         return (day_val, month_val)
 
+    def _validity_str_pattern(self) -> str:
+        pat = "YYYY"
+        if self.month_validity is not None:
+            if self.month_validity == ValidityKind.MANDATORY:
+                pat += "-MM"
+            elif self.month_validity == ValidityKind.PROHIBITED:
+                pat += "-XX"
+            else:
+                pat += "-??"
+        else:
+            pat += "-??"
+        if self.day_validity is not None:
+            if self.day_validity == ValidityKind.MANDATORY:
+                pat += "-DD"
+            elif self.day_validity == ValidityKind.PROHIBITED:
+                pat += "-XX"
+            else:
+                pat += "-??"
+        else:
+            pat += "-??"
+        return pat
+
     def as_xml(self, root_tag = None):
         root = ET.Element("c_date" if root_tag is None else root_tag)
         if self.month_validity is not None or self.day_validity is not None:
-            pat = "YYYY"
-            if self.month_validity is not None:
-                if self.month_validity == ValidityKind.MANDATORY:
-                    pat += "-MM"
-                elif self.month_validity == ValidityKind.PROHIBITED:
-                    pat += "-XX"
-                else:
-                    pat += "-??"
-            else:
-                pat += "-??"
-            if self.day_validity is not None:
-                if self.day_validity == ValidityKind.MANDATORY:
-                    pat += "-DD"
-                elif self.day_validity == ValidityKind.PROHIBITED:
-                    pat += "-XX"
-                else:
-                    pat += "-??"
-            else:
-                pat += "-??"
             pat_el = ET.Element("pattern")
-            pat_el.text = pat
+            pat_el.text = self._validity_str_pattern()
             root.append(pat_el)
 
         if self.timezone_validity is not None:
@@ -566,7 +569,31 @@ class CDate(CPrimitive):
         raise NotImplementedError()
     
     def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
-        raise NotImplementedError()
+        iso_date : ISODate = a_value
+        if isinstance(iso_date, str):
+            iso_date = ISODate(a_value)
+
+        if self.day_validity is not None:
+            day_unknown = iso_date.day_unknown()
+            if (day_unknown and self.day_validity == ValidityKind.MANDATORY) or (not day_unknown and self.day_validity == ValidityKind.PROHIBITED):
+                if raise_exceptions:
+                    raise ValueError(f"{path}: date of \'{iso_date.value}\' did not fit constraint pattern of {self._validity_str_pattern()}")
+                return False
+
+        if self.month_validity is not None:
+            month_unknown = iso_date.month_unknown()
+            if (month_unknown and self.month_validity == ValidityKind.MANDATORY) or (not month_unknown and self.month_validity == ValidityKind.PROHIBITED):
+                if raise_exceptions:
+                    raise ValueError(f"{path}: date of \'{iso_date.value}\' did not fit constraint pattern of {self._validity_str_pattern()}")
+                return False
+
+        if self.range is not None:
+            if not self.range.has(iso_date):
+                if raise_exceptions:
+                    raise ValueError(f"{path}: provided date \'{iso_date.value}\' was not in range {str(self.range)}")
+                return False
+
+        return True
     
     def validity_is_range(self) -> bool:
         """True if validity is in the form of a range; useful for developers to 

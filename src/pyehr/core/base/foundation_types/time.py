@@ -311,24 +311,89 @@ class ISODate(ISOType):
     def _comparison_check(self, other):
         if type(self) != type(other):
             raise TypeError(f"Cannot compare type of \'{type(self)}\' with type of \'{type(other)}\'")
-        if self.is_partial() or other.is_partial():
-            raise ValueError("Cannot compare partial dates.")
+
+    def _unknown_count(self):
+        val = 0
+        if self.month_unknown():
+            val += 1
+        if self.day_unknown():
+            val += 1
+        return val
 
     def __ge__(self, other: 'ISODate'):
         self._comparison_check(other)
-        return (self.to_python_date() >= other.to_python_date())
+        if self.is_partial() or other.is_partial():
+            # or equal to...
+            if self.is_equal(other):
+                return True
+
+            return self > other
+        else:
+            return (self.to_python_date() >= other.to_python_date())
     
     def __gt__(self, other: 'ISODate'):
         self._comparison_check(other)
-        return (self.to_python_date() > other.to_python_date())
+        if self.is_partial() or other.is_partial():
+            if self._unknown_count() < other._unknown_count():
+                return (other < self)
+
+            # self will always have more, or equal UNKNOWNS than other
+            
+            if self.is_equal(other):
+                return False
+            
+            if self.year() > other.year():
+                return True
+            elif self.year() == other.year():
+                if self.month_unknown():
+                    return False
+                else:
+                    if self.day_unknown():
+                        if self.month() > other.month():
+                            return True
+                        else: # self.month() <= other.month()
+                            return False
+            else: # self.year < other.year
+                return False
+        else:
+            return (self.to_python_date() > other.to_python_date())
     
     def __le__(self, other: 'ISODate'):
         self._comparison_check(other)
+        if self.is_partial() or other.is_partial():
+            # or equal to...
+            if self.is_equal(other):
+                return True
+
+            return self < other
         return (self.to_python_date() <= other.to_python_date())
     
     def __lt__(self, other: 'ISODate'):
         self._comparison_check(other)
-        return (self.to_python_date() < other.to_python_date())
+        if self.is_partial() or other.is_partial():
+            if self._unknown_count() < other._unknown_count():
+                return (other > self)
+
+            # self will always have more, or equal UNKNOWNS than other
+            
+            if self.is_equal(other):
+                return False
+            
+            if self.year() < other.year():
+                return True
+            elif self.year() == other.year():
+                if self.month_unknown():
+                    return False
+                else:
+                    if self.day_unknown():
+                        if self.month() < other.month():
+                            return True
+                        else: # self.month() >= other.month()
+                            return False
+            else: # self.year > other.year
+                return False
+        else:
+            return (self.to_python_date() < other.to_python_date())
         
     def add_nominal(self, a_diff: 'ISODuration') -> 'ISODate':
         """Addition of nominal duration represented by a_diff. 
