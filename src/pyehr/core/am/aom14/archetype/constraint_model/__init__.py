@@ -10,7 +10,7 @@ from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, C
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingSet
 from pyehr.core.base.base_types.identification import ArchetypeID, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
-from pyehr.core.base.foundation_types.interval import Cardinality, Interval
+from pyehr.core.base.foundation_types.interval import Cardinality, Interval, MultiplicityInterval
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.its.json_path_utils import json_has_path
 from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
@@ -739,6 +739,9 @@ class CDomainType(CDefinedObject):
         """Standard (i.e. C_OBJECT) form of constraint."""
         pass
 
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
+        return self.standard_equivalent().valid_value(a_value, raise_exceptions=raise_exceptions, path=path)
+
 class CCodePhrase(CDomainType):
     """C_CODE_PHRASE as defined in OpenehrProfile.xsd"""
 
@@ -820,12 +823,69 @@ class CCodePhrase(CDomainType):
     
     def prototype_value(self):
         raise NotImplementedError()
-    
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
-        raise NotImplementedError()
 
-    def standard_equivalent(self):
-        raise NotImplementedError()
+    def standard_equivalent(self) -> CComplexObject:
+        attributes = []
+
+        if self.terminology_id is not None:
+            attributes.append(
+                CSingleAttribute(
+                    "terminology_id",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                        CComplexObject(
+                            "TERMINOLOGY_ID",
+                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                            "",
+                            attributes=[
+                                CSingleAttribute(
+                                    "value",
+                                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                                    children=[
+                                        CPrimitiveObject(
+                                            "STRING",
+                                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                                            "",
+                                            item=CString(
+                                                list_open=False,
+                                                list_var=[self.terminology_id.value],
+                                            ),
+                                        )
+                                    ],
+                                )
+                            ],
+                        )
+                    ],
+                )
+            )
+
+
+        if self.code_list is not None:
+            attributes.append(
+                CSingleAttribute(
+                    "code_string",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                        CPrimitiveObject(
+                            "STRING",
+                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                            "",
+                            item=CString(
+                                list_open=False,
+                                list_var=self.code_list,
+                            ),
+                        )
+                    ],
+                )
+            )
+
+        return CComplexObject(
+            self.rm_type_name,
+            self.occurrences,
+            self.node_id,
+            assumed_value=self.assumed_value,
+            attributes=attributes,
+        )
 
 class CReferenceObject(CObject):
     """Abstract parent type of C_OBJECT subtypes that are defined by reference."""
@@ -1355,10 +1415,309 @@ class CDVOrdinal(CDomainType):
         raise NotImplementedError()
     
     def standard_equivalent(self):
-        raise NotImplementedError()
+        def ordinal_constraint(item: DVOrdinal) -> CComplexObject:
+            constraint = CComplexObject(
+                "DV_ORDINAL",
+                MultiplicityInterval(np.int32(1), np.int32(1)),
+                "",
+                attributes=[
+                    CSingleAttribute(
+                        "value",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        children=[
+                            CPrimitiveObject(
+                                "INTEGER",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                "",
+                                CInteger([int(item.value)])
+                            )
+                        ]
+                    ),
+                    CSingleAttribute(
+                        "symbol",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        children=[
+                            CComplexObject(
+                                "DV_CODED_TEXT",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                "",
+                                attributes=[
+                                    CSingleAttribute(
+                                        "value",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        children=[
+                                            CPrimitiveObject(
+                                                "STRING",
+                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                "",
+                                                CString(list_open=False, list_var=[item.symbol.value])
+                                            )
+                                        ]
+                                    ),
+                                    CSingleAttribute(
+                                        "defining_code",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        children=[
+                                            CComplexObject(
+                                                "CODE_PHRASE",
+                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                "",
+                                                attributes=[
+                                                    CSingleAttribute(
+                                                        "terminology_id",
+                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                        children=[
+                                                            CComplexObject(
+                                                                "TERMINOLOGY_ID",
+                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                "",
+                                                                attributes=[
+                                                                    CSingleAttribute(
+                                                                        "value",
+                                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                        children=[
+                                                                            CPrimitiveObject(
+                                                                                "STRING",
+                                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                                "",
+                                                                                CString(list_open=False, list_var=[item.symbol.defining_code.terminology_id.value])
+                                                                            )
+                                                                        ]
+                                                                    )
+                                                                ]
+                                                            )
+                                                        ]
+                                                    ),
+                                                    CSingleAttribute(
+                                                        "code_string",
+                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                        children=[
+                                                            CPrimitiveObject(
+                                                                "STRING",
+                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                "",
+                                                                CString(list_open=False, list_var=[item.symbol.defining_code.code_string])
+                                                            )
+                                                        ]
+                                                    )
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )
+
+            return constraint
+
+        if self.list_var is None:
+            return CComplexObject(self.rm_type_name, self.occurrences, self.node_id)
+
+        values = [item.value for item in self.list_var]
+        symbols = [item.symbol.value for item in self.list_var]
+        terminology_ids = [item.symbol.defining_code.terminology_id.value for item in self.list_var]
+        codes = [item.symbol.defining_code.code_string for item in self.list_var]
+
+        symbol = CComplexObject(
+            "DV_CODED_TEXT",
+            MultiplicityInterval(np.int32(1), np.int32(1)),
+            "",
+            attributes=[
+                CSingleAttribute(
+                    "value",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                        CPrimitiveObject(
+                            "STRING",
+                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                            "",
+                            CString(list_open=False, list_var=symbols)
+                        )
+                    ]
+                ),
+                CSingleAttribute(
+                    "defining_code",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                        CComplexObject(
+                            "CODE_PHRASE",
+                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                            "",
+                            attributes=[
+                                CSingleAttribute(
+                                    "terminology_id",
+                                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                                    children=[
+                                        CComplexObject(
+                                            "TERMINOLOGY_ID",
+                                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                                            "",
+                                            attributes=[
+                                                CSingleAttribute(
+                                                    "value",
+                                                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                    children=[
+                                                        CPrimitiveObject(
+                                                            "STRING",
+                                                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                            "",
+                                                            CString(list_open=False, list_var=terminology_ids)
+                                                        )
+                                                    ]
+                                                )
+                                            ]
+                                        )
+                                    ]
+                                ),
+                                CSingleAttribute(
+                                    "code_string",
+                                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                                    children=[
+                                        CPrimitiveObject(
+                                            "STRING",
+                                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                                            "",
+                                            CString(list_open=False, list_var=codes)
+                                        )
+                                    ]
+                                )
+                            ]
+                        )
+                    ]
+                )
+            ]
+        )
+
+        attributes = [
+            CSingleAttribute(
+                "value",
+                MultiplicityInterval(np.int32(1), np.int32(1)),
+                children=[
+                    CPrimitiveObject(
+                        "INTEGER",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "",
+                        CInteger(list_var=values)
+                    )
+                ]
+            ),
+            CSingleAttribute(
+                "symbol",
+                MultiplicityInterval(np.int32(1), np.int32(1)),
+                children=[symbol]
+            )
+        ]
+
+        statuses = [item.normal_status for item in self.list_var if item.normal_status is not None]
+        if statuses:
+            attributes.append(
+                CSingleAttribute(
+                    "normal_status",
+                    MultiplicityInterval(np.int32(0), np.int32(1)),
+                    children=[
+                        CCodePhrase(
+                            "CODE_PHRASE",
+                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                            "",
+                            terminology_id=TerminologyID(statuses[0].terminology_id.value),
+                            code_list=[status.code_string for status in statuses]
+                        ).standard_equivalent()
+                    ]
+                )
+            )
+
+        normal_ranges = []
+        for item in self.list_var:
+            if item.normal_range is not None:
+                normal_ranges.append(item.normal_range)
+
+        normal_range_lower_min = "WAIT"
+        normal_range_lower_min_lower_included = False
+        normal_range_upper_max = "WAIT"
+        normal_range_upper_max_upper_included = False
+
+        for dvinterval in normal_ranges:
+            interval = dvinterval.value
+            if normal_range_lower_min == "WAIT":
+                normal_range_lower_min = interval.lower
+                normal_range_lower_min_lower_included = interval.lower_included
+
+            if normal_range_upper_max == "WAIT":
+                normal_range_upper_max = interval.upper
+                normal_range_upper_max_upper_included = interval.upper_included
+
+            if normal_range_lower_min is not None and (interval.lower is not None and interval.lower.value < normal_range_lower_min.value):
+                normal_range_lower_min = interval.lower
+                normal_range_lower_min_lower_included = interval.lower_included
+
+            if normal_range_upper_max is not None and (interval.upper is not None and interval.upper.value > normal_range_upper_max.value):
+                normal_range_upper_max = interval.upper
+                normal_range_upper_max_upper_included = interval.upper_included        
+
+        if len(normal_ranges) > 0:
+            interval_attributes = []
+            if normal_range_lower_min is not None:
+                interval_attributes.append(
+                    CSingleAttribute(
+                        "lower",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        children=[ordinal_constraint(normal_range_lower_min)]
+                    )
+                )
+            if normal_range_upper_max is not None:
+                interval_attributes.append(
+                    CSingleAttribute(
+                        "upper",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        children=[ordinal_constraint(normal_range_upper_max)]
+                    )
+                )
+            interval_attributes.extend([
+                CSingleAttribute(
+                    "lower_included",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[CPrimitiveObject(
+                        "BOOLEAN",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "",
+                        CBoolean(normal_range_lower_min_lower_included, not normal_range_lower_min_lower_included)
+                    )]
+                ),
+                CSingleAttribute(
+                    "upper_included",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[CPrimitiveObject(
+                        "BOOLEAN",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "",
+                        CBoolean(normal_range_upper_max_upper_included, not normal_range_upper_max_upper_included)
+                    )]
+                )
+            ])
+            attributes.append(
+                CSingleAttribute(
+                    "normal_range",
+                    MultiplicityInterval(np.int32(0), np.int32(1)),
+                    children=[CComplexObject(
+                        "DV_INTERVAL",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "",
+                        attributes=interval_attributes
+                    )]
+                )
+            )
+
+        return CComplexObject(
+            self.rm_type_name,
+            self.occurrences,
+            self.node_id,
+            assumed_value=self.assumed_value,
+            attributes=attributes
+        )
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
-        raise NotImplementedError()
 
 class AMState(AnyClass, IXMLSupport):
     """(Abstract) STATE as defined in OpenehrProfile.xsd"""

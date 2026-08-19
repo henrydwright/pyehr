@@ -1,11 +1,11 @@
 # file dedicated to testing that the constraints_met method works in a range of circumstances
 
 import numpy as np
-from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CMultipleAttribute, CPrimitiveObject, CSingleAttribute
+from pyehr.core.am.aom14.archetype.constraint_model import CCodePhrase, CComplexObject, CDVOrdinal, CMultipleAttribute, CPrimitiveObject, CSingleAttribute
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
 from pyehr.core.base.base_types.definitions import ValidityKind
-from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID
-from pyehr.core.base.foundation_types.interval import Cardinality, ISODateTime, MultiplicityInterval, ProperInterval
+from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, TerminologyID
+from pyehr.core.base.foundation_types.interval import Cardinality, ISODateTime, MultiplicityInterval, PointInterval, ProperInterval
 from pyehr.core.base.foundation_types.time import ISODate, ISODuration, ISOTime
 from pyehr.core.rm.common.archetyped import Archetyped
 from pyehr.core.rm.common.generic import PartySelf
@@ -14,7 +14,7 @@ from pyehr.core.rm.data_structures.history import History
 from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemStructure, ItemTree
 from pyehr.core.rm.data_structures.representation import Cluster, Element
 from pyehr.core.rm.data_types.basic import DVBoolean
-from pyehr.core.rm.data_types.quantity import DVCount
+from pyehr.core.rm.data_types.quantity import DVCount, DVInterval, DVOrdinal
 from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVDateTime, DVDuration, DVTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
 import pytest
@@ -128,6 +128,11 @@ def example_instruction():
                     name=DVText("yadda"),
                     archetype_node_id="at0009",
                     value=DVDateTime("2026-08-17T21:57:23Z")
+                ),
+                Element(
+                    name=DVText("ordinal"),
+                    archetype_node_id="at0010",
+                    value=DVOrdinal(np.int32(12), DVCodedText("Glasgow coma scale, 12", defining_code=CodePhrase("SNOMED-CT", "91234001")))
                 )
             ]
         )
@@ -973,10 +978,536 @@ def test_c_primitive_object_c_duration(example_instruction):
     assert con.valid_value(example_instruction) == True
     
 
+def test_c_code_phrase_standard_equivalent():
+    domain1 = CCodePhrase(
+         "CODE_PHRASE",
+         MultiplicityInterval(np.int32(1), np.int32(1)),
+         "",
+         assumed_value=CodePhrase("SNOMED-CT", "257266008"),
+         terminology_id=TerminologyID("SNOMED-CT"),
+         code_list=["257266008", "284485005", "262176006"]
+    )
 
-# test_c_code_phrase_standard_equivalent
+    standard1 = CComplexObject(
+         "CODE_PHRASE",
+         MultiplicityInterval(np.int32(1), np.int32(1)),
+         "",
+         assumed_value=CodePhrase("SNOMED-CT", "257266008"),
+         attributes=[
+              CSingleAttribute(
+                        "terminology_id",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        children=[
+                            CComplexObject(
+                                "TERMINOLOGY_ID",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                "",
+                                attributes=[
+                                    CSingleAttribute(
+                                            "value",
+                                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                                            children=[
+                                                CPrimitiveObject(
+                                                    "STRING",
+                                                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                    "",
+                                                    item=CString(list_open=False, list_var=["SNOMED-CT"])
+                                                )
+                                            ]
+                                    )
+                                ]
+                            )
+                        ]
+                ),
+              CSingleAttribute(
+                   "code_string",
+                   MultiplicityInterval(np.int32(1), np.int32(1)),
+                   children=[
+                        CPrimitiveObject(
+                             "STRING",
+                             MultiplicityInterval(np.int32(1), np.int32(1)),
+                             "",
+                             item=CString(
+                                  list_open=False,
+                                  list_var=["257266008", "284485005", "262176006"]
+                             )
+                        )
+                   ]
+              )
+        ]
+    )
 
-# test_c_code_phrase_constraint_applied
+    assert domain1.standard_equivalent().is_equal(standard1)
+
+    domain2 = CCodePhrase(
+         "CODE_PHRASE",
+         MultiplicityInterval(np.int32(1), np.int32(1)),
+         "",
+         code_list=["at0010", "at1100", "at0001"]
+    )
+
+    standard2 = CComplexObject(
+         "CODE_PHRASE",
+         MultiplicityInterval(np.int32(1), np.int32(1)),
+         "",
+         attributes=[
+              CSingleAttribute(
+                   "code_string",
+                   MultiplicityInterval(np.int32(1), np.int32(1)),
+                   children=[
+                        CPrimitiveObject(
+                             "STRING",
+                             MultiplicityInterval(np.int32(1), np.int32(1)),
+                             "",
+                             item=CString(
+                                  list_open=False,
+                                  list_var=["at0010", "at1100", "at0001"]
+                             )
+                        )
+                   ]
+              )
+        ]
+    )
+
+    assert domain2.standard_equivalent().is_equal(standard2)
+
+def test_c_code_phrase_constraint_applied(example_evaluation):
+     ccp = CCodePhrase(
+                "CODE_PHRASE",
+                MultiplicityInterval(np.int32(1), np.int32(1)),
+                "",
+                terminology_id=TerminologyID("ICD10"),
+                code_list=["Z00.1", "K35.2"]
+            )
+     con = CComplexObject(
+          "EVALUATION",
+          MultiplicityInterval(np.int32(1), np.int32(1)),
+          "at0000",
+          attributes=[
+               CSingleAttribute(
+                    "data",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                         CComplexObject(
+                              "ITEM_TREE",
+                              MultiplicityInterval(np.int32(1), np.int32(1)),
+                              "at0001",
+                              attributes=[
+                                   CMultipleAttribute(
+                                        "items",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        Cardinality(True, False, MultiplicityInterval(np.int32(0))),
+                                        children=[
+                                             CComplexObject(
+                                                  "ELEMENT",
+                                                  MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                  "at0003",
+                                                  attributes=[
+                                                       CSingleAttribute(
+                                                            "value",
+                                                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                            children=[
+                                                                 CComplexObject(
+                                                                      "DV_CODED_TEXT",
+                                                                      MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                      "",
+                                                                      attributes=[
+                                                                           CSingleAttribute(
+                                                                                "defining_code",
+                                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                                children=[
+                                                                                     ccp
+                                                                                ]
+                                                                           )
+                                                                      ]
+                                                                 )
+                                                            ]
+                                                       )
+                                                  ]
+                                             )
+                                        ]
+                                   )
+                              ]
+                         )
+                    ]
+               )
+          ]
+     )
+     
+     # coded thing has different codes and terminology
+     assert con.valid_value(example_evaluation) == False
+
+     ccp.code_list = None
+     ccp.terminology_id = TerminologyID("SNOMED-CT")
+     assert con.valid_value(example_evaluation) == True
+
+     ccp.code_list = ["262176006"]
+     assert con.valid_value(example_evaluation) == False
+
+     ccp.terminology_id = None
+     ccp.code_list = ["300722002"]
+     assert con.valid_value(example_evaluation) == True
+
+def test_c_dv_ordinal_standard_equivalent():
+    domain = CDVOrdinal(
+         "DV_ORDINAL",
+         MultiplicityInterval(np.int32(1), np.int32(1)),
+         "",
+         list_var=[
+              DVOrdinal(
+                   np.int32(5),
+                   DVCodedText("Glasgow coma scale, 5", CodePhrase("SNOMED-CT", "74957005")),
+                   normal_status=CodePhrase("openehr_normal_statuses", "LLL"),
+                   normal_range=DVInterval[DVOrdinal](
+                        value=PointInterval(DVOrdinal(15, DVCodedText("Glasgow coma scale, 15", CodePhrase("SNOMED-CT", "70040003"))))
+                   )
+              ),
+              DVOrdinal(
+                   np.int32(8),
+                   DVCodedText("Glasgow coma scale, 8", CodePhrase("local", "at0010")),
+                   normal_status=CodePhrase("openehr_normal_statuses", "LL")
+              )
+         ]
+    )
+
+    standard = CComplexObject(
+         "DV_ORDINAL",
+         MultiplicityInterval(np.int32(1), np.int32(1)),
+         "",
+         attributes=[
+              CSingleAttribute(
+                   "value",
+                   MultiplicityInterval(np.int32(1), np.int32(1)),
+                   children=[
+                        CPrimitiveObject(
+                             "INTEGER",
+                             MultiplicityInterval(np.int32(1), np.int32(1)),
+                             "",
+                             CInteger(
+                                  list_var=[np.int32(5), np.int32(8)]
+                             )
+                        )
+                   ]
+              ),
+              CSingleAttribute(
+                   "symbol",
+                   MultiplicityInterval(np.int32(1), np.int32(1)),
+                   children=[
+                        CComplexObject(
+                             "DV_CODED_TEXT",
+                             MultiplicityInterval(np.int32(1), np.int32(1)),
+                             "",
+                             attributes=[
+                                  CSingleAttribute(
+                                       "value",
+                                       MultiplicityInterval(np.int32(1), np.int32(1)),
+                                       children=[
+                                        CPrimitiveObject(
+                                             "STRING",
+                                             MultiplicityInterval(np.int32(1), np.int32(1)),
+                                             "",
+                                             CString(list_open=False, list_var=["Glasgow coma scale, 5", "Glasgow coma scale, 8"])
+                                        )
+                                       ]
+                                  ),
+                                  CSingleAttribute(
+                                       "defining_code",
+                                       MultiplicityInterval(np.int32(1), np.int32(1)),
+                                       children=[
+                                            CComplexObject(
+                                                 "CODE_PHRASE",
+                                                 MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                 "",
+                                                 attributes=[
+                                                      CSingleAttribute(
+                                                           "terminology_id",
+                                                           MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                           children=[
+                                                            CComplexObject(
+                                                                 "TERMINOLOGY_ID",
+                                                                 MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                 "",
+                                                                 attributes=[
+                                                                      CSingleAttribute(
+                                                                           "value",
+                                                                           MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                           children=[
+                                                                                CPrimitiveObject(
+                                                                                     "STRING",
+                                                                                     MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                                     "",
+                                                                                     CString(list_open=False, list_var=["SNOMED-CT", "local"])
+                                                                                )
+                                                                           ]
+                                                                      )
+                                                                 ]
+                                                            )
+                                                           ]
+                                                      ),
+                                                      CSingleAttribute(
+                                                        "code_string",
+                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                        children=[
+                                                             CPrimitiveObject(
+                                                                "STRING",
+                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                "",
+                                                                CString(
+                                                                     list_open=False,
+                                                                     list_var=["74957005", "at0010"]
+                                                                )
+                                                             )
+                                                        ]
+                                                      )
+                                                 ]
+                                            )
+                                       ]
+                                  )
+                             ]
+                        )
+                   ]
+              ),
+              CSingleAttribute(
+                "normal_status",
+                MultiplicityInterval(np.int32(0), np.int32(1)),
+                children=[
+                     CCodePhrase(
+                        "CODE_PHRASE",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "",
+                        terminology_id=TerminologyID("openehr_normal_statuses"),
+                        code_list=["LLL", "LL"]
+                     ).standard_equivalent()
+                ]
+              ),
+              CSingleAttribute(
+                "normal_range",
+                MultiplicityInterval(np.int32(0), np.int32(1)),
+                children=[
+                     CComplexObject(
+                          "DV_INTERVAL",
+                          MultiplicityInterval(np.int32(1), np.int32(1)),
+                          "",
+                          attributes=[
+                               CSingleAttribute(
+                                "lower",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                children=[
+                                     CComplexObject(
+                                        "DV_ORDINAL",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        "",
+                                        attributes=[
+                                             CSingleAttribute(
+                                                  "value",
+                                                  MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                  children=[
+                                                    CPrimitiveObject(
+                                                         "INTEGER",
+                                                         MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                         "",
+                                                         CInteger([15])
+                                                    )
+                                                  ]
+                                             ),
+                                             CSingleAttribute(
+                                                  "symbol",
+                                                  MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                  children=[
+                                                    CComplexObject(
+                                                         "DV_CODED_TEXT",
+                                                         MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                         "",
+                                                         attributes=[
+                                                              CSingleAttribute(
+                                                                   "value",
+                                                                   MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                   children=[
+                                                                    CPrimitiveObject(
+                                                                         "STRING",
+                                                                         MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                         "",
+                                                                         CString(list_open=False, list_var=["Glasgow coma scale, 15"])
+                                                                    )
+                                                                   ]
+                                                              ),
+                                                              CSingleAttribute(
+                                                                "defining_code",
+                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                children=[
+                                                                     CCodePhrase(
+                                                                        "CODE_PHRASE",
+                                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                        "",
+                                                                        terminology_id=TerminologyID("SNOMED-CT"),
+                                                                        code_list=["70040003"]
+                                                                     ).standard_equivalent()
+                                                                ]
+                                                              )
+                                                         ]
+                                                    )
+                                                  ]
+                                             )
+                                        ]
+                                     )
+                                ]
+                               ),
+                               CSingleAttribute(
+                                "upper",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                children=[
+                                     CComplexObject(
+                                        "DV_ORDINAL",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        "",
+                                        attributes=[
+                                             CSingleAttribute(
+                                                  "value",
+                                                  MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                  children=[
+                                                    CPrimitiveObject(
+                                                         "INTEGER",
+                                                         MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                         "",
+                                                         CInteger([15])
+                                                    )
+                                                  ]
+                                             ),
+                                             CSingleAttribute(
+                                                  "symbol",
+                                                  MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                  children=[
+                                                    CComplexObject(
+                                                         "DV_CODED_TEXT",
+                                                         MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                         "",
+                                                         attributes=[
+                                                              CSingleAttribute(
+                                                                   "value",
+                                                                   MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                   children=[
+                                                                    CPrimitiveObject(
+                                                                         "STRING",
+                                                                         MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                         "",
+                                                                         CString(list_open=False, list_var=["Glasgow coma scale, 15"])
+                                                                    )
+                                                                   ]
+                                                              ),
+                                                              CSingleAttribute(
+                                                                "defining_code",
+                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                children=[
+                                                                     CCodePhrase(
+                                                                        "CODE_PHRASE",
+                                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                        "",
+                                                                        terminology_id=TerminologyID("SNOMED-CT"),
+                                                                        code_list=["70040003"]
+                                                                     ).standard_equivalent()
+                                                                ]
+                                                              )
+                                                         ]
+                                                    )
+                                                  ]
+                                             )
+                                        ]
+                                     )
+                                ]
+                               ),
+                               CSingleAttribute(
+                                    "lower_included",
+                                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                                    children=[
+                                        CPrimitiveObject(
+                                             "BOOLEAN",
+                                             MultiplicityInterval(np.int32(1), np.int32(1)),
+                                             "",
+                                             CBoolean(True, False)
+                                        )
+                                    ]
+                                ),
+                                CSingleAttribute(
+                                    "upper_included",
+                                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                                    children=[
+                                        CPrimitiveObject(
+                                                "BOOLEAN",
+                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                "",
+                                                CBoolean(True, False)
+                                        )
+                                    ]
+                                )
+                          ]
+                     )
+                ]
+              )
+         ]
+    )
+
+    assert domain.standard_equivalent().is_equal(standard)
+
+def test_c_dv_ordinal_constraint_applied(example_instruction):
+    cdvo = CDVOrdinal(
+        "DV_ORDINAL",
+        MultiplicityInterval(np.int32(1), np.int32(1)),
+        "",
+        list_var=[
+            DVOrdinal(np.int32(15), DVCodedText("Glasgow coma scale, 15 (finding)", CodePhrase("SNOMED-CT", "70040003")))
+        ]
+    )
+    con = CComplexObject(
+        "INSTRUCTION",
+        occurrences=MultiplicityInterval(np.int32(1), np.int32(1)),
+        node_id="at0000",
+        attributes=[
+            CSingleAttribute(
+                "protocol",
+                MultiplicityInterval(np.int32(1), np.int32(1)),
+                children=[
+                    CComplexObject(
+                        "ITEM_TREE",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "at0001",
+                        attributes=[
+                            CMultipleAttribute(
+                                "items",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                cardinality=Cardinality(True, False, MultiplicityInterval(np.int32(1))),
+                                children=[
+                                    CComplexObject(
+                                        "ELEMENT",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        "at0010",
+                                        attributes=[
+                                            CSingleAttribute(
+                                                "value",
+                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                children=[
+                                                     cdvo
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )
+        ]
+    )
+
+    assert con.valid_value(example_instruction) == False
+
+    cdvo.list_var.append(DVOrdinal(np.int32(12), DVCodedText("Glasgow coma scale, 12", defining_code=CodePhrase("SNOMED-CT", "91234001"))))
+    assert con.valid_value(example_instruction) == True
+
+
+# test_c_dv_quantity_standard_equivalent
+
+# test_c_dv_quantity_constraint_applied
 
 # test_archetype_slot_constraint_applied
 
@@ -984,10 +1515,3 @@ def test_c_primitive_object_c_duration(example_instruction):
 
 # test_constraint_ref_throws_unsupported_error
 
-# test_c_dv_ordinal_standard_equivalent
-
-# test_c_dv_ordinal_constraint_applied
-
-# test_c_dv_quantity_standard_equivalent
-
-# test_c_dv_quantity_constraint_applied
