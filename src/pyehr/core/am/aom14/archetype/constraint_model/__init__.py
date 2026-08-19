@@ -233,7 +233,7 @@ class CDefinedObject(CObject):
         instance of this type."""
         from pyehr.types import get_openehr_type_str
         typ = get_openehr_type_str(a_value)
-        if typ != self.rm_type_name and not ((typ == "STRING" and self.rm_type_name == "DATE") or (typ == "STRING" and self.rm_type_name == "DATE_TIME") or (typ == "STRING" and self.rm_type_name == "TIME")):
+        if typ != self.rm_type_name and not ((typ == "STRING" and self.rm_type_name == "DATE") or (typ == "STRING" and self.rm_type_name == "DATE_TIME") or (typ == "STRING" and self.rm_type_name == "TIME") or (typ == "STRING" and self.rm_type_name == "DURATION")):
             # exceptions above allow for C_DATE, C_TIME or C_DATE_TIME constraints on DV_DATE/value, DV_TIME/value and DV_DATE_TIME/value which are actually strings but this is allowed
             if raise_exceptions:
                 raise ValueError(f"{self.node_id}: expected rm_type_name of {self.rm_type_name} but found {typ}")

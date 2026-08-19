@@ -2,11 +2,11 @@
 
 import numpy as np
 from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CMultipleAttribute, CPrimitiveObject, CSingleAttribute
-from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CInteger, CReal, CString
+from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
 from pyehr.core.base.base_types.definitions import ValidityKind
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID
-from pyehr.core.base.foundation_types.interval import Cardinality, MultiplicityInterval, ProperInterval
-from pyehr.core.base.foundation_types.time import ISODate
+from pyehr.core.base.foundation_types.interval import Cardinality, ISODateTime, MultiplicityInterval, ProperInterval
+from pyehr.core.base.foundation_types.time import ISODate, ISODuration, ISOTime
 from pyehr.core.rm.common.archetyped import Archetyped
 from pyehr.core.rm.common.generic import PartySelf
 from pyehr.core.rm.composition.content.entry import Evaluation, Instruction, Observation
@@ -122,7 +122,7 @@ def example_instruction():
                 Element(
                     name=DVText("time to dance?"),
                     archetype_node_id="at0008",
-                    value=DVTime("23:59:00+01:00")
+                    value=DVTime("22:59:00+01:00")
                 ),
                 Element(
                     name=DVText("yadda"),
@@ -685,11 +685,294 @@ def test_c_primitive_object_c_date(example_instruction):
     assert con.valid_value(example_instruction) == True
 
 
-# test_c_primitive_object_c_time
+def test_c_primitive_object_c_time(example_instruction):
+    prim = CTime(
+        ValidityKind.OPTIONAL,
+        ValidityKind.OPTIONAL,
+        ValidityKind.PROHIBITED
+    )
+    con = CComplexObject(
+        "INSTRUCTION",
+        occurrences=MultiplicityInterval(np.int32(1), np.int32(1)),
+        node_id="at0000",
+        attributes=[
+            CSingleAttribute(
+                "protocol",
+                MultiplicityInterval(np.int32(1), np.int32(1)),
+                children=[
+                    CComplexObject(
+                        "ITEM_TREE",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "at0001",
+                        attributes=[
+                            CMultipleAttribute(
+                                "items",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                cardinality=Cardinality(True, False, MultiplicityInterval(np.int32(1))),
+                                children=[
+                                    CComplexObject(
+                                        "ELEMENT",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        "at0008",
+                                        attributes=[
+                                            CSingleAttribute(
+                                                "value",
+                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                children=[
+                                                    CComplexObject(
+                                                        "DV_TIME",
+                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                        "",
+                                                        attributes=[
+                                                            CSingleAttribute(
+                                                                "value",
+                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                children=[
+                                                                    CPrimitiveObject(
+                                                                        "TIME",
+                                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                        "",
+                                                                        item=prim
+                                                                    )
+                                                                ]
+                                                            )
+                                                        ]
+                                                    )
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )
+        ]
+    )
 
-# test_c_primitive_object_c_date_time
+    # an object like example_instruction but time zone is not allowed
+    assert con.valid_value(example_instruction) == False
+    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0008/value/value: time of '22:59:00\\+01:00' has a timezone, which is not permitted"):
+        con.valid_value(example_instruction, raise_exceptions=True)
 
-# test_c_primitive_object_c_duration
+    prim.timezone_validity = None
+    assert con.valid_value(example_instruction) == True
+
+    prim.second_validity = ValidityKind.PROHIBITED
+    assert con.valid_value(example_instruction) == False
+    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0008/value/value: time of '22:59:00\\+01:00' did not fit constraint pattern of HH:\\?\\?:XX"):
+            con.valid_value(example_instruction, raise_exceptions=True)
+
+    prim.second_validity = None
+    prim.minute_validity = None
+    prim.range = ProperInterval[ISOTime](ISOTime("21"), ISOTime("23"), True, True)
+    assert con.valid_value(example_instruction) == True
+
+    prim.range = ProperInterval[ISOTime](ISOTime("10:00"), ISOTime("13:22:22+02:00"))
+    assert con.valid_value(example_instruction) == False
+    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0008/value/value: provided time of '22:59:00\\+01:00' was not in range \\(10:00:00, 13:22:22\\+02:00\\)"):
+            con.valid_value(example_instruction, raise_exceptions=True)
+    
+
+    
+def test_c_primitive_object_c_date_time(example_instruction):
+    prim = CDateTime(
+        month_validity=ValidityKind.MANDATORY,
+        day_validity=ValidityKind.PROHIBITED,
+        hour_validity=ValidityKind.PROHIBITED,
+        minute_validity=ValidityKind.PROHIBITED,
+        second_validity=ValidityKind.PROHIBITED
+    )
+    con = CComplexObject(
+        "INSTRUCTION",
+        occurrences=MultiplicityInterval(np.int32(1), np.int32(1)),
+        node_id="at0000",
+        attributes=[
+            CSingleAttribute(
+                "protocol",
+                MultiplicityInterval(np.int32(1), np.int32(1)),
+                children=[
+                    CComplexObject(
+                        "ITEM_TREE",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "at0001",
+                        attributes=[
+                            CMultipleAttribute(
+                                "items",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                cardinality=Cardinality(True, False, MultiplicityInterval(np.int32(1))),
+                                children=[
+                                    CComplexObject(
+                                        "ELEMENT",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        "at0009",
+                                        attributes=[
+                                            CSingleAttribute(
+                                                "value",
+                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                children=[
+                                                    CComplexObject(
+                                                        "DV_DATE_TIME",
+                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                        "",
+                                                        attributes=[
+                                                            CSingleAttribute(
+                                                                "value",
+                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                children=[
+                                                                    CPrimitiveObject(
+                                                                        "DATE_TIME",
+                                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                        "",
+                                                                        item=prim
+                                                                    )
+                                                                ]
+                                                            )
+                                                        ]
+                                                    )
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )
+        ]
+    )
+
+    # an object like example_instruction but date_time only in years and months
+
+    assert con.valid_value(example_instruction) == False
+    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0009/value/value: datetime of '2026-08-17T21:57:23Z' did not fit constraint pattern of YYYY\\-MM\\-XXTXX:XX:XX"):
+        con.valid_value(example_instruction, raise_exceptions=True)
+
+    prim.day_validity=ValidityKind.MANDATORY
+    prim.hour_validity=ValidityKind.MANDATORY
+    prim.minute_validity=ValidityKind.MANDATORY
+    prim.second_validity=ValidityKind.MANDATORY
+    assert con.valid_value(example_instruction) == True
+
+    prim.range = ProperInterval[ISODateTime](ISODateTime("2020"), ISODateTime("2023-02-01T13:00"), True, True)
+    assert con.valid_value(example_instruction) == False
+    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0009/value/value: provided datetime of '2026-08-17T21:57:23Z' was not in range \\[2020, 2023-02-01T13:00:00\\]"):
+            con.valid_value(example_instruction, raise_exceptions=True)
+
+    prim.range = ProperInterval[ISODateTime](ISODateTime("2020"), ISODateTime("2029-02-01T13:00"), True, True)
+    assert con.valid_value(example_instruction) == True
+
+
+
+def test_c_primitive_object_c_duration(example_instruction):
+    prim = CDuration(
+         years_allowed=False,
+         months_allowed=False,
+         weeks_allowed=False,
+         days_allowed=False,
+         minutes_allowed=False,
+         seconds_allowed=True
+    )
+    con = CComplexObject(
+        "INSTRUCTION",
+        occurrences=MultiplicityInterval(np.int32(1), np.int32(1)),
+        node_id="at0000",
+        attributes=[
+            CSingleAttribute(
+                "protocol",
+                MultiplicityInterval(np.int32(1), np.int32(1)),
+                children=[
+                    CComplexObject(
+                        "ITEM_TREE",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "at0001",
+                        attributes=[
+                            CMultipleAttribute(
+                                "items",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                cardinality=Cardinality(True, False, MultiplicityInterval(np.int32(1))),
+                                children=[
+                                    CComplexObject(
+                                        "ELEMENT",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        "at0007",
+                                        attributes=[
+                                            CSingleAttribute(
+                                                "value",
+                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                children=[
+                                                    CComplexObject(
+                                                        "DV_DATE",
+                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                        "",
+                                                        attributes=[
+                                                            CSingleAttribute(
+                                                                "accuracy",
+                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                children=[
+                                                                    CComplexObject(
+                                                                        "DV_DURATION",
+                                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                        "",
+                                                                        attributes=[
+                                                                            CSingleAttribute(
+                                                                                "value",
+                                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                                children=[
+                                                                                     CPrimitiveObject(
+                                                                                        "DURATION",
+                                                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                                        "",
+                                                                                        item=prim
+                                                                                     )
+                                                                                ]
+                                                                            )
+                                                                        ]
+                                                                    )
+                                                                ]
+                                                            )
+                                                        ]
+                                                    )
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )
+        ]
+    )
+
+    # an object like example_instruction but the accuracy measurement can only be in seconds
+    assert con.valid_value(example_instruction) == False
+    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0007/value/accuracy/value: duration of 'P1M' did not fit constraint pattern of PTS"):
+        con.valid_value(example_instruction, raise_exceptions=True)
+
+    prim.seconds_allowed = False
+    prim.months_allowed = True
+    assert con.valid_value(example_instruction) == True
+
+    prim.years_allowed=None
+    prim.months_allowed=None
+    prim.weeks_allowed=None
+    prim.days_allowed=None
+    prim.minutes_allowed=None
+    prim.seconds_allowed=None
+    prim.range = ProperInterval[ISODuration](ISODuration("P2M"), ISODuration("P40W"), True)
+
+    assert con.valid_value(example_instruction) == False
+    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0007/value/accuracy/value: provided duration of 'P1M' was not in range \\[P2M, P40W\\)"):
+            con.valid_value(example_instruction, raise_exceptions=True)
+
+    prim.range = ProperInterval[ISODuration](ISODuration("PT30S"), ISODuration("P1Y"))
+    assert con.valid_value(example_instruction) == True
+    
+
 
 # test_c_code_phrase_standard_equivalent
 

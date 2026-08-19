@@ -652,3 +652,12 @@ def test_iso_date_permits_partial_comparisons():
     assert (ISODate("2020-01") >= ISODate("2020-01")) == True
     assert (ISODate("2020-01") >= ISODate("2020-01-01")) == False
 
+def test_iso_time_permits_timezone_and_non_timezone_comparisons():
+    # where tz is not given, assume UTC
+    assert (ISOTime("12:00:00+03:00") < ISOTime("12:00:00"))
+    assert (ISOTime("12:00:00+03:00") <= ISOTime("09:00:00"))
+    assert (ISOTime("12:00:00+03:00") < ISOTime("09:00:01"))
+
+def test_iso_datetime_partial_comparisons():
+    assert ISODateTime("2020") < ISODateTime("2023-02-01T13:00")
+    assert ISODateTime("2026-08-17T21:57:23Z") > ISODateTime("2020")

@@ -556,7 +556,10 @@ class ISOTime(ISOType):
 
     def to_python_time(self) -> time:
         """Return the Python `time` repesentation of this object"""
-        return self._time
+        if self.timezone() is not None:
+            return self._time
+        else:
+            return self._time.replace(tzinfo=timezone.utc)
 
     def hour(self) -> np.int32:
         """Extract the hour part of the date/time as an Integer."""
@@ -839,21 +842,48 @@ class ISODateTime(ISOType):
         if type(self) != type(other):
             raise TypeError(f"Cannot compare type of \'{type(self)}\' with type of \'{type(other)}\'")
 
-    def __ge__(self, other: 'ISODateTime'):
+    def _compare(self, other: 'ISODateTime') -> int:
         self._comparison_check(other)
-        return (self._python_datetime >= other._python_datetime)
+
+        if not self._date.is_equal(other._date):
+            return -1 if self._date < other._date else 1
+
+        if self._time is None or other._time is None:
+            if self._time is None and other._time is None:
+                return 0
+            return -1 if self._time is None else 1
+
+        if self._python_datetime is not None and other._python_datetime is not None:
+            if self._python_datetime < other._python_datetime:
+                return -1
+            if self._python_datetime > other._python_datetime:
+                return 1
+            return 0
+
+        self_resolution = self._resolution()
+        other_resolution = other._resolution()
+        if self_resolution != other_resolution:
+            return -1 if self_resolution < other_resolution else 1
+
+        self_components = (self.hour(), self.minute(), self.second())
+        other_components = (other.hour(), other.minute(), other.second())
+        if self_components < other_components:
+            return -1
+        if self_components > other_components:
+            return 1
+        return 0
+
+    def __ge__(self, other: 'ISODateTime'):
+        return self._compare(other) >= 0
     
     def __gt__(self, other: 'ISODateTime'):
-        self._comparison_check(other)
-        return (self._python_datetime > other._python_datetime)
+        return self._compare(other) > 0
     
     def __le__(self, other: 'ISODateTime'):
-        self._comparison_check(other)
-        return (self._python_datetime <= other._python_datetime)
+        return self._compare(other) <= 0
     
     def __lt__(self, other: 'ISODateTime'):
-        self._comparison_check(other)
-        return (self._python_datetime < other._python_datetime)
+        return self._compare(other) < 0
     
     def as_json(self):
         # https://specifications.openehr.org/releases/ITS-JSON/development/components/BASE/Release-1.1.0/Foundation_types/Date_time.json
