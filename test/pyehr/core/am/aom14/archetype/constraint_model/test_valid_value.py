@@ -1,7 +1,7 @@
 # file dedicated to testing that the constraints_met method works in a range of circumstances
 
 import numpy as np
-from pyehr.core.am.aom14.archetype.constraint_model import CCodePhrase, CComplexObject, CDVOrdinal, CMultipleAttribute, CPrimitiveObject, CSingleAttribute
+from pyehr.core.am.aom14.archetype.constraint_model import CCodePhrase, CComplexObject, CDVOrdinal, CDVQuantity, CMultipleAttribute, CPrimitiveObject, CQuantityItem, CSingleAttribute, ConstraintRef
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
 from pyehr.core.base.base_types.definitions import ValidityKind
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, TerminologyID
@@ -14,7 +14,7 @@ from pyehr.core.rm.data_structures.history import History
 from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemStructure, ItemTree
 from pyehr.core.rm.data_structures.representation import Cluster, Element
 from pyehr.core.rm.data_types.basic import DVBoolean
-from pyehr.core.rm.data_types.quantity import DVCount, DVInterval, DVOrdinal
+from pyehr.core.rm.data_types.quantity import DVCount, DVInterval, DVOrdinal, DVQuantity
 from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVDateTime, DVDuration, DVTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
 import pytest
@@ -133,6 +133,11 @@ def example_instruction():
                     name=DVText("ordinal"),
                     archetype_node_id="at0010",
                     value=DVOrdinal(np.int32(12), DVCodedText("Glasgow coma scale, 12", defining_code=CodePhrase("SNOMED-CT", "91234001")))
+                ),
+                Element(
+                     name=DVText("my quant"),
+                     archetype_node_id="at0011",
+                     value=DVQuantity(np.float32(45.7), "cm", precision=3)
                 )
             ]
         )
@@ -1505,13 +1510,154 @@ def test_c_dv_ordinal_constraint_applied(example_instruction):
     assert con.valid_value(example_instruction) == True
 
 
-# test_c_dv_quantity_standard_equivalent
+def test_c_dv_quantity_standard_equivalent():
+     domain = CDVQuantity(
+          "DV_QUANTITY",
+          MultiplicityInterval(np.int32(1), np.int32(1)),
+          "",
+          assumed_value=DVQuantity(9.5, "kg", units_display_name="kilograms"),
+          list_var=[
+               CQuantityItem(
+                    units="g",
+                    magnitude=ProperInterval[np.float32](np.float32(0), np.float32(10000)),
+                    precision=PointInterval[np.int32](np.int32(0))
+               ),
+               CQuantityItem(
+                    units="kg",
+                    magnitude=ProperInterval[np.float32](np.float32(0), np.float32(10)),
+                    precision=ProperInterval[np.int32](np.int32(0), np.int32(3), True, True)
+               )
+          ]
+     )
 
-# test_c_dv_quantity_constraint_applied
+     standard = CComplexObject(
+          "DV_QUANTITY",
+          MultiplicityInterval(np.int32(1), np.int32(1)),
+          "",
+          assumed_value=DVQuantity(9.5, "kg", units_display_name="kilograms"),
+          attributes=[
+               CSingleAttribute(
+                    "magnitude",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                         CPrimitiveObject(
+                              "REAL",
+                              MultiplicityInterval(np.int32(1), np.int32(1)),
+                              "",
+                              CReal(range=ProperInterval[np.float32](np.float32(0), np.float32(10000)))
+                         )
+                    ]
+               ),
+               CSingleAttribute(
+                    "units",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                         CPrimitiveObject(
+                              "STRING",
+                              MultiplicityInterval(np.int32(1), np.int32(1)),
+                              "",
+                              CString(list_open=False, list_var=["g", "kg"])
+                         )
+                    ]
+               ),
+               CSingleAttribute(
+                    "precision",
+                    MultiplicityInterval(np.int32(0), np.int32(1)),
+                    children=[
+                         CPrimitiveObject(
+                              "INTEGER",
+                              MultiplicityInterval(np.int32(1), np.int32(1)),
+                              "",
+                              CReal(range=ProperInterval[np.int32](np.int32(0), np.int32(3), True, True))
+                         )
+                    ]
+               )
+          ]
+     )
+
+     assert domain.standard_equivalent().is_equal(standard)
+
+
+
+def test_c_dv_quantity_constraint_applied(example_instruction):
+    cdvi = CDVQuantity(
+         "DV_QUANTITY",
+         MultiplicityInterval(np.int32(1), np.int32(1)),
+         "",
+         list_var=[
+              CQuantityItem("m", magnitude=ProperInterval[np.float32](np.float32(0), np.float32(0.5)))
+         ]
+    )
+    con = CComplexObject(
+        "INSTRUCTION",
+        occurrences=MultiplicityInterval(np.int32(1), np.int32(1)),
+        node_id="at0000",
+        attributes=[
+            CSingleAttribute(
+                "protocol",
+                MultiplicityInterval(np.int32(1), np.int32(1)),
+                children=[
+                    CComplexObject(
+                        "ITEM_TREE",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "at0001",
+                        attributes=[
+                            CMultipleAttribute(
+                                "items",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                cardinality=Cardinality(True, False, MultiplicityInterval(np.int32(1))),
+                                children=[
+                                    CComplexObject(
+                                        "ELEMENT",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        "at0011",
+                                        attributes=[
+                                            CSingleAttribute(
+                                                "value",
+                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                children=[
+                                                     cdvi
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )
+        ]
+    )
+
+    assert con.valid_value(example_instruction) == False
+
+    cdvi.list_var = [CQuantityItem("cm", ProperInterval[np.float32](np.float32(0), np.float32(50), True, True))]
+    assert con.valid_value(example_instruction) == True
 
 # test_archetype_slot_constraint_applied
 
 # test_archetype_internal_ref_constraint_applied
 
-# test_constraint_ref_throws_unsupported_error
+def test_constraint_ref_throws_unsupported_error():
+     con = CComplexObject(
+          "CODE_PHRASE",
+          MultiplicityInterval(np.int32(1), np.int32(1)),
+          "",
+          attributes=[
+               CSingleAttribute(
+                    "code_string",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                        ConstraintRef("STRING", occurrences=MultiplicityInterval(np.int32(1), np.int32(1)), node_id="", reference="ac0015")
+                    ]
+               )
+          ]
+     )
+     val = CodePhrase("SNOMED-CT", "286572006")
+
+     with pytest.raises(NotImplementedError):
+          con.valid_value(val)
+
+     
 

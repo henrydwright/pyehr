@@ -10,7 +10,7 @@ from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, C
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingSet
 from pyehr.core.base.base_types.identification import ArchetypeID, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
-from pyehr.core.base.foundation_types.interval import Cardinality, Interval, MultiplicityInterval
+from pyehr.core.base.foundation_types.interval import Cardinality, Interval, MultiplicityInterval, ProperInterval
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.its.json_path_utils import json_has_path
 from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
@@ -646,6 +646,8 @@ class CComplexObject(CDefinedObject):
                                     valid = valid and constraint.valid_value(concrete_item, raise_exceptions, path=path+"/"+attribute.rm_attribute_name)
                                     if valid == False:
                                         return valid
+                            elif isinstance(constraint, ConstraintRef):
+                                raise NotImplementedError("CONSTRAINT_REF not yet supported so cannot confirm value valid.")
 
         return True
 
@@ -1344,10 +1346,92 @@ class CDVQuantity(CDomainType):
         raise NotImplementedError()
     
     def standard_equivalent(self):
-        raise NotImplementedError()
-    
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
-        raise NotImplementedError()
+        attributes = []
+
+        def encompassing_interval(intervals):
+            lower = min((interval.lower for interval in intervals if interval.lower is not None), default=None)
+            upper = max((interval.upper for interval in intervals if interval.upper is not None), default=None)
+            lower_included = any(
+                interval.lower == lower and interval.lower_included
+                for interval in intervals
+                if interval.lower is not None
+            )
+            upper_included = any(
+                interval.upper == upper and interval.upper_included
+                for interval in intervals
+                if interval.upper is not None
+            )
+
+            for interval in intervals:
+                if (
+                    interval.lower == lower
+                    and interval.upper == upper
+                    and interval.lower_included == lower_included
+                    and interval.upper_included == upper_included
+                ):
+                    return interval
+
+            return ProperInterval(lower, upper, lower_included, upper_included)
+
+        if self.list_var is not None:
+            magnitudes = [item.magnitude for item in self.list_var if item.magnitude is not None]
+            units = [item.units for item in self.list_var]
+            precisions = [item.precision for item in self.list_var if item.precision is not None]
+
+            if magnitudes:
+                attributes.append(
+                    CSingleAttribute(
+                        "magnitude",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        children=[
+                            CPrimitiveObject(
+                                "REAL",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                "",
+                                CReal(range=encompassing_interval(magnitudes)),
+                            )
+                        ],
+                    )
+                )
+
+            attributes.append(
+                CSingleAttribute(
+                    "units",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                        CPrimitiveObject(
+                            "STRING",
+                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                            "",
+                            CString(list_open=False, list_var=units),
+                        )
+                    ],
+                )
+            )
+
+            if precisions:
+                attributes.append(
+                    CSingleAttribute(
+                        "precision",
+                        MultiplicityInterval(np.int32(0), np.int32(1)),
+                        children=[
+                            CPrimitiveObject(
+                                "INTEGER",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                "",
+                                CReal(range=encompassing_interval(precisions)),
+                            )
+                        ],
+                    )
+                )
+
+        return CComplexObject(
+            self.rm_type_name,
+            self.occurrences,
+            self.node_id,
+            assumed_value=self.assumed_value,
+            attributes=attributes,
+        )
 
 class CDVOrdinal(CDomainType):
     """C_DV_ORDINAL as defined in OpenehrProfile.xsd"""
