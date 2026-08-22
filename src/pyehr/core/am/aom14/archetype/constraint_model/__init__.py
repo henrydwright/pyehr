@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 import numpy as np
 
 from pyehr.core.am.aom14.archetype.assertion import Assertion
+from pyehr.core.am.aom14.archetype.constraint_model.external_reference import IArchetypeRetriever, IConstraintResolver
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CPrimitive, CReal, CString, CTime
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingSet
 from pyehr.core.base.base_types.identification import ArchetypeID, TemplateID, TerminologyID
@@ -23,6 +24,11 @@ __all__ = ['ArchetypeConstraint', 'CObject', 'CDefinedObject', 'CAttribute', 'CS
 
 
 # TODO: implement tests for member methods
+
+class ExternalConstraintNotVerifiedWarning(UserWarning):
+    """Raised when an external constraint (ARCHETYPE_SLOT or CONSTRAINT_REF)
+    cannot be fully verified."""
+    pass
 
 class ArchetypeConstraint(AnyClass, IXMLSupport):
     """Archetype equivalent to LOCATABLE class in openEHR Common reference model. 
@@ -246,7 +252,7 @@ class CDefinedObject(CObject):
                 is_equal_value(self.assumed_value, other.assumed_value))
 
     @abstractmethod
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None) -> bool:
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None) -> bool:
         """True if a_value is valid with respect to constraint expressed in concrete 
         instance of this type."""
         from pyehr.types import get_openehr_type_str
@@ -611,14 +617,14 @@ class CComplexObject(CDefinedObject):
                 return attribute._path_eval(PyehrInternalProcessedPath(f"{f"[{path.current_node_predicate}]/" if path.current_node_predicate is not None else ""}{path.remaining_path if path.remaining_path is not None else ""}"), check_only, root)
         raise ValueError(f"No attribute with name {path.current_node_attribute} existed at {self.node_id}")
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None) :
         if self.node_id != "" and not first_call:
             path += f"[{self.node_id}]"
         if first_call:
-            path = "/"
+            path += "/"
             root = self
 
-        if not super().valid_value(a_value, raise_exceptions, path, first_call, root):
+        if not super().valid_value(a_value, raise_exceptions=raise_exceptions, path=path, first_call=first_call, root=root, archetype=archetype, arch_svc=arch_svc, cons_svc=cons_svc):
             return False
 
         from pyehr.types import get_python_attribute_name
@@ -704,7 +710,7 @@ class CComplexObject(CDefinedObject):
                             constraint = constraint_dict[node_id]
                             if isinstance(constraint, CDefinedObject):
                                 for concrete_item in items_dict[node_id]:
-                                    valid = valid and constraint.valid_value(concrete_item, raise_exceptions, path=path+("/" if not first_call else "")+attribute.rm_attribute_name, first_call=False, root=root)
+                                    valid = valid and constraint.valid_value(concrete_item, raise_exceptions, path=path+("/" if not first_call else "")+attribute.rm_attribute_name, first_call=False, root=root, archetype=archetype, arch_svc=arch_svc, cons_svc=cons_svc)
                                     if valid == False:
                                         return valid
                             elif isinstance(constraint, ArchetypeInternalRef):
@@ -713,12 +719,16 @@ class CComplexObject(CDefinedObject):
                                     raise ValueError(f"{path}: target path \'{constraint.target_path}\' did not point to an C_DEFINED_OBJECT so cannot confirm value valid")
 
                                 for concrete_item in items_dict[node_id]:
-                                    valid = valid and cons.valid_value(concrete_item, raise_exceptions, path=path+("/" if not first_call else "")+attribute.rm_attribute_name, first_call=False, root=root)
+                                    valid = valid and cons.valid_value(concrete_item, raise_exceptions, path=path+("/" if not first_call else "")+attribute.rm_attribute_name, first_call=False, root=root, archetype=archetype, arch_svc=arch_svc, cons_svc=cons_svc)
                                     if valid == False:
                                         return valid
-                                
+                            elif isinstance(constraint, ArchetypeSlot):
+                                for concrete_item in items_dict[node_id]:
+                                    valid = valid and constraint.valid_value(concrete_item, raise_exceptions=raise_exceptions, path=path+("/" if not first_call else "")+attribute.rm_attribute_name, first_call=False, root=root, archetype=archetype, arch_svc=arch_svc, cons_svc=cons_svc)
+                                    if valid == False:
+                                        return valid
                             elif isinstance(constraint, ConstraintRef):
-                                raise NotImplementedError("CONSTRAINT_REF not yet supported so cannot confirm value valid.")
+                                warnings.warn(ExternalConstraintNotVerifiedWarning("CONSTRAINT_REF not yet supported so cannot confirm value valid."))
 
         return True
 
@@ -771,8 +781,8 @@ class CPrimitiveObject(CDefinedObject):
     def prototype_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None):
-        if not super().valid_value(a_value, raise_exceptions, path, first_call, root):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None) :
+        if not super().valid_value(a_value, raise_exceptions, path, first_call, root, archetype, arch_svc, cons_svc):
             return False
 
         return self.item.valid_value(a_value, raise_exceptions, path)
@@ -812,8 +822,8 @@ class CDomainType(CDefinedObject):
         """Standard (i.e. C_OBJECT) form of constraint."""
         pass
 
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None):
-        return self.standard_equivalent().valid_value(a_value, raise_exceptions=raise_exceptions, path=path, first_call=first_call, root=root)
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None) :
+        return self.standard_equivalent().valid_value(a_value, raise_exceptions=raise_exceptions, path=path, first_call=first_call, root=root, archetype=archetype, arch_svc=arch_svc, cons_svc=cons_svc)
 
 class CCodePhrase(CDomainType):
     """C_CODE_PHRASE as defined in OpenehrProfile.xsd"""
@@ -1034,6 +1044,62 @@ class ArchetypeSlot(CReferenceObject):
                 excls.append(Assertion.from_xml(excl_el))
         
         return ArchetypeSlot(rm_typ, occur, nod, incls, excls, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
+
+    def _get_c_string_from_standard_slot_assertion(self, ass: Assertion) -> CString:
+        # retrieve the regex from an ADL v1.4 assertion (a subset of all assertions)
+        c_str = None
+        try:
+            assert ass.expression.left_operand.item.lower() == "archetype_id/value"
+            c_str = ass.expression.right_operand.item
+        except Exception:
+            pass
+
+        return c_str
+
+    def archetype_id_valid(self, archetype_id: ArchetypeID):
+        if self.excludes is not None:
+            for ex_ass in self.excludes:
+                c_str = self._get_c_string_from_standard_slot_assertion(ex_ass)
+                if c_str is not None:
+                    if c_str.valid_value(archetype_id.value):
+                        # matched an exclude
+                        return False
+        if self.includes is not None:
+            for inc_ass in self.includes:
+                c_str = self._get_c_string_from_standard_slot_assertion(inc_ass)
+                if c_str is not None:
+                    if c_str.valid_value(archetype_id.value):
+                        # matched an include
+                        return True
+
+        # didn't match anything
+        return (self.excludes is None and self.includes is None) 
+
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None):
+        # first check the archetype ID matches (we can do this even if we can't then verify the archetype content)
+        if isinstance(a_value, Locatable):
+            arch_deets = a_value.archetype_details
+            if arch_deets is None:
+                if raise_exceptions:
+                    raise ValueError(f"{path}: item cannot fit into ARCHETYPE_SLOT as its archetype_details were empty")
+                return False
+            else:
+                if not self.archetype_id_valid(arch_deets.archetype_id):
+                    if raise_exceptions:
+                        raise ValueError(f"{path}: item with archetype_id \'{arch_deets.archetype_id.value}\' does not match ARCHETYPE_SLOT constraint")
+                    return False
+        else:
+            if raise_exceptions:
+                raise ValueError(f"{path}: item cannot fit into ARCHETYPE_SLOT as not sub-type of LOCATABLE")
+            return False
+
+        if arch_svc is None:
+            warnings.warn(ExternalConstraintNotVerifiedWarning("ARCHETYPE_SLOT cannot be verified as not archetype retrieval service was supplied"))
+        elif arch_svc.get_archetype_by_id(a_value.archetype_details.archetype_id) is None:
+            warnings.warn(ExternalConstraintNotVerifiedWarning(f"ARCHETYPE_SLOT cannot be verified as the archetype retreival service did not contain the required archetype \'{a_value.archetype_details.archetype_id.value}\'"))
+        else:
+            arch = arch_svc.get_archetype_by_id(a_value.archetype_details.archetype_id)
+            return arch.definition.valid_value(a_value, raise_exceptions=raise_exceptions, path=path + "["+ a_value.archetype_details.archetype_id.value +"]", first_call=True, root=arch.definition, archetype=arch, arch_svc=arch_svc, cons_svc=cons_svc)
 
 class ArchetypeInternalRef(CReferenceObject):
     """A constraint defined by proxy, using a reference to an object constraint 
@@ -1284,7 +1350,7 @@ class CDomainPlaceholder(CDomainType):
     def standard_equivalent(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", root = None):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None) :
         raise NotImplementedError()
 
 class CQuantityItem(AnyClass, IXMLSupport):
@@ -2135,7 +2201,7 @@ class CDVState(CDomainType):
     def standard_equivalent(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", root=None):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None):
         raise NotImplementedError()
 
         

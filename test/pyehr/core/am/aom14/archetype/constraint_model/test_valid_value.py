@@ -1,14 +1,20 @@
 # file dedicated to testing that the constraints_met method works in a range of circumstances
 
 import numpy as np
-from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeInternalRef, CCodePhrase, CComplexObject, CDVOrdinal, CDVQuantity, CMultipleAttribute, CPrimitiveObject, CQuantityItem, CSingleAttribute, ConstraintRef
+from pyehr.core.am.aom14.archetype import Archetype
+from pyehr.core.am.aom14.archetype.assertion import Assertion, ExprBinaryOperator, ExprLeaf, OperatorKind
+from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeInternalRef, ArchetypeSlot, CCodePhrase, CComplexObject, CDVOrdinal, CDVQuantity, CMultipleAttribute, CPrimitiveObject, CQuantityItem, CSingleAttribute, ConstraintRef, ExternalConstraintNotVerifiedWarning, ExternalConstraintNotVerifiedWarning
+from pyehr.core.am.aom14.archetype.constraint_model.external_reference import PythonArchetypeRetriever
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
+from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, CodeDefinitionSet
 from pyehr.core.base.base_types.definitions import ValidityKind
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, TerminologyID
 from pyehr.core.base.foundation_types.interval import Cardinality, ISODateTime, MultiplicityInterval, PointInterval, ProperInterval
+from pyehr.core.base.foundation_types.terminology import TerminologyCode
 from pyehr.core.base.foundation_types.time import ISODate, ISODuration, ISOTime
 from pyehr.core.rm.common.archetyped import Archetyped
 from pyehr.core.rm.common.generic import PartySelf
+from pyehr.core.rm.composition import Composition
 from pyehr.core.rm.composition.content.entry import Evaluation, Instruction, Observation
 from pyehr.core.rm.data_structures.history import History, IntervalEvent, PointEvent
 from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemStructure, ItemTree
@@ -1635,8 +1641,6 @@ def test_c_dv_quantity_constraint_applied(example_instruction):
     cdvi.list_var = [CQuantityItem("cm", ProperInterval[np.float32](np.float32(0), np.float32(50), True, True))]
     assert con.valid_value(example_instruction) == True
 
-# test_archetype_slot_constraint_applied
-
 def test_archetype_internal_ref_constraint_applied():
      his = History[ItemTree](
              name=DVText("example history"),
@@ -1985,8 +1989,151 @@ def test_constraint_at_path():
     # path with archetype_internal_ref
     assert con.constraint_at_path("/data[at0001]/events[at0005]/data[at0003]").is_equal(it_obj)
     
+def test_archetype_slot_constraint_applied():
+    obs_lang = CodePhrase("ISO_639-1", "es")
+    obs_arch_id = ArchetypeID("pyehr-EHR-OBSERVATION.not_right.v0")
+    obj = Composition(
+         name=DVText("arch_slot_test"),
+         archetype_node_id="at0000",
+        language=CodePhrase("ISO_639-1", "en"),
+        territory=CodePhrase("ISO_3166-1", "GB"),
+        category=DVCodedText("event", defining_code=CodePhrase("openehr", "433")),
+        composer=PartySelf(),
+        archetype_details=Archetyped(ArchetypeID("pyehr-EHR-COMPOSITION.arch_slot_test.v0"), "1.1.0"),
+        content=[
+             Observation(
+                name=DVText("example observation"),
+                archetype_node_id="at0000",
+                language=obs_lang,
+                encoding=CodePhrase("IANA_character-sets", "UTF-8"),
+                subject=PartySelf(),
+                archetype_details=Archetyped(obs_arch_id, "1.1.0"),
+                data=History[ItemTree](
+                     name=DVText("history"),
+                     archetype_node_id="at0001",
+                     origin=DVDateTime("2026-08-22T15:51:30Z")
+                )
+             )
+        ]
+    )
 
-def test_constraint_ref_throws_unsupported_error():
+    obs_con = CComplexObject(
+         "OBSERVATION",
+         MultiplicityInterval(np.int32(1), np.int32(1)),
+         "at0000",
+         attributes=[
+              CSingleAttribute(
+                   "language",
+                   MultiplicityInterval(np.int32(1), np.int32(1)),
+                   children=[
+                        CCodePhrase(
+                             "CODE_PHRASE",
+                             MultiplicityInterval(np.int32(1), np.int32(1)),
+                             "",
+                             code_list=["en"]
+                        )
+                   ]
+              )
+         ]
+    )
+
+    obs_arch = Archetype(
+         original_language=TerminologyCode("ISO_639-1", "en"),
+         definition=obs_con,
+         ontology=ArchetypeOntology(
+              term_definitions=[
+                   CodeDefinitionSet(
+                        "en",
+                        [ArchetypeTerm(
+                             "at0000",
+                             {
+                                  "text": "Archetype Slot Example Observation",
+                                  "description": "A test observation demonstrating ARCHETYPE_SLOT functionality"
+                             }
+                        )]
+                   )
+              ]
+         ),
+         archetype_id=ArchetypeID("pyehr-EHR-OBSERVATION.arch_slot_test_obs.v0"),
+         concept="at0000"
+    )
+
+    comp_con = CComplexObject(
+         "COMPOSITION",
+         MultiplicityInterval(np.int32(1), np.int32(1)),
+         "at0000",
+         attributes=[
+              CMultipleAttribute(
+                   "content",
+                   MultiplicityInterval(np.int32(1), np.int32(1)),
+                   Cardinality(False, False, MultiplicityInterval(np.int32(1), np.int32(1))),
+                   children=[
+                        ArchetypeSlot(
+                             "OBSERVATION",
+                             MultiplicityInterval(np.int32(1), np.int32(1)),
+                             "at0000",
+                             includes=[Assertion(
+                                  ExprBinaryOperator(
+                                       "Boolean",
+                                       ExprLeaf(
+                                            "String",
+                                            "attribute",
+                                            "archetype_id/value"
+                                       ),
+                                       OperatorKind.MATCHES,
+                                       ExprLeaf(
+                                            "C_STRING",
+                                            "constraint",
+                                            CString(pattern="pyehr-EHR-OBSERVATION\\.arch_slot_test_obs(-[a-zA-Z0-9_]+)*\\.v0")
+                                       )
+                                  ),
+                                  string_expression="archetype_id/value matches {/pyehr-EHR-OBSERVATION\\.arch_slot_test_obs(-[a-zA-Z0-9_]+)*\\.v0/}"
+                             )]
+                        )
+                   ]
+              )
+         ]
+    )
+
+    comp_arch = Archetype(
+         original_language=TerminologyCode("ISO_639-1", "en"),
+         definition=comp_con,
+         ontology=ArchetypeOntology(
+              term_definitions=[
+                   CodeDefinitionSet(
+                        "en",
+                        [ArchetypeTerm(
+                             "at0000",
+                             {
+                                  "text": "Archetype Slot Example Composition",
+                                  "description": "A test composition demonstrating ARCHETYPE_SLOT functionality"
+                             }
+                        )]
+                   )
+              ]
+         ),
+         archetype_id=ArchetypeID("pyehr-EHR-OBSERVATION.arch_slot_test.v0"),
+         concept="at0000"
+    )
+
+    arch_res = PythonArchetypeRetriever(archetypes=[obs_arch, comp_arch])
+
+    assert comp_con.valid_value(obj) == False
+    with pytest.raises(ValueError, match="/content: item with archetype_id 'pyehr-EHR-OBSERVATION.not_right.v0' does not match ARCHETYPE_SLOT constraint"):
+         comp_con.valid_value(obj, raise_exceptions=True)
+
+    obs_arch_id._value = "pyehr-EHR-OBSERVATION.arch_slot_test_obs.v0"
+    with pytest.warns(ExternalConstraintNotVerifiedWarning):
+        assert comp_con.valid_value(obj) == True
+
+    assert comp_con.valid_value(obj, arch_svc=arch_res) == False
+    with pytest.raises(ValueError, match="/content\\[pyehr\\-EHR\\-OBSERVATION\\.arch_slot_test_obs\\.v0\\]/language/code_string: value of 'es' was not in the permitted list of strings"):
+         comp_con.valid_value(obj, raise_exceptions=True, arch_svc=arch_res)
+
+    obs_lang.code_string = "en"
+    assert comp_con.valid_value(obj, arch_svc=arch_res) == True
+
+def test_constraint_ref_warns_uncheckable():
      con = CComplexObject(
           "CODE_PHRASE",
           MultiplicityInterval(np.int32(1), np.int32(1)),
@@ -2003,7 +2150,7 @@ def test_constraint_ref_throws_unsupported_error():
      )
      val = CodePhrase("SNOMED-CT", "286572006")
 
-     with pytest.raises(NotImplementedError):
+     with pytest.warns(ExternalConstraintNotVerifiedWarning):
           con.valid_value(val)
 
      
