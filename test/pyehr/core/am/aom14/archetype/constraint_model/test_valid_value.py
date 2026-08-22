@@ -11,7 +11,7 @@ from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, C
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, CodeDefinitionSet, ConstraintBindingItem, ConstraintBindingSet
 from pyehr.core.am.opt14 import OperationalTemplate
 from pyehr.core.base.base_types.definitions import ValidityKind
-from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, TerminologyID
+from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.interval import Cardinality, ISODateTime, MultiplicityInterval, PointInterval, ProperInterval
 from pyehr.core.base.foundation_types.terminology import TerminologyCode
 from pyehr.core.base.foundation_types.time import ISODate, ISODuration, ISOTime
@@ -2353,6 +2353,24 @@ def test_template_instance_valid():
     with open("test/pyehr/core/am/aom14/archetype/constraint_model/simpleTemplate.xml", "r") as f1:
          with open("test/pyehr/core/am/aom14/archetype/constraint_model/simpleTemplateInstance.json", "r") as f2:
             template : OperationalTemplate = decode_xml(f1.read())
+
+            comp2 = Composition(
+                name=DVText("wrong comp"),
+                archetype_node_id="at0000",
+                language=CodePhrase("ISO_639-1", "en"),
+                territory=CodePhrase("ISO_3166-1", "GB"),
+                category=DVCodedText("event", defining_code=CodePhrase("openehr", "433")),
+                composer=PartySelf(),
+                archetype_details=Archetyped(ArchetypeID("openEHR-EHR-COMPOSITION.simple.v0"), "1.1.0", template_id=TemplateID("simple_template"))
+            )
+            assert template.instance_valid(comp2) == False
+
             comp : Composition = decode_json(json.loads(f2.read()))
 
             assert template.instance_valid(comp) == True
+
+            comp.category = DVCodedText("report", CodePhrase("openehr", "815"))
+
+            assert template.instance_valid(comp) == False
+
+            

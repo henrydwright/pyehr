@@ -7,11 +7,13 @@ from typing import Optional, Union
 
 from flask import Response, current_app, g, jsonify, make_response, request
 
+from pyehr.core.am.opt14 import OperationalTemplate
 from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import HierObjectID, ObjectID, ObjectRef, ObjectVersionID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.its.json_tools import decode_json
 from pyehr.core.its.rest.additions import UpdateContribution
+from pyehr.core.rm.common.archetyped import Locatable
 from pyehr.core.rm.common.change_control import Contribution, Version
 from pyehr.core.rm.common.directory import Folder
 from pyehr.core.rm.common.generic import PartyIdentified, PartyProxy
@@ -118,6 +120,18 @@ def create_object(auth: IPyehrAuthProvider, vs: VersionedStore, typ: str, owner_
     # if you get a Response back rather than an instance of AnyClass, there was an error
     if isinstance(body_obj, Response):
         return (body_obj, None)
+    # if the object has a template ID, then validate against it
+    if isinstance(body_obj, Locatable) and body_obj.archetype_details is not None and body_obj.archetype_details.template_id is not None:
+        template_id = body_obj.archetype_details.template_id
+        log.info(f"Verifying creation against template \'{template_id.value}\'")
+        template : OperationalTemplate = vs.db.retrieve_uid_object("TEMPLATE", template_id)
+        if template is not None:
+            try:
+                template.instance_valid(body_obj, raise_exceptions=True)
+            except Exception as ex:
+                return (_create_error_response(f"Provided object did not meet constraints of template '{template_id.value}'. \n\nError details: {str(ex)}", 422), None)
+        else:
+            return (_create_error_response(f"Referenced template '{template_id.value}' was not found", 422), None)
     d_ovid, d_contrib, d_vo = vs.create(
         obj=body_obj,
         owner_id=owner_id,
@@ -191,9 +205,22 @@ def update_object(auth: IPyehrAuthProvider, vs: VersionedStore, typ: str, hier_o
         ):
             return (_create_unauthorised_response(), None)
     
-    body_object = _parse_request_body(typ)
-    if isinstance(body_object, Response):
-        return body_object
+    body_obj = _parse_request_body(typ)
+    if isinstance(body_obj, Response):
+        return body_obj
+
+    # if the object has a template ID, then validate against it
+    if isinstance(body_obj, Locatable) and body_obj.archetype_details is not None and body_obj.archetype_details.template_id is not None:
+        template_id = body_obj.archetype_details.template_id
+        log.info(f"Verifying update against template \'{template_id.value}\'")
+        template : OperationalTemplate = vs.db.retrieve_uid_object("TEMPLATE", template_id)
+        if template is not None:
+            try:
+                template.instance_valid(body_obj, raise_exceptions=True)
+            except Exception as ex:
+                return (_create_error_response(f"Provided object did not meet constraints of template '{template_id.value}'. \n\nError details: {str(ex)}", 422), None)
+        else:
+            return (_create_error_response(f"Referenced template '{template_id.value}' was not found", 422), None)
     
     preceding_uid : ObjectVersionID = g.processed_headers.preceding_version_uid
     if preceding_uid is None:
@@ -201,7 +228,7 @@ def update_object(auth: IPyehrAuthProvider, vs: VersionedStore, typ: str, hier_o
     elif preceding_uid.object_id().value != hier_object_id:
         return (_create_error_response(f"400 Bad Request: 'If-Match' hier object ID ({preceding_uid.object_id().value}) and URL hier object ID ({hier_object_id}) do not match.", 400), None)
     
-    obj_type = PYTHON_TYPE_TO_STRING_TYPE_MAP[type(body_object)] if body_object is not None else None
+    obj_type = PYTHON_TYPE_TO_STRING_TYPE_MAP[type(body_obj)] if body_obj is not None else None
     latest_ver = vs.read(obj_type, HierObjectID(preceding_uid.object_id().value), user=_get_committer(log, auth).external_ref)
     if latest_ver.uid().value != preceding_uid.value:
         resp = _create_error_response(f"412 Precondition Failed: Provided 'If-Match' of \'{preceding_uid.value}\' did not match latest version uid of \'{latest_ver.uid().value}\'", 412)
@@ -209,7 +236,7 @@ def update_object(auth: IPyehrAuthProvider, vs: VersionedStore, typ: str, hier_o
         return (resp, None)
     
     d_ovid, d_contrib, _ = vs.update(
-        obj=body_object,
+        obj=body_obj,
         committer=_get_committer(log, auth),
         lifecycle_state=_get_lifecycle_state(VersionLifecycleState.COMPLETE, log),
         change_type=_get_audit_change_type(AuditChangeType.MODIFICATION, log),
@@ -218,7 +245,7 @@ def update_object(auth: IPyehrAuthProvider, vs: VersionedStore, typ: str, hier_o
         user=_get_committer(log, auth).external_ref
     )
 
-    resp = _create_object_response(body_object, 200)
+    resp = _create_object_response(body_obj, 200)
     _add_headers_to_response(resp, d_ovid, d_contrib.audit.time_committed)
     return (resp, d_ovid)
 

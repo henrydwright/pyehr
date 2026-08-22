@@ -61,6 +61,22 @@ new_date = start_date + duration
 print(str(new_date)) 
 ```
 
+* Validate instances in the RM against templates and archetypes (with meaningful exceptions)
+
+```python
+with open("/path/to/file.adl14") as adl_f:
+    arch : Archetype = decode_adl14(adl_f.read())
+
+    with open("/path/to/instance.json") as json_f:
+        ev : Evaluation = decode_json(json.loads(json_f.read()))
+        
+        arch.instance_valid(ev, raise_exceptions=True)
+```
+
+```
+ValueError: /protocol[at0001]/items[at0002]/items[at0004]/value/value: is set to True but only [False] is valid
+```
+
 * Convert seamlessly between ADL v1.4 (read only) and XML and JSON versions of Archetypes
 ```python
 from xml.etree import ElementTree as ET
@@ -89,7 +105,7 @@ with open("/path/to/file.adl14") as adl_f:
 |Base model (BASE)|✅ Complete |
 |Reference model (RM)|✅ Complete (aside from rm.extract and rm.integration) |
 |Implementation technology (ITS) - JSON|✅ Serialisation and deserialisation complete and stable for all implemented classes |
-| Archetype model (AOM v1.4 and OPT v1.4) | 🟠 Partial implementation for serialisation/deserialisation but methods unimplemented |
+| Archetype model (AOM v1.4 and OPT v1.4) | 🟠 Partial implementation for serialisation/deserialisation and validation, but some methods still unimplemented |
 | Archetype model (ADL v1.4) | 🟠 Partial support for parsing ADL v1.4 files (aside from rules and annotations sections). Output in ADL v1.4 not supported.
 |Implementation technology (ITS) - XML|🟠 Supported for parsing and serialising AOM v1.4 archetypes and templates, limited support elsewhere |
 | Archetype model (AOM v2 or ADL v2) | ❌ Unsupported |

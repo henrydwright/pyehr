@@ -217,9 +217,9 @@ def create_ehr_blueprint(auth: IPyehrAuthProvider, db: IDatabaseEngine, vs: Vers
             return _create_error_response(f"404 Not Found: No EHR with ID \'{ehr_id}\' was found", 404)
 
         resp, ovid = create_object(auth, vs, "COMPOSITION", ObjectRef("local", "EHR", ehid), log, (policy, PyehrAccessPolicyEndpoint.EHR_COMPOSITION))
-        db.add_to_ehr_lists(ehid, ObjectRef("local", "VERSIONED_COMPOSITION", HierObjectID(ovid.object_id().value)))
 
         if ovid is not None:
+            db.add_to_ehr_lists(ehid, ObjectRef("local", "VERSIONED_COMPOSITION", HierObjectID(ovid.object_id().value)))
             _add_location_headers_to_response(resp, f"{current_app.config["BASE_URL"]}/ehr/{ehr_id}/composition/{ovid.value}", f"ehr://{ehr_id}/composition/{ovid.value}")
 
         return resp

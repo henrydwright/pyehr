@@ -649,7 +649,7 @@ class CComplexObject(CDefinedObject):
 
                 if concrete is None:
                     # once existence checked, return True without recursing
-                    return True
+                    continue
 
                 # CHECK: cardinality
                 if isinstance(attribute, CMultipleAttribute):
