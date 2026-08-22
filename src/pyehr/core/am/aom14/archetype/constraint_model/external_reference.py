@@ -2,10 +2,11 @@
 an archetype or a template"""
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Union
 
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ConstraintBindingItem
 from pyehr.core.base.base_types.identification import ArchetypeID, TerminologyID
+from pyehr.core.base.foundation_types.any import AnyClass
 
 __all__ = ['IArchetypeRetriever']
 
@@ -22,6 +23,11 @@ class TerminologyUnsupportedError(NotImplementedError):
     as it does not support that terminology"""
     pass
 
+class ConcreteTypeUnsupportedError(NotImplementedError):
+    """Error raised when a constraint resolver cannot resolve a given constraint
+    because the concrete value provided is not of a supported type"""
+    pass
+
 class IConstraintResolver(ABC):
     """(NON-RM CLASS) Defines an interface for resolving whether a given
     terminological constraint has been met"""
@@ -32,7 +38,7 @@ class IConstraintResolver(ABC):
         pass
 
     @abstractmethod
-    def valid_value(self, terminology_id: TerminologyID, constraint: ConstraintBindingItem, concrete_value: str) -> bool:
+    def valid_value(self, terminology_id: TerminologyID, constraint: ConstraintBindingItem, concrete_value: Union[AnyClass, str]) -> bool:
         """Returns whether a concrete value is valid under a given constraint.
         
         :raises TerminologyUnsupportedError: If the terminology in terminology_id is not supported by this resolver"""

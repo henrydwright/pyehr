@@ -4,9 +4,9 @@ import numpy as np
 from pyehr.core.am.aom14.archetype import Archetype
 from pyehr.core.am.aom14.archetype.assertion import Assertion, ExprBinaryOperator, ExprLeaf, OperatorKind
 from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeInternalRef, ArchetypeSlot, CCodePhrase, CComplexObject, CDVOrdinal, CDVQuantity, CMultipleAttribute, CPrimitiveObject, CQuantityItem, CSingleAttribute, ConstraintRef, ExternalConstraintNotVerifiedWarning, ExternalConstraintNotVerifiedWarning
-from pyehr.core.am.aom14.archetype.constraint_model.external_reference import PythonArchetypeRetriever
+from pyehr.core.am.aom14.archetype.constraint_model.external_reference import IConstraintResolver, PythonArchetypeRetriever
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
-from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, CodeDefinitionSet
+from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, CodeDefinitionSet, ConstraintBindingItem, ConstraintBindingSet
 from pyehr.core.base.base_types.definitions import ValidityKind
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, TerminologyID
 from pyehr.core.base.foundation_types.interval import Cardinality, ISODateTime, MultiplicityInterval, PointInterval, ProperInterval
@@ -2133,25 +2133,214 @@ def test_archetype_slot_constraint_applied():
     obs_lang.code_string = "en"
     assert comp_con.valid_value(obj, arch_svc=arch_res) == True
 
-def test_constraint_ref_warns_uncheckable():
-     con = CComplexObject(
-          "CODE_PHRASE",
-          MultiplicityInterval(np.int32(1), np.int32(1)),
-          "",
-          attributes=[
-               CSingleAttribute(
-                    "code_string",
-                    MultiplicityInterval(np.int32(1), np.int32(1)),
-                    children=[
-                        ConstraintRef("STRING", occurrences=MultiplicityInterval(np.int32(1), np.int32(1)), node_id="", reference="ac0015")
-                    ]
-               )
-          ]
-     )
-     val = CodePhrase("SNOMED-CT", "286572006")
+@pytest.fixture
+def constraint_resolver() -> IConstraintResolver:
+    class TestConstraintResolver(IConstraintResolver):
+        code_set = {'55057002', '106320003', '45050008'}
 
-     with pytest.warns(ExternalConstraintNotVerifiedWarning):
-          con.valid_value(val)
+        def __init__(self):
+             super().__init__()
+
+        def supports_terminology(self, terminology_id):
+            return terminology_id.value == "SNOMED-CT"
+
+        def valid_value(self, terminology_id, constraint: ConstraintBindingItem, concrete_value: CodePhrase):
+            if terminology_id.value != "SNOMED-CT" or constraint.value != "http://snomed.info/sct?fhir_vs=ecl%2F%3C%3C%21106320003%7CChoreographer%20AND%2FOR%20dancer%7C" or not isinstance(concrete_value, CodePhrase):
+                 raise NotImplementedError("boo hiss")
+            else:
+                 return concrete_value.code_string in self.code_set
+
+    return TestConstraintResolver()
+
+def test_constraint_ref_constraint_applied(constraint_resolver):
+    dvt = DVCodedText("Factory worker (occupation)", defining_code=CodePhrase("SNOMED-CT", "236324005"))
+    obj = Evaluation(
+        name=DVText("constraint_ref_demo"),
+        archetype_node_id="at0000",
+        language=CodePhrase("ISO_639-1", "en"),
+        encoding=CodePhrase("IANA_character-sets", "UTF-8"),
+        subject=PartySelf(),
+        archetype_details=Archetyped(ArchetypeID("pyehr-EHR-EVALUATION.constraint_ref_example.v0"), "1.1.0"),
+        data=ItemSingle(
+                name=DVText("example"),
+                archetype_node_id="at0001",
+                item=Element(
+                    name=DVText("coded thing"),
+                    archetype_node_id="at0002",
+                    value=dvt
+                )
+        )
+    )
+
+    con = CComplexObject(
+         "EVALUATION",
+         MultiplicityInterval(np.int32(1), np.int32(1)),
+         "at0000",
+         attributes=[
+              CSingleAttribute(
+                   "data",
+                   MultiplicityInterval(np.int32(1), np.int32(1)),
+                   children=[
+                        CComplexObject(
+                             "ITEM_SINGLE",
+                             MultiplicityInterval(np.int32(1), np.int32(1)),
+                             "at0001",
+                             attributes=[
+                                  CSingleAttribute(
+                                       "item",
+                                       MultiplicityInterval(np.int32(1), np.int32(1)),
+                                       children=[
+                                            CComplexObject(
+                                                 "ELEMENT",
+                                                 MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                 "at0002",
+                                                 attributes=[
+                                                      CSingleAttribute(
+                                                           "value",
+                                                           MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                           children=[
+                                                                CComplexObject(
+                                                                     "DV_CODED_TEXT",
+                                                                     MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                     "",
+                                                                     attributes=[
+                                                                          CSingleAttribute(
+                                                                               "defining_code",
+                                                                               MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                               children=[
+                                                                                    ConstraintRef(
+                                                                                         "CODE_PHRASE",
+                                                                                         MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                                         "",
+                                                                                         "ac0001"
+                                                                                    )
+                                                                               ]
+                                                                          )
+                                                                     ]
+                                                                )
+                                                           ]
+                                                      )
+                                                 ]
+                                            )
+                                       ]
+                                  )
+                             ]
+                        )
+                   ]
+              )
+         ]
+
+    )
+
+    eval_arch = Archetype(
+          original_language=TerminologyCode("ISO_639-1", "en"),
+          definition=con,
+          ontology=ArchetypeOntology(
+               term_definitions=[CodeDefinitionSet(
+                    "en",
+                    items=[
+                         ArchetypeTerm("at0000", {"text": "Constraint Reference Demo", "description": "Demonstration of use of contraint reference"})
+                    ]
+               )],
+               constraint_definitions=[
+                    CodeDefinitionSet(
+                         "en",
+                         items=[
+                              ArchetypeTerm("ac0001", {"text": "SNOMED code for either a dancer or choreographer"})
+                         ]
+                    )
+               ],
+               constraint_bindings=[
+                    ConstraintBindingSet(
+                         "SNOMED-CT",
+                         items=[
+                              ConstraintBindingItem("http://snomed.info/sct?fhir_vs=ecl%2F%3C%3C%21106320003%7CChoreographer%20AND%2FOR%20dancer%7C", "ac0001")
+                         ]
+                    )
+               ]
+          ),
+          archetype_id=ArchetypeID("pyehr-EHR-EVALUATION.constraint_ref_example.v0"),
+          concept="at0000"
+     )
+
+    with pytest.warns(ExternalConstraintNotVerifiedWarning):
+        assert con.valid_value(obj) == True
+
+    with pytest.warns(ExternalConstraintNotVerifiedWarning):
+        assert con.valid_value(obj, archetype=eval_arch) == True
+
+    with pytest.warns(ExternalConstraintNotVerifiedWarning):
+        assert con.valid_value(obj, cons_svc=constraint_resolver) == True
+
+    assert con.valid_value(obj, archetype=eval_arch, cons_svc=constraint_resolver) == False
+    with pytest.raises(ValueError, match="/data\\[at0001\\]/item\\[at0002\\]/value/defining_code: value of SNOMED\\-CT::236324005 does not fulfil constraint ac0001"):
+         con.valid_value(obj, raise_exceptions=True, archetype=eval_arch, cons_svc=constraint_resolver)
+
+    dvt.value = "Dancer"
+    dvt.defining_code = CodePhrase("SNOMED-CT", "45050008")
+    assert con.valid_value(obj, archetype=eval_arch, cons_svc=constraint_resolver) == True
 
      
+def test_archetype_instance_valid():
+    obs_lang = CodePhrase("ISO_639-1", "es")
+    obs_arch_id = ArchetypeID("pyehr-EHR-OBSERVATION.not_right.v0")
+    obs = Observation(
+                    name=DVText("example observation"),
+                    archetype_node_id="at0000",
+                    language=obs_lang,
+                    encoding=CodePhrase("IANA_character-sets", "UTF-8"),
+                    subject=PartySelf(),
+                    archetype_details=Archetyped(obs_arch_id, "1.1.0"),
+                    data=History[ItemTree](
+                         name=DVText("history"),
+                         archetype_node_id="at0001",
+                         origin=DVDateTime("2026-08-22T15:51:30Z")
+                    )
+                 )
+
+    obs_con = CComplexObject(
+         "OBSERVATION",
+         MultiplicityInterval(np.int32(1), np.int32(1)),
+         "at0000",
+         attributes=[
+              CSingleAttribute(
+                   "language",
+                   MultiplicityInterval(np.int32(1), np.int32(1)),
+                   children=[
+                        CCodePhrase(
+                             "CODE_PHRASE",
+                             MultiplicityInterval(np.int32(1), np.int32(1)),
+                             "",
+                             code_list=["en"]
+                        )
+                   ]
+              )
+         ]
+    )
+
+    obs_arch = Archetype(
+         original_language=TerminologyCode("ISO_639-1", "en"),
+         definition=obs_con,
+         ontology=ArchetypeOntology(
+              term_definitions=[
+                   CodeDefinitionSet(
+                        "en",
+                        [ArchetypeTerm(
+                             "at0000",
+                             {
+                                  "text": "Archetype Slot Example Observation",
+                                  "description": "A test observation demonstrating ARCHETYPE_SLOT functionality"
+                             }
+                        )]
+                   )
+              ]
+         ),
+         archetype_id=ArchetypeID("pyehr-EHR-OBSERVATION.arch_slot_test_obs.v0"),
+         concept="at0000"
+    )
+
+    assert obs_arch.instance_valid(obs) == False
+
+    obs_lang.code_string = "en"
+    assert obs_arch.instance_valid(obs) == True
 

@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 import numpy as np
 
 from pyehr.core.am.aom14.archetype.assertion import Assertion
-from pyehr.core.am.aom14.archetype.constraint_model.external_reference import IArchetypeRetriever, IConstraintResolver
+from pyehr.core.am.aom14.archetype.constraint_model.external_reference import ConcreteTypeUnsupportedError, IArchetypeRetriever, IConstraintResolver, TerminologyUnsupportedError
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CPrimitive, CReal, CString, CTime
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingSet
 from pyehr.core.base.base_types.identification import ArchetypeID, TemplateID, TerminologyID
@@ -728,7 +728,10 @@ class CComplexObject(CDefinedObject):
                                     if valid == False:
                                         return valid
                             elif isinstance(constraint, ConstraintRef):
-                                warnings.warn(ExternalConstraintNotVerifiedWarning("CONSTRAINT_REF not yet supported so cannot confirm value valid."))
+                                for concrete_item in items_dict[node_id]:
+                                    valid = valid and constraint.valid_value(concrete_item, raise_exceptions=raise_exceptions, path=path+("/" if not first_call else "")+attribute.rm_attribute_name, first_call=False, root=root, archetype=archetype, arch_svc=arch_svc, cons_svc=cons_svc)
+                                    if valid == False:
+                                        return valid
 
         return True
 
@@ -1207,6 +1210,34 @@ class ConstraintRef(CReferenceObject):
         ref = root.findtext("./reference")
         return ConstraintRef(rm_typ, occ, nod, ref, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
 
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None):
+        if cons_svc is None:
+            warnings.warn(ExternalConstraintNotVerifiedWarning("CONSTRAINT_REF cannot be verified as constraint resolver not provided."))
+            return True
+
+        if archetype is None:
+            warnings.warn(ExternalConstraintNotVerifiedWarning("CONSTRAINT_REF cannot be verified as the archetype (containing constraint bindings) was not provided."))
+            return True
+
+        term_id, con_bind = archetype.ontology.constraint_binding_and_terminology(self.reference)
+
+        if term_id is None:
+            if raise_exceptions:
+                raise ValueError(f"{path}: Referenced constraint code {self.reference} does not exist in the archetype")
+            return False
+
+        try:
+            valid = cons_svc.valid_value(TerminologyID(term_id), con_bind, a_value)
+            if valid == False:
+                if raise_exceptions:
+                    raise ValueError(f"{path}: value of {str(a_value)} does not fulfil constraint {self.reference}")
+                return False
+        except TerminologyUnsupportedError as ex:
+            warnings.warn(ExternalConstraintNotVerifiedWarning(f"Could not verify CONSTRAINT_REF as terminology \'{term_id}\' was not supported by the provided constraint resolver"))
+        except ConcreteTypeUnsupportedError as ex:
+            warnings.warn(ExternalConstraintNotVerifiedWarning(f"Could not verify CONSTRAINT_REF as the concrete type \'{self.rm_type_name}\' was not supported by the provided constraint resolver"))
+
+        return True
 
 class CArchetypeRoot(CComplexObject):
     """C_ARCHETYPE_ROOT as defined in Template.xsd"""

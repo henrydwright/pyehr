@@ -9,10 +9,12 @@ import numpy as np
 
 from pyehr.core.am.aom14.archetype.assertion import Assertion
 from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject
+from pyehr.core.am.aom14.archetype.constraint_model.external_reference import IArchetypeRetriever, IConstraintResolver
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID
 from pyehr.core.base.foundation_types.terminology import TerminologyCode
 from pyehr.core.base.resource import AuthoredResource, ResourceAnnotations
+from pyehr.core.rm.common.archetyped import Locatable
 
 __all__ = ['Archetype']
 
@@ -122,7 +124,17 @@ class Archetype(AuthoredResource):
     def short_concept_name(self) -> str:
         """The short concept name of the archetype extracted from the archetype_id."""
         raise NotImplementedError()
-    
+
+    def instance_valid(self, instance: Locatable, raise_exceptions: bool = False, archetype_retriever: Optional[IArchetypeRetriever] = None, constraint_reference_resolver: Optional[IConstraintResolver] = None) -> bool:
+        """True if `instance` satisfies the constraints of this archetype.
+        
+        `ExternalConstraintNotVerifiedWarning` will occur when an ARCHETYPE_SLOT or CONSTRAINT_REF within the ARCHETYPE cannot be validated at runtime.
+        
+        :param instance: The LOCATABLE to test against the definition within the ARCHETYPE
+        :param raise_exceptions: (Optional) Set to True if an invalid instance should raise a 
+        ValueError with more details around why it was not valid rather than just returning False"""
+        return self.definition.valid_value(instance, raise_exceptions=raise_exceptions, first_call=True, root=self.definition, archetype=self, arch_svc=archetype_retriever, cons_svc=constraint_reference_resolver)
+
     def version(self) -> str:
         raise NotImplementedError()
     
