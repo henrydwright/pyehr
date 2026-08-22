@@ -212,7 +212,7 @@ def test_occurences_constraint_applied(example_evaluation):
     )
     # the above constrains something like example_evaluation but with 1 to 2 at0002s
     assert con.valid_value(example_evaluation) == False
-    with pytest.raises(ValueError, match="/at0000/data/at0001/items/at0002: found 3 occurences of at0002 but expected \\[1\\.\\.2\\]"):
+    with pytest.raises(ValueError, match="/data\\[at0001\\]/items\\[at0002\\]: found 3 occurences of at0002 but expected \\[1\\.\\.2\\]"):
         con.valid_value(example_evaluation, raise_exceptions=True)
 
     del example_evaluation.data.items[2]
@@ -223,7 +223,7 @@ def test_occurences_constraint_applied(example_evaluation):
     del example_evaluation.data.items[0]
 
     assert con.valid_value(example_evaluation) == False
-    with pytest.raises(ValueError, match="/at0000/data/at0001/items/at0002: found 0 occurences of at0002 but expected \\[1\\.\\.2\\]"):
+    with pytest.raises(ValueError, match="/data\\[at0001\\]/items\\[at0002\\]: found 0 occurences of at0002 but expected \\[1\\.\\.2\\]"):
         con.valid_value(example_evaluation, raise_exceptions=True)
 
 def test_existence_constraint_applied(example_observation):
@@ -240,7 +240,7 @@ def test_existence_constraint_applied(example_observation):
     )
 
     assert con.valid_value(example_observation) == False
-    with pytest.raises(ValueError, match="/at0000: attribute 'uid' is mandatory \\(existence 1\\.\\.1\\) but WAS NOT provided"):
+    with pytest.raises(ValueError, match="/: attribute 'uid' is mandatory \\(existence 1\\.\\.1\\) but WAS NOT provided"):
         con.valid_value(example_observation, raise_exceptions=True)
 
     example_observation.uid = HierObjectID("ec6b16be-7ae6-4b27-91da-710f6a458c61")
@@ -252,7 +252,7 @@ def test_existence_constraint_applied(example_observation):
     con.attributes[0].existence = MultiplicityInterval(np.int32(0), np.int32(0))
     assert con.valid_value(example_observation) == False
 
-    with pytest.raises(ValueError, match="/at0000: attribute 'uid' is prohibited \\(existence 0\\.\\.0\\) but WAS provided"):
+    with pytest.raises(ValueError, match="/: attribute 'uid' is prohibited \\(existence 0\\.\\.0\\) but WAS provided"):
             con.valid_value(example_observation, raise_exceptions=True)
 
 def test_cardinality_constraint_applied(example_evaluation):
@@ -283,7 +283,7 @@ def test_cardinality_constraint_applied(example_evaluation):
     )
     # the above constrains something like example_evaluation but with 1 to 3 items in items
     assert con.valid_value(example_evaluation) == False
-    with pytest.raises(ValueError, match="/at0000/data/at0001: found 4 items in attribute 'items' but expected \\[1\\.\\.3\\] \\(cardinality\\)"):
+    with pytest.raises(ValueError, match="/data\\[at0001\\]: found 4 items in attribute 'items' but expected \\[1\\.\\.3\\] \\(cardinality\\)"):
         con.valid_value(example_evaluation, raise_exceptions=True)
 
     del example_evaluation.data.items[0]
@@ -295,7 +295,7 @@ def test_cardinality_constraint_applied(example_evaluation):
     del example_evaluation.data.items[0]
 
     assert con.valid_value(example_evaluation) == False
-    with pytest.raises(ValueError, match="/at0000/data/at0001: found 0 items in attribute 'items' but expected \\[1\\.\\.3\\] \\(cardinality\\)"):
+    with pytest.raises(ValueError, match="/data\\[at0001\\]: found 0 items in attribute 'items' but expected \\[1\\.\\.3\\] \\(cardinality\\)"):
         con.valid_value(example_evaluation, raise_exceptions=True)
 
 def test_c_primitive_object_c_string(example_observation):
@@ -337,7 +337,7 @@ def test_c_primitive_object_c_string(example_observation):
 
     example_observation.name.value = "Invalid Value"
     assert con.valid_value(example_observation) == False
-    with pytest.raises(ValueError, match="/at0000/name/value: value of 'Invalid Value' was not in the permitted list of strings"):
+    with pytest.raises(ValueError, match="/name/value: value of 'Invalid Value' was not in the permitted list of strings"):
         con.valid_value(example_observation, raise_exceptions=True)
 
     con.attributes[0].children[0].attributes[0].children[0].item.list_open = True
@@ -345,7 +345,7 @@ def test_c_primitive_object_c_string(example_observation):
 
     con.attributes[0].children[0].attributes[0].children[0].item = CString(pattern=r"^(abacus|wall)$")
     assert con.valid_value(example_observation) == False
-    with pytest.raises(ValueError, match="/at0000/name/value: value of 'Invalid Value' did not match the regex pattern '\\^\\(abacus\\|wall\\)\\$'"):
+    with pytest.raises(ValueError, match="/name/value: value of 'Invalid Value' did not match the regex pattern '\\^\\(abacus\\|wall\\)\\$'"):
         con.valid_value(example_observation, raise_exceptions=True)
 
     example_observation.name.value = "abacus"
@@ -429,7 +429,7 @@ def test_c_primitive_object_c_boolean(example_instruction):
     # the above constrains something like example_instruction but the boolean value
     #  can only be set to False
     assert con.valid_value(example_instruction) == False
-    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0002/items/at0004/value/value: is set to True but only \\[False\\] is valid"):
+    with pytest.raises(ValueError, match="/protocol\\[at0001\\]/items\\[at0002\\]/items\\[at0004\\]/value/value: is set to True but only \\[False\\] is valid"):
         con.valid_value(example_instruction, raise_exceptions=True)
 
     prim.true_valid = True
@@ -506,7 +506,7 @@ def test_c_primitive_object_c_integer(example_instruction):
     # the above constrains something like example_instruction but the number of hops
     #  can only between 0 and 1
     assert con.valid_value(example_instruction) == False
-    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0006/value/magnitude: value of 2 was not in interval range \\[0, 2\\)"):
+    with pytest.raises(ValueError, match="/protocol\\[at0001\\]/items\\[at0006\\]/value/magnitude: value of 2 was not in interval range \\[0, 2\\)"):
         con.valid_value(example_instruction, raise_exceptions=True)
 
     example_instruction.protocol.items[2].value.value = np.int64(1)
@@ -515,7 +515,7 @@ def test_c_primitive_object_c_integer(example_instruction):
     prim.range = None
     prim.list_var = [np.int32(7)]
     assert con.valid_value(example_instruction) == False
-    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0006/value/magnitude: value of 1 was not in list of acceptable values"):
+    with pytest.raises(ValueError, match="/protocol\\[at0001\\]/items\\[at0006\\]/value/magnitude: value of 1 was not in list of acceptable values"):
             con.valid_value(example_instruction, raise_exceptions=True)
 
     example_instruction.protocol.items[2].value.value = np.int64(7)
@@ -588,7 +588,7 @@ def test_c_primitive_object_c_real(example_instruction):
     # an object like example_instruction but the float accuracy must be between 0 and 0.5 inclusive
 
     assert con.valid_value(example_instruction) == False
-    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0006/value/accuracy: value of 1\\.0 was not in interval range \\[0\\.0, 0\\.5\\]"):
+    with pytest.raises(ValueError, match="/protocol\\[at0001\\]/items\\[at0006\\]/value/accuracy: value of 1\\.0 was not in interval range \\[0\\.0, 0\\.5\\]"):
         con.valid_value(example_instruction, raise_exceptions=True)
 
     prim.range = ProperInterval[np.float32](np.float32(0.0), np.float32(5.5), True, False)
@@ -597,7 +597,7 @@ def test_c_primitive_object_c_real(example_instruction):
     prim.range = None
     prim.list_var = [np.float32(16.5)]
     assert con.valid_value(example_instruction) == False
-    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0006/value/accuracy: value of 1\\.0 was not in list of acceptable values"):
+    with pytest.raises(ValueError, match="/protocol\\[at0001\\]/items\\[at0006\\]/value/accuracy: value of 1\\.0 was not in list of acceptable values"):
         con.valid_value(example_instruction, raise_exceptions=True)
 
     prim.list_var = [np.float32(1.0)]
@@ -668,7 +668,7 @@ def test_c_primitive_object_c_date(example_instruction):
     )
     # an object like example_instruction but the date needs to have months AND days
     assert con.valid_value(example_instruction) == False
-    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0007/value/value: date of '1962\\-08' did not fit constraint pattern of YYYY\\-MM\\-DD"):
+    with pytest.raises(ValueError, match="/protocol\\[at0001\\]/items\\[at0007\\]/value/value: date of '1962\\-08' did not fit constraint pattern of YYYY\\-MM\\-DD"):
         con.valid_value(example_instruction, raise_exceptions=True)
 
     prim.day_validity = ValidityKind.OPTIONAL
@@ -677,7 +677,7 @@ def test_c_primitive_object_c_date(example_instruction):
     prim.day_validity = ValidityKind.PROHIBITED
     prim.month_validity = ValidityKind.PROHIBITED
     assert con.valid_value(example_instruction) == False
-    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0007/value/value: date of '1962\\-08' did not fit constraint pattern of YYYY\\-XX\\-XX"):
+    with pytest.raises(ValueError, match="/protocol\\[at0001\\]/items\\[at0007\\]/value/value: date of '1962\\-08' did not fit constraint pattern of YYYY\\-XX\\-XX"):
         con.valid_value(example_instruction, raise_exceptions=True)
 
     prim.month_validity = ValidityKind.OPTIONAL
@@ -688,7 +688,7 @@ def test_c_primitive_object_c_date(example_instruction):
 
     prim.range = ProperInterval[ISODate](ISODate("2020-01"), ISODate("2024-02"), True, True)
     assert con.valid_value(example_instruction) == False
-    with pytest.raises(ValueError, match="at0000/protocol/at0001/items/at0007/value/value: provided date '1962\\-08' was not in range \\[2020\\-01, 2024\\-02\\]"):
+    with pytest.raises(ValueError, match="/protocol\\[at0001\\]/items\\[at0007\\]/value/value: provided date '1962\\-08' was not in range \\[2020\\-01, 2024\\-02\\]"):
         con.valid_value(example_instruction, raise_exceptions=True)
 
     prim.range = ProperInterval[ISODate](ISODate("1952-02-06"), ISODate("2022-09-08"), True, False)
@@ -763,7 +763,7 @@ def test_c_primitive_object_c_time(example_instruction):
 
     # an object like example_instruction but time zone is not allowed
     assert con.valid_value(example_instruction) == False
-    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0008/value/value: time of '22:59:00\\+01:00' has a timezone, which is not permitted"):
+    with pytest.raises(ValueError, match="/protocol\\[at0001\\]/items\\[at0008\\]/value/value: time of '22:59:00\\+01:00' has a timezone, which is not permitted"):
         con.valid_value(example_instruction, raise_exceptions=True)
 
     prim.timezone_validity = None
@@ -771,7 +771,7 @@ def test_c_primitive_object_c_time(example_instruction):
 
     prim.second_validity = ValidityKind.PROHIBITED
     assert con.valid_value(example_instruction) == False
-    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0008/value/value: time of '22:59:00\\+01:00' did not fit constraint pattern of HH:\\?\\?:XX"):
+    with pytest.raises(ValueError, match="/protocol\\[at0001\\]/items\\[at0008\\]/value/value: time of '22:59:00\\+01:00' did not fit constraint pattern of HH:\\?\\?:XX"):
             con.valid_value(example_instruction, raise_exceptions=True)
 
     prim.second_validity = None
@@ -781,7 +781,7 @@ def test_c_primitive_object_c_time(example_instruction):
 
     prim.range = ProperInterval[ISOTime](ISOTime("10:00"), ISOTime("13:22:22+02:00"))
     assert con.valid_value(example_instruction) == False
-    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0008/value/value: provided time of '22:59:00\\+01:00' was not in range \\(10:00:00, 13:22:22\\+02:00\\)"):
+    with pytest.raises(ValueError, match="/protocol\\[at0001\\]/items\\[at0008\\]/value/value: provided time of '22:59:00\\+01:00' was not in range \\(10:00:00, 13:22:22\\+02:00\\)"):
             con.valid_value(example_instruction, raise_exceptions=True)
     
 
@@ -857,7 +857,7 @@ def test_c_primitive_object_c_date_time(example_instruction):
     # an object like example_instruction but date_time only in years and months
 
     assert con.valid_value(example_instruction) == False
-    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0009/value/value: datetime of '2026-08-17T21:57:23Z' did not fit constraint pattern of YYYY\\-MM\\-XXTXX:XX:XX"):
+    with pytest.raises(ValueError, match="/protocol\\[at0001\\]/items\\[at0009\\]/value/value: datetime of '2026-08-17T21:57:23Z' did not fit constraint pattern of YYYY\\-MM\\-XXTXX:XX:XX"):
         con.valid_value(example_instruction, raise_exceptions=True)
 
     prim.day_validity=ValidityKind.MANDATORY
@@ -868,7 +868,7 @@ def test_c_primitive_object_c_date_time(example_instruction):
 
     prim.range = ProperInterval[ISODateTime](ISODateTime("2020"), ISODateTime("2023-02-01T13:00"), True, True)
     assert con.valid_value(example_instruction) == False
-    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0009/value/value: provided datetime of '2026-08-17T21:57:23Z' was not in range \\[2020, 2023-02-01T13:00:00\\]"):
+    with pytest.raises(ValueError, match="/protocol\\[at0001\\]/items\\[at0009\\]/value/value: provided datetime of '2026-08-17T21:57:23Z' was not in range \\[2020, 2023-02-01T13:00:00\\]"):
             con.valid_value(example_instruction, raise_exceptions=True)
 
     prim.range = ProperInterval[ISODateTime](ISODateTime("2020"), ISODateTime("2029-02-01T13:00"), True, True)
@@ -960,7 +960,7 @@ def test_c_primitive_object_c_duration(example_instruction):
 
     # an object like example_instruction but the accuracy measurement can only be in seconds
     assert con.valid_value(example_instruction) == False
-    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0007/value/accuracy/value: duration of 'P1M' did not fit constraint pattern of PTS"):
+    with pytest.raises(ValueError, match="/protocol\\[at0001\\]/items\\[at0007\\]/value/accuracy/value: duration of 'P1M' did not fit constraint pattern of PTS"):
         con.valid_value(example_instruction, raise_exceptions=True)
 
     prim.seconds_allowed = False
@@ -976,7 +976,7 @@ def test_c_primitive_object_c_duration(example_instruction):
     prim.range = ProperInterval[ISODuration](ISODuration("P2M"), ISODuration("P40W"), True)
 
     assert con.valid_value(example_instruction) == False
-    with pytest.raises(ValueError, match="/at0000/protocol/at0001/items/at0007/value/accuracy/value: provided duration of 'P1M' was not in range \\[P2M, P40W\\)"):
+    with pytest.raises(ValueError, match="/protocol\\[at0001\\]/items\\[at0007\\]/value/accuracy/value: provided duration of 'P1M' was not in range \\[P2M, P40W\\)"):
             con.valid_value(example_instruction, raise_exceptions=True)
 
     prim.range = ProperInterval[ISODuration](ISODuration("PT30S"), ISODuration("P1Y"))

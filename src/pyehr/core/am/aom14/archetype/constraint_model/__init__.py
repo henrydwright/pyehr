@@ -228,7 +228,7 @@ class CDefinedObject(CObject):
                 is_equal_value(self.assumed_value, other.assumed_value))
 
     @abstractmethod
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "") -> bool:
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True) -> bool:
         """True if a_value is valid with respect to constraint expressed in concrete 
         instance of this type."""
         from pyehr.types import get_openehr_type_str
@@ -553,11 +553,13 @@ class CComplexObject(CDefinedObject):
     def prototype_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
-        if self.node_id != "":
-            path += f"/{self.node_id}"
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True):
+        if self.node_id != "" and not first_call:
+            path += f"[{self.node_id}]"
+        if first_call:
+            path = "/"
 
-        if not super().valid_value(a_value, raise_exceptions, path):
+        if not super().valid_value(a_value, raise_exceptions, path, first_call):
             return False
 
         from pyehr.types import get_python_attribute_name
@@ -633,7 +635,7 @@ class CComplexObject(CDefinedObject):
                         count = count_dict[node_id] if node_id in count_dict else 0
                         if not occur_dict[node_id].has(count):
                             if raise_exceptions:
-                                raise ValueError(f"{path}/{attribute.rm_attribute_name}/{node_id}: found {count} occurences of {node_id} but expected {str(occur_dict[node_id]).replace(", ", "..")}")
+                                raise ValueError(f"{path}{("/" if not first_call else "")}{attribute.rm_attribute_name}[{node_id}]: found {count} occurences of {node_id} but expected {str(occur_dict[node_id]).replace(", ", "..")}")
                             return False
 
                     # recurse for each child
@@ -643,7 +645,7 @@ class CComplexObject(CDefinedObject):
                             constraint = constraint_dict[node_id]
                             if isinstance(constraint, CDefinedObject):
                                 for concrete_item in items_dict[node_id]:
-                                    valid = valid and constraint.valid_value(concrete_item, raise_exceptions, path=path+"/"+attribute.rm_attribute_name)
+                                    valid = valid and constraint.valid_value(concrete_item, raise_exceptions, path=path+("/" if not first_call else "")+attribute.rm_attribute_name, first_call=False)
                                     if valid == False:
                                         return valid
                             elif isinstance(constraint, ConstraintRef):
@@ -700,8 +702,8 @@ class CPrimitiveObject(CDefinedObject):
     def prototype_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
-        if not super().valid_value(a_value, raise_exceptions, path):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True):
+        if not super().valid_value(a_value, raise_exceptions, path, first_call):
             return False
 
         return self.item.valid_value(a_value, raise_exceptions, path)
@@ -741,8 +743,8 @@ class CDomainType(CDefinedObject):
         """Standard (i.e. C_OBJECT) form of constraint."""
         pass
 
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
-        return self.standard_equivalent().valid_value(a_value, raise_exceptions=raise_exceptions, path=path)
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True):
+        return self.standard_equivalent().valid_value(a_value, raise_exceptions=raise_exceptions, path=path, first_call=first_call)
 
 class CCodePhrase(CDomainType):
     """C_CODE_PHRASE as defined in OpenehrProfile.xsd"""
