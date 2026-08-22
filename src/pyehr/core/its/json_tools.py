@@ -354,7 +354,9 @@ def decode_json(json_obj: dict,
         if "list" in arg_dict:
             arg_dict["list_var"] = arg_dict["list"]
             del arg_dict["list"]
-
+    elif target_type == "DV_ORDINAL":
+        # older systems allow non-integer values for DV_ORDINAL, so relax the constraint when decoding JSON
+        arg_dict["flag_float_value"] = True
 
     instance_list = []
     if flag_allow_resolved_references:

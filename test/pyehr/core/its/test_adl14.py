@@ -11,6 +11,7 @@ from pyehr.core.its.adl14.grammar.Cadl14Lexer import Cadl14Lexer
 from pyehr.core.its.adl14.grammar.Cadl14Parser import Cadl14Parser
 from pyehr.core.its.adl14.grammar.OdinLexer import OdinLexer
 from pyehr.core.its.adl14.grammar.OdinParser import OdinParser
+from pyehr.core.its.json_tools import decode_json
 import pytest
 
 @pytest.fixture(scope="module")
@@ -112,10 +113,19 @@ def test_adl14_decode_no_errors(adl_test_file):
     arch : Archetype = decode_adl14(adl_test_file)
     # if there are no errors we're good to go!
 
+def test_adl14_decode_json_output_decodes(adl_test_file):
+    arch : Archetype = decode_adl14(adl_test_file)
+    decode_json(arch.as_json())
+
 def test_adl14_with_no_translations_decodes():
     # regression for bug where file with no translations would not load
     with open("test/pyehr/core/its/noTranslation.adl14") as f:
         arch = decode_adl14(f.read())
+
+def test_adl14_with_no_translations_json_output_decodes():
+    with open("test/pyehr/core/its/noTranslation.adl14") as f:
+        arch = decode_adl14(f.read())
+        decode_json(arch.as_json())
 
 def test_adl14_odin_with_empty_object_value_decodes():
     # regression for bug where valid appearance of "<>" in ODIN caused "ODIN object value block had no valid children" error
@@ -141,6 +151,11 @@ def test_adl14_cordinal_with_float_values_decodes():
         assert isinstance(ord, CDVOrdinal)
         assert ord.list_var[1].value == 1.5
         assert ord.list_var[1].symbol.defining_code.code_string == "at0519"
+
+def test_adl14_cordinal_with_float_values_json_output_decodes():
+    with open("test/pyehr/core/its/cOrdinalFloatUse.adl14") as f:
+        arch = decode_adl14(f.read())
+        decode_json(arch.as_json())
 
 def test_adl14_empty_c_dv_quantity():
     # regression for bug where valid empty CDVQuantity caused "ODIN object value block had no valid children error"

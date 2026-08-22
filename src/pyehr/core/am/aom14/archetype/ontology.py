@@ -31,6 +31,11 @@ class ConstraintBindingItem(AnyClass, IXMLSupport):
             "_type": "CONSTRAINT_BINDING_ITEM"
         }
 
+    def is_equal(self, other):
+        return (type(self) == type(other) and 
+                is_equal_value(self.value, other.value) and
+                is_equal_value(self.code, other.code))
+
     def as_xml(self, root_tag=None):
         tag = "constraint_binding_item" if root_tag is None else root_tag
         root = ET.Element(tag)
@@ -103,6 +108,11 @@ class ConstraintBindingSet(AnyClass, IXMLSupport):
         if len(item_els) > 0:
             items = [ConstraintBindingItem.from_xml(item_el) for item_el in item_els]
         return ConstraintBindingSet(terminology, items)
+
+    def is_equal(self, other):
+        return (type(self) == type(other) and
+                is_equal_value(self.terminology, other.terminology) and
+                is_equal_value(self.items, other.items))
 
 class CodeDefinitionSet(AnyClass, IXMLSupport):
     """CodeDefinitionSet as defined in Archetype.xsd"""
@@ -396,6 +406,18 @@ class ArchetypeOntology(AnyClass, IXMLSupport):
         
         return constraint_bind
 
+    def constraint_binding_and_terminology(self, a_code: str) -> tuple[Optional[str], Optional['ConstraintBindingItem']]:
+        """(NON-RM METHOD) Binding of constraint corresponding to a_code in first terminology it is found or (None, None) if not present."""
+        if self._constraint_bind_dict is None:
+            return (None, None)
+
+        for terminology_id in self._constraint_bind_dict.keys():
+            constraint_binds = self._constraint_bind_dict[terminology_id]
+            if constraint_binds.item(a_code) is not None:
+                return (terminology_id, constraint_binds.item(a_code))
+
+        return (None, None)
+        
     def extract_xml_elements(root: ET.ElementTree) -> tuple[list[CodeDefinitionSet], Optional[list[CodeDefinitionSet]], Optional[list['TermBindingSet']], Optional[ConstraintBindingSet]]:
         tds_els = root.findall("./term_definitions")
         term_defs = []

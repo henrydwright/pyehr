@@ -43,7 +43,7 @@ class CodePhrase(AnyClass, IXMLSupport):
         super().__init__()
 
     def __str__(self):
-        return f"{self.code_string}|{self.preferred_term}"
+        return self.terminology_id.value + "::" + self.code_string + (f"|{self.preferred_term}" if self.preferred_term is not None else "")
 
     def is_equal(self, other: 'CodePhrase'):
         return (

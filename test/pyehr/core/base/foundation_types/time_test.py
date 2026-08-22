@@ -628,3 +628,36 @@ def test_iso_duration_implements_ordered_methods():
     assert (o1 <= o2) == True
     assert (o1 > o2) == False
     assert (o1 >= o2) == False
+
+def test_iso_date_permits_partial_comparisons():
+    assert (ISODate("2020") < ISODate("2024")) == True
+    assert (ISODate("2025-02") > ISODate("1999")) == True
+    assert (ISODate("2021-02-01") > ISODate("1986")) == True
+    assert (ISODate("2020") < ISODate("2024-02")) == True
+    assert (ISODate("2025-02") > ISODate("1999-05")) == True
+    assert (ISODate("2021-02-01") > ISODate("2021-01")) == True
+    assert (ISODate("2020") < ISODate("2024-02-01")) == True
+    assert (ISODate("2025-02") > ISODate("2020-01-01")) == True
+    assert (ISODate("2021-02-01") > ISODate("1986-03-01")) == True
+    # return True only when certain, otherwise False
+    assert (ISODate("2020") > ISODate("2020")) == False
+    assert (ISODate("2020") > ISODate("2020-01")) == False
+    assert (ISODate("2020") > ISODate("2020-01-01")) == False
+    assert (ISODate("2020") >= ISODate("2020")) == True
+    assert (ISODate("2020") >= ISODate("2020-01")) == False
+    assert (ISODate("2020") >= ISODate("2020-01-01")) == False
+
+    assert (ISODate("2020-01") > ISODate("2020-01")) == False
+    assert (ISODate("2020-01") > ISODate("2020-01-01")) == False
+    assert (ISODate("2020-01") >= ISODate("2020-01")) == True
+    assert (ISODate("2020-01") >= ISODate("2020-01-01")) == False
+
+def test_iso_time_permits_timezone_and_non_timezone_comparisons():
+    # where tz is not given, assume UTC
+    assert (ISOTime("12:00:00+03:00") < ISOTime("12:00:00"))
+    assert (ISOTime("12:00:00+03:00") <= ISOTime("09:00:00"))
+    assert (ISOTime("12:00:00+03:00") < ISOTime("09:00:01"))
+
+def test_iso_datetime_partial_comparisons():
+    assert ISODateTime("2020") < ISODateTime("2023-02-01T13:00")
+    assert ISODateTime("2026-08-17T21:57:23Z") > ISODateTime("2020")

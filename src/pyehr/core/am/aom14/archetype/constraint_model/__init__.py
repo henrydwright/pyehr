@@ -1,19 +1,21 @@
 from abc import abstractmethod
-from typing import Optional
+from typing import Optional, Union
 import warnings
 import xml.etree.ElementTree as ET
 
 import numpy as np
 
 from pyehr.core.am.aom14.archetype.assertion import Assertion
+from pyehr.core.am.aom14.archetype.constraint_model.external_reference import ConcreteTypeUnsupportedError, IArchetypeRetriever, IConstraintResolver, TerminologyUnsupportedError
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CPrimitive, CReal, CString, CTime
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, TermBindingSet
 from pyehr.core.base.base_types.identification import ArchetypeID, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
-from pyehr.core.base.foundation_types.interval import Cardinality, Interval
+from pyehr.core.base.foundation_types.interval import Cardinality, Interval, MultiplicityInterval, ProperInterval
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.its.json_path_utils import json_has_path
 from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
+from pyehr.core.rm.common.archetyped import Locatable, PyehrInternalPathPredicateType, PyehrInternalProcessedPath
 from pyehr.core.rm.data_types.basic import DVState
 from pyehr.core.rm.data_types.quantity import DVOrdinal, DVQuantity
 from pyehr.core.rm.data_types.text import CodePhrase
@@ -22,6 +24,11 @@ __all__ = ['ArchetypeConstraint', 'CObject', 'CDefinedObject', 'CAttribute', 'CS
 
 
 # TODO: implement tests for member methods
+
+class ExternalConstraintNotVerifiedWarning(UserWarning):
+    """Raised when an external constraint (ARCHETYPE_SLOT or CONSTRAINT_REF)
+    cannot be fully verified."""
+    pass
 
 class ArchetypeConstraint(AnyClass, IXMLSupport):
     """Archetype equivalent to LOCATABLE class in openEHR Common reference model. 
@@ -74,9 +81,21 @@ class ArchetypeConstraint(AnyClass, IXMLSupport):
             else:
                 return parent_path + f"/{self._parent_container_attribute_name}{pred}"
 
+    @abstractmethod
+    def _path_eval(self, path: PyehrInternalProcessedPath, check_only: bool, root: 'ArchetypeConstraint') -> Union[bool, 'ArchetypeConstraint']:
+        pass
+
     def has_path(self, a_path: str) -> bool:
         """True if the relative path `a_path` exists at this node."""
-        return json_has_path(self.as_json(), a_path)
+        if a_path != "" and a_path[0] == "/":
+            a_path = a_path[1:]
+        return self._path_eval(PyehrInternalProcessedPath(a_path), True, self)
+
+    def constraint_at_path(self, a_path: str) -> 'ArchetypeConstraint':
+        """Returns the archetype constraint node at the given path"""
+        if a_path != "" and a_path[0] == "/":
+            a_path = a_path[1:]
+        return self._path_eval(PyehrInternalProcessedPath(a_path), False, self)
     
 class CObject(ArchetypeConstraint):
     """Abstract model of constraint on any kind of object node."""
@@ -184,6 +203,12 @@ class CObject(ArchetypeConstraint):
     
     def is_valid(self):
         raise NotImplementedError()
+
+    def _path_eval(self, path: PyehrInternalProcessedPath, check_only, root):
+        if path.is_self_path():
+            return self
+        else:
+            raise NotImplementedError()
     
 class CDefinedObject(CObject):
     """Abstract parent type of C_OBJECT subtypes that are defined by value, i.e. 
@@ -227,10 +252,25 @@ class CDefinedObject(CObject):
                 is_equal_value(self.assumed_value, other.assumed_value))
 
     @abstractmethod
-    def valid_value(self, a_value: AnyClass) -> bool:
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None) -> bool:
         """True if a_value is valid with respect to constraint expressed in concrete 
         instance of this type."""
-        pass
+        from pyehr.types import get_openehr_type_str
+        typ = get_openehr_type_str(a_value)
+        if typ != self.rm_type_name and not ((typ == "STRING" and self.rm_type_name == "DATE") or (typ == "STRING" and self.rm_type_name == "DATE_TIME") or (typ == "STRING" and self.rm_type_name == "TIME") or (typ == "STRING" and self.rm_type_name == "DURATION")):
+            # exceptions above allow for C_DATE, C_TIME or C_DATE_TIME constraints on DV_DATE/value, DV_TIME/value and DV_DATE_TIME/value which are actually strings but this is allowed
+            if raise_exceptions:
+                raise ValueError(f"{self.node_id}: expected rm_type_name of {self.rm_type_name} but found {typ}")
+            return False
+
+        if self.node_id != "":
+            if isinstance(a_value, Locatable):
+                if self.node_id != a_value.archetype_node_id:
+                    if raise_exceptions:
+                        raise ValueError(f"{self.node_id}: expected node_id of {self.node_id} but found {a_value.archetype_node_id}")
+                    return False
+
+        return True
 
     @abstractmethod
     def prototype_value(self) -> AnyClass:
@@ -296,6 +336,7 @@ class CAttribute(ArchetypeConstraint):
     @abstractmethod
     def is_equal(self, other: 'CAttribute'):
         return (
+            type(self) == type(other) and
             is_equal_value(self.rm_attribute_name, other.rm_attribute_name) and
             is_equal_value(self.existence, other.existence) and
             is_equal_value(self.children, other.children)
@@ -358,6 +399,33 @@ class CAttribute(ArchetypeConstraint):
     
     def is_valid(self):
         raise NotImplementedError()
+
+    def _path_eval(self, path: PyehrInternalProcessedPath, check_only, root):
+        if path.is_self_path():
+            return self
+        
+        if path.current_node_attribute != "" and path.current_node_attribute != self.rm_attribute_name:
+            raise ValueError(f"Attribute name mismatch in path navigation: \'{path.current_node_attribute}\' != \'{self.rm_attribute_name}\'")
+
+        if path.current_node_predicate is None:
+            if path.remaining_path is None:
+                return self
+            else:
+                if self.children is None or len(self.children) == 0:
+                    raise ValueError(f"No child existed at {self.rm_attribute_name}")
+                return self.children[0]
+        else:
+            if path.current_node_predicate_type == PyehrInternalPathPredicateType.ARCHETYPE_PATH:
+                for child in self.children:
+                    if child.node_id == path.current_node_predicate:
+                        return child._path_eval(PyehrInternalProcessedPath(path.remaining_path if path.remaining_path is not None else ""), check_only, root)
+                raise ValueError(f"No child with node_id {path.current_node_predicate} existed at {self.rm_attribute_name}")
+            elif path.current_node_predicate_type == PyehrInternalPathPredicateType.POSITIONAL_PARAMETER:
+                if len(self.children) >= (int(path.current_node_predicate) + 1):
+                    return self.children[int(path.current_node_predicate)]._path_eval(PyehrInternalProcessedPath(path.remaining_path if path.remaining_path is not None else ""), check_only, root)
+                raise ValueError(f"No child at index {path.current_node_predicate} existed at {self.rm_attribute_name}")
+            else:
+                raise ValueError(f"Invalid predicate type of {str(path.current_node_predicate_type)}")
 
 class CSingleAttribute(CAttribute):
     """Concrete model of constraint on a single-valued attribute node. The 
@@ -536,9 +604,137 @@ class CComplexObject(CDefinedObject):
     
     def prototype_value(self):
         raise NotImplementedError()
+
+    def _path_eval(self, path, check_only, root):
+        if path.is_self_path():
+            return self
+
+        if self.attributes is None or len(self.attributes) == 0:
+            raise ValueError(f"No attribute existed at {self.node_id}")
+
+        for attribute in self.attributes:
+            if attribute.rm_attribute_name == path.current_node_attribute:
+                return attribute._path_eval(PyehrInternalProcessedPath(f"{f"[{path.current_node_predicate}]/" if path.current_node_predicate is not None else ""}{path.remaining_path if path.remaining_path is not None else ""}"), check_only, root)
+        raise ValueError(f"No attribute with name {path.current_node_attribute} existed at {self.node_id}")
     
-    def valid_value(self, a_value):
-        raise NotImplementedError()
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None) :
+        if self.node_id != "" and not first_call:
+            path += f"[{self.node_id}]"
+        if first_call:
+            path += "/"
+            root = self
+
+        if not super().valid_value(a_value, raise_exceptions=raise_exceptions, path=path, first_call=first_call, root=root, archetype=archetype, arch_svc=arch_svc, cons_svc=cons_svc):
+            return False
+
+        from pyehr.types import get_python_attribute_name
+
+        if self.attributes is not None:
+            for attribute in self.attributes:
+                concrete = getattr(a_value, get_python_attribute_name(self.rm_type_name, attribute.rm_attribute_name))
+
+                # CHECK: existence
+                if attribute.existence.lower == 0 and attribute.existence.upper == 0 and concrete is not None:
+                    if raise_exceptions:
+                        raise ValueError(f"{path}: attribute \'{attribute.rm_attribute_name}\' is prohibited (existence 0..0) but WAS provided")
+                    return False
+                if attribute.existence.lower == 1 and attribute.existence.upper == 1 and concrete is None:
+                    if raise_exceptions:
+                        raise ValueError(f"{path}: attribute \'{attribute.rm_attribute_name}\' is mandatory (existence 1..1) but WAS NOT provided")
+                    return False
+
+                # CHECK: cardinality
+                if isinstance(attribute, CMultipleAttribute):
+                    attr_cardinality = len(concrete)
+                    if not attribute.cardinality.interval.has(attr_cardinality):
+                        if raise_exceptions:
+                            raise ValueError(f"{path}: found {attr_cardinality} items in attribute \'{attribute.rm_attribute_name}\' but expected {str(attribute.cardinality.interval).replace(", ", "..")} (cardinality)")
+                        return False
+
+                if attribute.children is not None:
+                    occur_dict = {}
+                    constraint_dict = {}
+
+                    # build up the occurences constraints we need to check
+                    for child in attribute.children:
+                        occur_dict[child.node_id] = child.occurrences
+                        constraint_dict[child.node_id] = child
+
+                    count_dict = {}
+                    items_dict = {}
+
+                    # count the number of items with each node ID in the concrete instance
+                    if isinstance(attribute, CMultipleAttribute):
+                        for item in concrete:
+                            if isinstance(item, Locatable):
+                                if item.archetype_node_id not in count_dict:
+                                    count_dict[item.archetype_node_id] = 0
+                                    items_dict[item.archetype_node_id] = []
+                                count_dict[item.archetype_node_id] += 1
+                                items_dict[item.archetype_node_id].append(item)
+                            else:
+                                if "" not in count_dict:
+                                    count_dict[""] = 0
+                                    items_dict[""] = []
+                                count_dict[""] += 1
+                                items_dict[""].append(item)
+                    elif isinstance(attribute, CSingleAttribute):
+                        item = concrete
+                        if isinstance(item, Locatable):
+                            if item.archetype_node_id not in count_dict:
+                                count_dict[item.archetype_node_id] = 0
+                                items_dict[item.archetype_node_id] = []
+                            count_dict[item.archetype_node_id] += 1
+                            items_dict[item.archetype_node_id].append(item)
+                        else:
+                            if "" not in count_dict:
+                                count_dict[""] = 0
+                                items_dict[""] = []
+                            count_dict[""] += 1
+                            items_dict[""].append(item)
+                    else:
+                        raise TypeError(f"Unknown attribute type {str(type(attribute))} encountered whilst checking valid values")
+
+                    # CHECK: occurences
+                    for node_id in occur_dict.keys():
+                        count = count_dict[node_id] if node_id in count_dict else 0
+                        if not occur_dict[node_id].has(count):
+                            if raise_exceptions:
+                                raise ValueError(f"{path}{("/" if not first_call else "")}{attribute.rm_attribute_name}[{node_id}]: found {count} occurences of {node_id} but expected {str(occur_dict[node_id]).replace(", ", "..")}")
+                            return False
+
+                    # recurse for each child
+                    for node_id in items_dict.keys():
+                        valid = True
+                        if node_id in constraint_dict:
+                            constraint = constraint_dict[node_id]
+                            if isinstance(constraint, CDefinedObject):
+                                for concrete_item in items_dict[node_id]:
+                                    valid = valid and constraint.valid_value(concrete_item, raise_exceptions, path=path+("/" if not first_call else "")+attribute.rm_attribute_name, first_call=False, root=root, archetype=archetype, arch_svc=arch_svc, cons_svc=cons_svc)
+                                    if valid == False:
+                                        return valid
+                            elif isinstance(constraint, ArchetypeInternalRef):
+                                cons = root.constraint_at_path(constraint.target_path)
+                                if not isinstance(cons, CDefinedObject):
+                                    raise ValueError(f"{path}: target path \'{constraint.target_path}\' did not point to an C_DEFINED_OBJECT so cannot confirm value valid")
+
+                                for concrete_item in items_dict[node_id]:
+                                    valid = valid and cons.valid_value(concrete_item, raise_exceptions, path=path+("/" if not first_call else "")+attribute.rm_attribute_name, first_call=False, root=root, archetype=archetype, arch_svc=arch_svc, cons_svc=cons_svc)
+                                    if valid == False:
+                                        return valid
+                            elif isinstance(constraint, ArchetypeSlot):
+                                for concrete_item in items_dict[node_id]:
+                                    valid = valid and constraint.valid_value(concrete_item, raise_exceptions=raise_exceptions, path=path+("/" if not first_call else "")+attribute.rm_attribute_name, first_call=False, root=root, archetype=archetype, arch_svc=arch_svc, cons_svc=cons_svc)
+                                    if valid == False:
+                                        return valid
+                            elif isinstance(constraint, ConstraintRef):
+                                for concrete_item in items_dict[node_id]:
+                                    valid = valid and constraint.valid_value(concrete_item, raise_exceptions=raise_exceptions, path=path+("/" if not first_call else "")+attribute.rm_attribute_name, first_call=False, root=root, archetype=archetype, arch_svc=arch_svc, cons_svc=cons_svc)
+                                    if valid == False:
+                                        return valid
+
+        return True
+
 
 class CPrimitiveObject(CDefinedObject):
     """Constraint on a primitive type."""
@@ -588,8 +784,11 @@ class CPrimitiveObject(CDefinedObject):
     def prototype_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
-        raise NotImplementedError()
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None) :
+        if not super().valid_value(a_value, raise_exceptions, path, first_call, root, archetype, arch_svc, cons_svc):
+            return False
+
+        return self.item.valid_value(a_value, raise_exceptions, path)
     
     def from_xml(root: ET.Element, **kwargs):
         rm_typ, occur, nod = CObject.extract_xml_elements(root)
@@ -625,6 +824,9 @@ class CDomainType(CDefinedObject):
     def standard_equivalent(self) -> CComplexObject:
         """Standard (i.e. C_OBJECT) form of constraint."""
         pass
+
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None) :
+        return self.standard_equivalent().valid_value(a_value, raise_exceptions=raise_exceptions, path=path, first_call=first_call, root=root, archetype=archetype, arch_svc=arch_svc, cons_svc=cons_svc)
 
 class CCodePhrase(CDomainType):
     """C_CODE_PHRASE as defined in OpenehrProfile.xsd"""
@@ -707,12 +909,69 @@ class CCodePhrase(CDomainType):
     
     def prototype_value(self):
         raise NotImplementedError()
-    
-    def valid_value(self, a_value):
-        raise NotImplementedError()
 
-    def standard_equivalent(self):
-        raise NotImplementedError()
+    def standard_equivalent(self) -> CComplexObject:
+        attributes = []
+
+        if self.terminology_id is not None:
+            attributes.append(
+                CSingleAttribute(
+                    "terminology_id",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                        CComplexObject(
+                            "TERMINOLOGY_ID",
+                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                            "",
+                            attributes=[
+                                CSingleAttribute(
+                                    "value",
+                                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                                    children=[
+                                        CPrimitiveObject(
+                                            "STRING",
+                                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                                            "",
+                                            item=CString(
+                                                list_open=False,
+                                                list_var=[self.terminology_id.value],
+                                            ),
+                                        )
+                                    ],
+                                )
+                            ],
+                        )
+                    ],
+                )
+            )
+
+
+        if self.code_list is not None:
+            attributes.append(
+                CSingleAttribute(
+                    "code_string",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                        CPrimitiveObject(
+                            "STRING",
+                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                            "",
+                            item=CString(
+                                list_open=False,
+                                list_var=self.code_list,
+                            ),
+                        )
+                    ],
+                )
+            )
+
+        return CComplexObject(
+            self.rm_type_name,
+            self.occurrences,
+            self.node_id,
+            assumed_value=self.assumed_value,
+            attributes=attributes,
+        )
 
 class CReferenceObject(CObject):
     """Abstract parent type of C_OBJECT subtypes that are defined by reference."""
@@ -789,6 +1048,62 @@ class ArchetypeSlot(CReferenceObject):
         
         return ArchetypeSlot(rm_typ, occur, nod, incls, excls, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
 
+    def _get_c_string_from_standard_slot_assertion(self, ass: Assertion) -> CString:
+        # retrieve the regex from an ADL v1.4 assertion (a subset of all assertions)
+        c_str = None
+        try:
+            assert ass.expression.left_operand.item.lower() == "archetype_id/value"
+            c_str = ass.expression.right_operand.item
+        except Exception:
+            pass
+
+        return c_str
+
+    def archetype_id_valid(self, archetype_id: ArchetypeID):
+        if self.excludes is not None:
+            for ex_ass in self.excludes:
+                c_str = self._get_c_string_from_standard_slot_assertion(ex_ass)
+                if c_str is not None:
+                    if c_str.valid_value(archetype_id.value):
+                        # matched an exclude
+                        return False
+        if self.includes is not None:
+            for inc_ass in self.includes:
+                c_str = self._get_c_string_from_standard_slot_assertion(inc_ass)
+                if c_str is not None:
+                    if c_str.valid_value(archetype_id.value):
+                        # matched an include
+                        return True
+
+        # didn't match anything
+        return (self.excludes is None and self.includes is None) 
+
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None):
+        # first check the archetype ID matches (we can do this even if we can't then verify the archetype content)
+        if isinstance(a_value, Locatable):
+            arch_deets = a_value.archetype_details
+            if arch_deets is None:
+                if raise_exceptions:
+                    raise ValueError(f"{path}: item cannot fit into ARCHETYPE_SLOT as its archetype_details were empty")
+                return False
+            else:
+                if not self.archetype_id_valid(arch_deets.archetype_id):
+                    if raise_exceptions:
+                        raise ValueError(f"{path}: item with archetype_id \'{arch_deets.archetype_id.value}\' does not match ARCHETYPE_SLOT constraint")
+                    return False
+        else:
+            if raise_exceptions:
+                raise ValueError(f"{path}: item cannot fit into ARCHETYPE_SLOT as not sub-type of LOCATABLE")
+            return False
+
+        if arch_svc is None:
+            warnings.warn(ExternalConstraintNotVerifiedWarning("ARCHETYPE_SLOT cannot be verified as not archetype retrieval service was supplied"))
+        elif arch_svc.get_archetype_by_id(a_value.archetype_details.archetype_id) is None:
+            warnings.warn(ExternalConstraintNotVerifiedWarning(f"ARCHETYPE_SLOT cannot be verified as the archetype retreival service did not contain the required archetype \'{a_value.archetype_details.archetype_id.value}\'"))
+        else:
+            arch = arch_svc.get_archetype_by_id(a_value.archetype_details.archetype_id)
+            return arch.definition.valid_value(a_value, raise_exceptions=raise_exceptions, path=path + "["+ a_value.archetype_details.archetype_id.value +"]", first_call=True, root=arch.definition, archetype=arch, arch_svc=arch_svc, cons_svc=cons_svc)
+
 class ArchetypeInternalRef(CReferenceObject):
     """A constraint defined by proxy, using a reference to an object constraint 
     defined elsewhere in the same archetype.
@@ -842,6 +1157,13 @@ class ArchetypeInternalRef(CReferenceObject):
         rm_typ, occ, nod = CObject.extract_xml_elements(root)
         tgt = root.findtext("./target_path")
         return ArchetypeInternalRef(rm_typ, occ, nod, tgt, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
+
+    def _path_eval(self, path, check_only, root: ArchetypeConstraint):
+        if path.is_self_path():
+            return root.constraint_at_path(self.target_path)
+
+        return root.constraint_at_path(self.target_path)._path_eval(path, check_only, root)
+
     
 class ConstraintRef(CReferenceObject):
     """Reference to a constraint described in the same archetype, but outside the 
@@ -888,6 +1210,34 @@ class ConstraintRef(CReferenceObject):
         ref = root.findtext("./reference")
         return ConstraintRef(rm_typ, occ, nod, ref, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
 
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None):
+        if cons_svc is None:
+            warnings.warn(ExternalConstraintNotVerifiedWarning("CONSTRAINT_REF cannot be verified as constraint resolver not provided."))
+            return True
+
+        if archetype is None:
+            warnings.warn(ExternalConstraintNotVerifiedWarning("CONSTRAINT_REF cannot be verified as the archetype (containing constraint bindings) was not provided."))
+            return True
+
+        term_id, con_bind = archetype.ontology.constraint_binding_and_terminology(self.reference)
+
+        if term_id is None:
+            if raise_exceptions:
+                raise ValueError(f"{path}: Referenced constraint code {self.reference} does not exist in the archetype")
+            return False
+
+        try:
+            valid = cons_svc.valid_value(TerminologyID(term_id), con_bind, a_value)
+            if valid == False:
+                if raise_exceptions:
+                    raise ValueError(f"{path}: value of {str(a_value)} does not fulfil constraint {self.reference}")
+                return False
+        except TerminologyUnsupportedError as ex:
+            warnings.warn(ExternalConstraintNotVerifiedWarning(f"Could not verify CONSTRAINT_REF as terminology \'{term_id}\' was not supported by the provided constraint resolver"))
+        except ConcreteTypeUnsupportedError as ex:
+            warnings.warn(ExternalConstraintNotVerifiedWarning(f"Could not verify CONSTRAINT_REF as the concrete type \'{self.rm_type_name}\' was not supported by the provided constraint resolver"))
+
+        return True
 
 class CArchetypeRoot(CComplexObject):
     """C_ARCHETYPE_ROOT as defined in Template.xsd"""
@@ -1031,7 +1381,7 @@ class CDomainPlaceholder(CDomainType):
     def standard_equivalent(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None) :
         raise NotImplementedError()
 
 class CQuantityItem(AnyClass, IXMLSupport):
@@ -1171,10 +1521,92 @@ class CDVQuantity(CDomainType):
         raise NotImplementedError()
     
     def standard_equivalent(self):
-        raise NotImplementedError()
-    
-    def valid_value(self, a_value):
-        raise NotImplementedError()
+        attributes = []
+
+        def encompassing_interval(intervals):
+            lower = min((interval.lower for interval in intervals if interval.lower is not None), default=None)
+            upper = max((interval.upper for interval in intervals if interval.upper is not None), default=None)
+            lower_included = any(
+                interval.lower == lower and interval.lower_included
+                for interval in intervals
+                if interval.lower is not None
+            )
+            upper_included = any(
+                interval.upper == upper and interval.upper_included
+                for interval in intervals
+                if interval.upper is not None
+            )
+
+            for interval in intervals:
+                if (
+                    interval.lower == lower
+                    and interval.upper == upper
+                    and interval.lower_included == lower_included
+                    and interval.upper_included == upper_included
+                ):
+                    return interval
+
+            return ProperInterval(lower, upper, lower_included, upper_included)
+
+        if self.list_var is not None:
+            magnitudes = [item.magnitude for item in self.list_var if item.magnitude is not None]
+            units = [item.units for item in self.list_var]
+            precisions = [item.precision for item in self.list_var if item.precision is not None]
+
+            if magnitudes:
+                attributes.append(
+                    CSingleAttribute(
+                        "magnitude",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        children=[
+                            CPrimitiveObject(
+                                "REAL",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                "",
+                                CReal(range=encompassing_interval(magnitudes)),
+                            )
+                        ],
+                    )
+                )
+
+            attributes.append(
+                CSingleAttribute(
+                    "units",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                        CPrimitiveObject(
+                            "STRING",
+                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                            "",
+                            CString(list_open=False, list_var=units),
+                        )
+                    ],
+                )
+            )
+
+            if precisions:
+                attributes.append(
+                    CSingleAttribute(
+                        "precision",
+                        MultiplicityInterval(np.int32(0), np.int32(1)),
+                        children=[
+                            CPrimitiveObject(
+                                "INTEGER",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                "",
+                                CReal(range=encompassing_interval(precisions)),
+                            )
+                        ],
+                    )
+                )
+
+        return CComplexObject(
+            self.rm_type_name,
+            self.occurrences,
+            self.node_id,
+            assumed_value=self.assumed_value,
+            attributes=attributes,
+        )
 
 class CDVOrdinal(CDomainType):
     """C_DV_ORDINAL as defined in OpenehrProfile.xsd"""
@@ -1242,10 +1674,309 @@ class CDVOrdinal(CDomainType):
         raise NotImplementedError()
     
     def standard_equivalent(self):
-        raise NotImplementedError()
+        def ordinal_constraint(item: DVOrdinal) -> CComplexObject:
+            constraint = CComplexObject(
+                "DV_ORDINAL",
+                MultiplicityInterval(np.int32(1), np.int32(1)),
+                "",
+                attributes=[
+                    CSingleAttribute(
+                        "value",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        children=[
+                            CPrimitiveObject(
+                                "INTEGER",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                "",
+                                CInteger([int(item.value)])
+                            )
+                        ]
+                    ),
+                    CSingleAttribute(
+                        "symbol",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        children=[
+                            CComplexObject(
+                                "DV_CODED_TEXT",
+                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                "",
+                                attributes=[
+                                    CSingleAttribute(
+                                        "value",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        children=[
+                                            CPrimitiveObject(
+                                                "STRING",
+                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                "",
+                                                CString(list_open=False, list_var=[item.symbol.value])
+                                            )
+                                        ]
+                                    ),
+                                    CSingleAttribute(
+                                        "defining_code",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        children=[
+                                            CComplexObject(
+                                                "CODE_PHRASE",
+                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                "",
+                                                attributes=[
+                                                    CSingleAttribute(
+                                                        "terminology_id",
+                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                        children=[
+                                                            CComplexObject(
+                                                                "TERMINOLOGY_ID",
+                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                "",
+                                                                attributes=[
+                                                                    CSingleAttribute(
+                                                                        "value",
+                                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                        children=[
+                                                                            CPrimitiveObject(
+                                                                                "STRING",
+                                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                                "",
+                                                                                CString(list_open=False, list_var=[item.symbol.defining_code.terminology_id.value])
+                                                                            )
+                                                                        ]
+                                                                    )
+                                                                ]
+                                                            )
+                                                        ]
+                                                    ),
+                                                    CSingleAttribute(
+                                                        "code_string",
+                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                        children=[
+                                                            CPrimitiveObject(
+                                                                "STRING",
+                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                "",
+                                                                CString(list_open=False, list_var=[item.symbol.defining_code.code_string])
+                                                            )
+                                                        ]
+                                                    )
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )
+
+            return constraint
+
+        if self.list_var is None:
+            return CComplexObject(self.rm_type_name, self.occurrences, self.node_id)
+
+        values = [item.value for item in self.list_var]
+        symbols = [item.symbol.value for item in self.list_var]
+        terminology_ids = [item.symbol.defining_code.terminology_id.value for item in self.list_var]
+        codes = [item.symbol.defining_code.code_string for item in self.list_var]
+
+        symbol = CComplexObject(
+            "DV_CODED_TEXT",
+            MultiplicityInterval(np.int32(1), np.int32(1)),
+            "",
+            attributes=[
+                CSingleAttribute(
+                    "value",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                        CPrimitiveObject(
+                            "STRING",
+                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                            "",
+                            CString(list_open=False, list_var=symbols)
+                        )
+                    ]
+                ),
+                CSingleAttribute(
+                    "defining_code",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                        CComplexObject(
+                            "CODE_PHRASE",
+                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                            "",
+                            attributes=[
+                                CSingleAttribute(
+                                    "terminology_id",
+                                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                                    children=[
+                                        CComplexObject(
+                                            "TERMINOLOGY_ID",
+                                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                                            "",
+                                            attributes=[
+                                                CSingleAttribute(
+                                                    "value",
+                                                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                    children=[
+                                                        CPrimitiveObject(
+                                                            "STRING",
+                                                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                            "",
+                                                            CString(list_open=False, list_var=terminology_ids)
+                                                        )
+                                                    ]
+                                                )
+                                            ]
+                                        )
+                                    ]
+                                ),
+                                CSingleAttribute(
+                                    "code_string",
+                                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                                    children=[
+                                        CPrimitiveObject(
+                                            "STRING",
+                                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                                            "",
+                                            CString(list_open=False, list_var=codes)
+                                        )
+                                    ]
+                                )
+                            ]
+                        )
+                    ]
+                )
+            ]
+        )
+
+        attributes = [
+            CSingleAttribute(
+                "value",
+                MultiplicityInterval(np.int32(1), np.int32(1)),
+                children=[
+                    CPrimitiveObject(
+                        "INTEGER",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "",
+                        CInteger(list_var=values)
+                    )
+                ]
+            ),
+            CSingleAttribute(
+                "symbol",
+                MultiplicityInterval(np.int32(1), np.int32(1)),
+                children=[symbol]
+            )
+        ]
+
+        statuses = [item.normal_status for item in self.list_var if item.normal_status is not None]
+        if statuses:
+            attributes.append(
+                CSingleAttribute(
+                    "normal_status",
+                    MultiplicityInterval(np.int32(0), np.int32(1)),
+                    children=[
+                        CCodePhrase(
+                            "CODE_PHRASE",
+                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                            "",
+                            terminology_id=TerminologyID(statuses[0].terminology_id.value),
+                            code_list=[status.code_string for status in statuses]
+                        ).standard_equivalent()
+                    ]
+                )
+            )
+
+        normal_ranges = []
+        for item in self.list_var:
+            if item.normal_range is not None:
+                normal_ranges.append(item.normal_range)
+
+        normal_range_lower_min = "WAIT"
+        normal_range_lower_min_lower_included = False
+        normal_range_upper_max = "WAIT"
+        normal_range_upper_max_upper_included = False
+
+        for dvinterval in normal_ranges:
+            interval = dvinterval.value
+            if normal_range_lower_min == "WAIT":
+                normal_range_lower_min = interval.lower
+                normal_range_lower_min_lower_included = interval.lower_included
+
+            if normal_range_upper_max == "WAIT":
+                normal_range_upper_max = interval.upper
+                normal_range_upper_max_upper_included = interval.upper_included
+
+            if normal_range_lower_min is not None and (interval.lower is not None and interval.lower.value < normal_range_lower_min.value):
+                normal_range_lower_min = interval.lower
+                normal_range_lower_min_lower_included = interval.lower_included
+
+            if normal_range_upper_max is not None and (interval.upper is not None and interval.upper.value > normal_range_upper_max.value):
+                normal_range_upper_max = interval.upper
+                normal_range_upper_max_upper_included = interval.upper_included        
+
+        if len(normal_ranges) > 0:
+            interval_attributes = []
+            if normal_range_lower_min is not None:
+                interval_attributes.append(
+                    CSingleAttribute(
+                        "lower",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        children=[ordinal_constraint(normal_range_lower_min)]
+                    )
+                )
+            if normal_range_upper_max is not None:
+                interval_attributes.append(
+                    CSingleAttribute(
+                        "upper",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        children=[ordinal_constraint(normal_range_upper_max)]
+                    )
+                )
+            interval_attributes.extend([
+                CSingleAttribute(
+                    "lower_included",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[CPrimitiveObject(
+                        "BOOLEAN",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "",
+                        CBoolean(normal_range_lower_min_lower_included, not normal_range_lower_min_lower_included)
+                    )]
+                ),
+                CSingleAttribute(
+                    "upper_included",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[CPrimitiveObject(
+                        "BOOLEAN",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "",
+                        CBoolean(normal_range_upper_max_upper_included, not normal_range_upper_max_upper_included)
+                    )]
+                )
+            ])
+            attributes.append(
+                CSingleAttribute(
+                    "normal_range",
+                    MultiplicityInterval(np.int32(0), np.int32(1)),
+                    children=[CComplexObject(
+                        "DV_INTERVAL",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "",
+                        attributes=interval_attributes
+                    )]
+                )
+            )
+
+        return CComplexObject(
+            self.rm_type_name,
+            self.occurrences,
+            self.node_id,
+            assumed_value=self.assumed_value,
+            attributes=attributes
+        )
     
-    def valid_value(self, a_value):
-        raise NotImplementedError()
 
 class AMState(AnyClass, IXMLSupport):
     """(Abstract) STATE as defined in OpenehrProfile.xsd"""
@@ -1501,7 +2232,7 @@ class CDVState(CDomainType):
     def standard_equivalent(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None):
         raise NotImplementedError()
 
         

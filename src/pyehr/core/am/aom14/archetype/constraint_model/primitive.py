@@ -39,7 +39,7 @@ class CPrimitive(AnyClass, IXMLSupport):
         return (self.assumed_value is not None)
     
     @abstractmethod
-    def valid_value(self, a_value: AnyClass) -> bool:
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "") -> bool:
         """True if a_value is valid with respect to constraint expressed in concrete 
         instance of this type."""
         pass
@@ -118,8 +118,16 @@ class CBoolean(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
-        raise NotImplementedError()
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
+        if a_value == True and not self.true_valid:
+            if raise_exceptions:
+                raise ValueError(f"{path}: is set to True but only [{'False' if self.false_valid else ''}] is valid")
+            return False
+        if a_value == False and not self.false_valid:
+            if raise_exceptions:
+                raise ValueError(f"{path}: is set to False but only [{'True' if self.true_valid else ''}] is valid")
+            return False
+        return True
     
 class CString(CPrimitive):
     """Constraint on instances of STRING."""
@@ -208,8 +216,28 @@ class CString(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
-        raise NotImplementedError()
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
+        if self.list_open:
+            return True
+
+        if self.list_var is not None:
+            for allowed_value in self.list_var:
+                if a_value == allowed_value:
+                    return True
+
+            if raise_exceptions:
+                raise ValueError(f"{path}: value of \'{a_value}\' was not in the permitted list of strings")
+            return False
+
+        if self.pattern is not None:
+            if re.match(self.pattern, a_value) is None:
+                if raise_exceptions:
+                    raise ValueError(f"{path}: value of \'{a_value}\' did not match the regex pattern \'{self.pattern}\'")
+                return False
+            else:
+                return True
+
+        return True
 
 class CInteger(CPrimitive):
     """Constraint on instances of Integer."""
@@ -290,8 +318,20 @@ class CInteger(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
-        raise NotImplementedError()
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
+        if self.range is not None:
+            if not self.range.has(a_value):
+                if raise_exceptions:
+                    raise ValueError(f"{path}: value of {str(a_value)} was not in interval range {str(self.range)}")
+                return False
+
+        if self.list_var is not None:
+            if a_value not in self.list_var:
+                if raise_exceptions:
+                    raise ValueError(f"{path}: value of {str(a_value)} was not in list of acceptable values")
+                return False
+
+        return True
 
 class CReal(CPrimitive):
     """Constraint on instances of Rnteger."""
@@ -372,8 +412,20 @@ class CReal(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
-        raise NotImplementedError()
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
+        if self.range is not None:
+            if not self.range.has(a_value):
+                if raise_exceptions:
+                    raise ValueError(f"{path}: value of {str(a_value)} was not in interval range {str(self.range)}")
+                return False
+
+        if self.list_var is not None:
+            if a_value not in self.list_var:
+                if raise_exceptions:
+                    raise ValueError(f"{path}: value of {str(a_value)} was not in list of acceptable values")
+                return False
+
+        return True
 
 class CDate(CPrimitive):
     """ISO 8601-compatible constraint on instances of Date in the form either 
@@ -454,30 +506,33 @@ class CDate(CPrimitive):
                 day_val = ValidityKind.MANDATORY
         return (day_val, month_val)
 
+    def _validity_str_pattern(self) -> str:
+        pat = "YYYY"
+        if self.month_validity is not None:
+            if self.month_validity == ValidityKind.MANDATORY:
+                pat += "-MM"
+            elif self.month_validity == ValidityKind.PROHIBITED:
+                pat += "-XX"
+            else:
+                pat += "-??"
+        else:
+            pat += "-??"
+        if self.day_validity is not None:
+            if self.day_validity == ValidityKind.MANDATORY:
+                pat += "-DD"
+            elif self.day_validity == ValidityKind.PROHIBITED:
+                pat += "-XX"
+            else:
+                pat += "-??"
+        else:
+            pat += "-??"
+        return pat
+
     def as_xml(self, root_tag = None):
         root = ET.Element("c_date" if root_tag is None else root_tag)
         if self.month_validity is not None or self.day_validity is not None:
-            pat = "YYYY"
-            if self.month_validity is not None:
-                if self.month_validity == ValidityKind.MANDATORY:
-                    pat += "-MM"
-                elif self.month_validity == ValidityKind.PROHIBITED:
-                    pat += "-XX"
-                else:
-                    pat += "-??"
-            else:
-                pat += "-??"
-            if self.day_validity is not None:
-                if self.day_validity == ValidityKind.MANDATORY:
-                    pat += "-DD"
-                elif self.day_validity == ValidityKind.PROHIBITED:
-                    pat += "-XX"
-                else:
-                    pat += "-??"
-            else:
-                pat += "-??"
             pat_el = ET.Element("pattern")
-            pat_el.text = pat
+            pat_el.text = self._validity_str_pattern()
             root.append(pat_el)
 
         if self.timezone_validity is not None:
@@ -513,8 +568,32 @@ class CDate(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value):
-        raise NotImplementedError()
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
+        iso_date : ISODate = a_value
+        if isinstance(iso_date, str):
+            iso_date = ISODate(a_value)
+
+        if self.day_validity is not None:
+            day_unknown = iso_date.day_unknown()
+            if (day_unknown and self.day_validity == ValidityKind.MANDATORY) or (not day_unknown and self.day_validity == ValidityKind.PROHIBITED):
+                if raise_exceptions:
+                    raise ValueError(f"{path}: date of \'{iso_date.value}\' did not fit constraint pattern of {self._validity_str_pattern()}")
+                return False
+
+        if self.month_validity is not None:
+            month_unknown = iso_date.month_unknown()
+            if (month_unknown and self.month_validity == ValidityKind.MANDATORY) or (not month_unknown and self.month_validity == ValidityKind.PROHIBITED):
+                if raise_exceptions:
+                    raise ValueError(f"{path}: date of \'{iso_date.value}\' did not fit constraint pattern of {self._validity_str_pattern()}")
+                return False
+
+        if self.range is not None:
+            if not self.range.has(iso_date):
+                if raise_exceptions:
+                    raise ValueError(f"{path}: provided date \'{iso_date.value}\' was not in range {str(self.range)}")
+                return False
+
+        return True
     
     def validity_is_range(self) -> bool:
         """True if validity is in the form of a range; useful for developers to 
@@ -585,30 +664,34 @@ class CTime(CPrimitive):
         draft["_type"] = "C_TIME"
         return draft
 
+    def _validity_str_pattern(self) -> str:
+        pat = "HH"
+        if self.minute_validity is not None:
+            if self.minute_validity == ValidityKind.MANDATORY:
+                pat += ":MM"
+            elif self.minute_validity == ValidityKind.PROHIBITED:
+                pat += ":XX"
+            else:
+                pat += ":??"
+        else:
+            pat += ":??"
+        if self.second_validity is not None:
+            if self.second_validity == ValidityKind.MANDATORY:
+                pat += ":SS"
+            elif self.second_validity == ValidityKind.PROHIBITED:
+                pat += ":XX"
+            else:
+                pat += ":??"
+        else:
+            pat += ":??"
+        return pat
+        
+
     def as_xml(self, root_tag = None):
         root = ET.Element("c_time" if root_tag is None else root_tag)
         if self.minute_validity is not None or self.second_validity is not None:
-            pat = "HH"
-            if self.minute_validity is not None:
-                if self.minute_validity == ValidityKind.MANDATORY:
-                    pat += ":MM"
-                elif self.minute_validity == ValidityKind.PROHIBITED:
-                    pat += ":XX"
-                else:
-                    pat += ":??"
-            else:
-                pat += ":??"
-            if self.second_validity is not None:
-                if self.second_validity == ValidityKind.MANDATORY:
-                    pat += ":SS"
-                elif self.second_validity == ValidityKind.PROHIBITED:
-                    pat += ":XX"
-                else:
-                    pat += ":??"
-            else:
-                pat += ":??"
             pat_el = ET.Element("pattern")
-            pat_el.text = pat
+            pat_el.text = self._validity_str_pattern()
             root.append(pat_el)
 
         if self.timezone_validity is not None:
@@ -673,8 +756,43 @@ class CTime(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
 
-    def valid_value(self, a_value):
-        raise NotImplementedError()
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
+        iso_time : ISOTime = a_value
+        if isinstance(iso_time, str):
+            iso_time = ISOTime(a_value)
+
+        if self.timezone_validity is not None:
+            timezone_unknown = (iso_time.timezone() == None)
+            if (timezone_unknown and self.timezone_validity == ValidityKind.MANDATORY):
+                if raise_exceptions:
+                    raise ValueError(f"{path}: time of '{iso_time.value}' did not have a timezone, and it is mandatory")
+                return False
+            elif (not timezone_unknown and self.timezone_validity == ValidityKind.PROHIBITED):
+                if raise_exceptions:
+                    raise ValueError(f"{path}: time of '{iso_time.value}' has a timezone, which is not permitted")
+                return False
+
+        if self.second_validity is not None:
+            second_unknown = iso_time.second_unknown()
+            if (second_unknown and self.second_validity == ValidityKind.MANDATORY) or (not second_unknown and self.second_validity == ValidityKind.PROHIBITED):
+                if raise_exceptions:
+                    raise ValueError(f"{path}: time of \'{iso_time.value}\' did not fit constraint pattern of {self._validity_str_pattern()}")
+                return False
+
+        if self.minute_validity is not None:
+            minute_unknown = iso_time.minute_unknown()
+            if (minute_unknown and self.minute_validity == ValidityKind.MANDATORY) or (not minute_unknown and self.minute_validity == ValidityKind.PROHIBITED):
+                if raise_exceptions:
+                    raise ValueError(f"{path}: time of \'{iso_time.value}\' did not fit constraint pattern of {self._validity_str_pattern()}")
+                return False
+
+        if self.range is not None:
+            if not self.range.has(iso_time):
+                if raise_exceptions:
+                    raise ValueError(f"{path}: provided time of \'{iso_time.value}\' was not in range {str(self.range)}")
+                return False
+
+        return True
 
     def validity_is_range(self) -> bool:
         """True if validity is in the form of a range; useful for developers to 
@@ -963,8 +1081,85 @@ class CDateTime(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
 
-    def valid_value(self, a_value):
-        raise NotImplementedError()
+    def _validity_str_pattern(self) -> str:
+        pattern = "YYYY"
+        for validity, symbol in ((self.month_validity, "MM"), (self.day_validity, "DD")):
+            if validity == ValidityKind.MANDATORY:
+                pattern += f"-{symbol}"
+            elif validity == ValidityKind.PROHIBITED:
+                pattern += "-XX"
+            else:
+                pattern += "-??"
+
+        if any(validity is not None for validity in (
+                self.hour_validity, self.minute_validity, self.second_validity)):
+            pattern += "T"
+            for validity, symbol in ((self.hour_validity, "HH"),
+                                     (self.minute_validity, "MM"),
+                                     (self.second_validity, "SS")):
+                if validity == ValidityKind.MANDATORY:
+                    pattern += symbol
+                elif validity == ValidityKind.PROHIBITED:
+                    pattern += "XX"
+                else:
+                    pattern += "??"
+                if symbol != "SS":
+                    pattern += ":"
+
+        return pattern
+
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
+        iso_datetime: ISODateTime = a_value
+        if isinstance(iso_datetime, str):
+            iso_datetime = ISODateTime(a_value)
+
+        pattern = self._validity_str_pattern()
+
+        date_checks = (
+            (self.month_validity, iso_datetime.month_unknown()),
+            (self.day_validity, iso_datetime.day_unknown()),
+        )
+        for validity, unknown in date_checks:
+            if ((unknown and validity == ValidityKind.MANDATORY) or
+                    (not unknown and validity == ValidityKind.PROHIBITED)):
+                if raise_exceptions:
+                    raise ValueError(
+                        f"{path}: datetime of '{iso_datetime.value}' did not fit constraint pattern of {pattern}")
+                return False
+
+        time_unknown = iso_datetime._time is None
+        time_checks = (
+            (self.hour_validity, time_unknown),
+            (self.minute_validity, time_unknown or iso_datetime.minute_unknown()),
+            (self.second_validity, time_unknown or iso_datetime.second_unknown()),
+        )
+        for validity, unknown in time_checks:
+            if ((unknown and validity == ValidityKind.MANDATORY) or
+                    (not unknown and validity == ValidityKind.PROHIBITED)):
+                if raise_exceptions:
+                    raise ValueError(
+                        f"{path}: datetime of '{iso_datetime.value}' did not fit constraint pattern of {pattern}")
+                return False
+
+        if self.timezone_validity is not None:
+            timezone_unknown = time_unknown or iso_datetime.timezone() is None
+            if ((timezone_unknown and self.timezone_validity == ValidityKind.MANDATORY) or
+                    (not timezone_unknown and self.timezone_validity == ValidityKind.PROHIBITED)):
+                if raise_exceptions:
+                    if timezone_unknown:
+                        raise ValueError(
+                            f"{path}: datetime of '{iso_datetime.value}' did not have a timezone, and it is mandatory")
+                    raise ValueError(
+                        f"{path}: datetime of '{iso_datetime.value}' has a timezone, which is not permitted")
+                return False
+
+        if self.range is not None and not self.range.has(iso_datetime):
+            if raise_exceptions:
+                raise ValueError(
+                    f"{path}: provided datetime of '{iso_datetime.value}' was not in range {str(self.range)}")
+            return False
+
+        return True
 
     def validity_is_range(self) -> bool:
         """True if validity is in the form of a range; useful for developers to 
@@ -1176,7 +1371,49 @@ class CDuration(CPrimitive):
     def default_value(self):
         raise NotImplementedError()
 
-    def valid_value(self, a_value):
-        raise NotImplementedError()
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
+        iso_duration: ISODuration = a_value
+        if isinstance(iso_duration, str):
+            iso_duration = ISODuration(a_value)
+
+        pattern = "P"
+        date_components = (
+            (self.years_allowed, iso_duration.years(), "Y"),
+            (self.months_allowed, iso_duration.months(), "M"),
+            (self.weeks_allowed, iso_duration.weeks(), "W"),
+            (self.days_allowed, iso_duration.days(), "D"),
+        )
+        time_components = (
+            (self.hours_allowed, iso_duration.hours(), "H"),
+            (self.minutes_allowed, iso_duration.minutes(), "M"),
+            (self.seconds_allowed, iso_duration.seconds(), "S"),
+        )
+
+        invalid_component = next(
+            (symbol for allowed, value, symbol in date_components + time_components
+             if allowed is False and value != 0),
+            None,
+        )
+        if invalid_component is not None:
+            pattern += "".join(
+                symbol for allowed, _, symbol in date_components if allowed is True
+            )
+            if any(allowed is True for allowed, _, _ in time_components):
+                pattern += "T"
+                pattern += "".join(
+                    symbol for allowed, _, symbol in time_components if allowed is True
+                )
+            if raise_exceptions:
+                raise ValueError(
+                    f"{path}: duration of '{iso_duration.value}' did not fit constraint pattern of {pattern}")
+            return False
+
+        if self.range is not None and not self.range.has(iso_duration):
+            if raise_exceptions:
+                raise ValueError(
+                    f"{path}: provided duration of '{iso_duration.value}' was not in range {str(self.range)}")
+            return False
+
+        return True
 
     
