@@ -1,7 +1,7 @@
 # file dedicated to testing that the constraints_met method works in a range of circumstances
 
 import numpy as np
-from pyehr.core.am.aom14.archetype.constraint_model import CCodePhrase, CComplexObject, CDVOrdinal, CDVQuantity, CMultipleAttribute, CPrimitiveObject, CQuantityItem, CSingleAttribute, ConstraintRef
+from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeInternalRef, CCodePhrase, CComplexObject, CDVOrdinal, CDVQuantity, CMultipleAttribute, CPrimitiveObject, CQuantityItem, CSingleAttribute, ConstraintRef
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
 from pyehr.core.base.base_types.definitions import ValidityKind
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, TerminologyID
@@ -10,11 +10,11 @@ from pyehr.core.base.foundation_types.time import ISODate, ISODuration, ISOTime
 from pyehr.core.rm.common.archetyped import Archetyped
 from pyehr.core.rm.common.generic import PartySelf
 from pyehr.core.rm.composition.content.entry import Evaluation, Instruction, Observation
-from pyehr.core.rm.data_structures.history import History
+from pyehr.core.rm.data_structures.history import History, IntervalEvent, PointEvent
 from pyehr.core.rm.data_structures.item_structure import ItemSingle, ItemStructure, ItemTree
 from pyehr.core.rm.data_structures.representation import Cluster, Element
 from pyehr.core.rm.data_types.basic import DVBoolean
-from pyehr.core.rm.data_types.quantity import DVCount, DVInterval, DVOrdinal, DVQuantity
+from pyehr.core.rm.data_types.quantity import DVCount, DVInterval, DVOrdinal, DVProportion, DVQuantity, DVScale, ProportionKind
 from pyehr.core.rm.data_types.quantity.date_time import DVDate, DVDateTime, DVDuration, DVTime
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText, DVText
 import pytest
@@ -1637,7 +1637,354 @@ def test_c_dv_quantity_constraint_applied(example_instruction):
 
 # test_archetype_slot_constraint_applied
 
-# test_archetype_internal_ref_constraint_applied
+def test_archetype_internal_ref_constraint_applied():
+     his = History[ItemTree](
+             name=DVText("example history"),
+             archetype_node_id="at0001",
+             origin=DVDateTime("2020-08-21T09:03:00Z")
+        )
+     pe = PointEvent[ItemTree](
+                            name=DVText("start"),
+                            archetype_node_id="at0002",
+                            time=DVDateTime("2020-08-21T09:05:21Z"),
+                            data=ItemTree(
+                                 name=DVText("reading"),
+                                 archetype_node_id="at0003",
+                                 items=[
+                                      Element(
+                                           name=DVText("wellbeing"),
+                                           archetype_node_id="at0004",
+                                           value=DVProportion(np.float32(35), np.float32(50), ProportionKind.PK_FRACTION, np.int32(0))
+                                      )
+                                 ]
+                            ),
+                            parent=his
+                       )
+     ie = IntervalEvent[ItemTree](
+          name=DVText("week average"),
+          archetype_node_id="at0005",
+          time=DVDateTime("2020-08-29T10:30:21Z"),
+          data=ItemTree(
+                    name=DVText("reading WRONG"),
+                    archetype_node_id="at0003",
+                    items=[
+                        Element(
+                            name=DVText("wellbeing"),
+                            archetype_node_id="at0004",
+                            value=DVProportion(np.float32(39), np.float32(50), ProportionKind.PK_FRACTION, np.int32(0))
+                        )
+                    ]
+            ),
+            width=DVDuration("P1W"),
+            math_function=DVCodedText("mean", defining_code=CodePhrase("openehr", "146")),
+            parent=his
+     )
+     his.events = [pe, ie]
+     obj = Observation(
+        name=DVText("internal ref test"),
+        archetype_node_id="at0000",
+        language=CodePhrase("ISO_639-1", "en"),
+        encoding=CodePhrase("IANA_character-sets", "UTF-8"),
+        subject=PartySelf(),
+        archetype_details=Archetyped(ArchetypeID("pyehr-EHR-OBSERVATION.internal_ref_example.v0"), "1.1.0"),
+        data=his
+     )
+
+     con = CComplexObject(
+          "OBSERVATION",
+          MultiplicityInterval(np.int32(1), np.int32(1)),
+          "at0000",
+          attributes=[
+               CSingleAttribute(
+                    "data",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                         CComplexObject(
+                              "HISTORY",
+                              MultiplicityInterval(np.int32(1), np.int32(1)),
+                              "at0001",
+                              attributes=[
+                                   CMultipleAttribute(
+                                        "events",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        Cardinality(True, True, MultiplicityInterval(np.int32(2))),
+                                        children=[
+                                             CComplexObject(
+                                                  "POINT_EVENT",
+                                                  MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                  "at0002",
+                                                  attributes=[
+                                                       CSingleAttribute(
+                                                            "data",
+                                                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                            children=[
+                                                                 CComplexObject(
+                                                                      "ITEM_TREE",
+                                                                      MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                      "at0003",
+                                                                      attributes=[
+                                                                           CSingleAttribute(
+                                                                                "name",
+                                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                                children=[
+                                                                                     CComplexObject(
+                                                                                          "DV_TEXT",
+                                                                                          MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                                          "",
+                                                                                          attributes=[
+                                                                                               CSingleAttribute(
+                                                                                                    "value",
+                                                                                                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                                                    children=[
+                                                                                                         CPrimitiveObject(
+                                                                                                              "STRING",
+                                                                                                              MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                                                              "",
+                                                                                                              item=CString(list_open=False, list_var=["reading"])
+                                                                                                         )
+                                                                                                    ]
+                                                                                               )
+                                                                                          ]
+                                                                                     ),
+                                                                                ]
+                                                                           ),
+                                                                           CMultipleAttribute(
+                                                                                "items",
+                                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                                Cardinality(True, False, MultiplicityInterval(np.int32(1), np.int32(1))),
+                                                                                children=[
+                                                                                     CComplexObject(
+                                                                                          "ELEMENT",
+                                                                                          MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                                          "at0004",
+                                                                                          attributes=[
+                                                                                               CSingleAttribute(
+                                                                                                "value",
+                                                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                                                children=[
+                                                                                                     CComplexObject(
+                                                                                                          "DV_PROPORTION",
+                                                                                                          MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                                                          ""
+                                                                                                     )
+                                                                                                ]
+                                                                                               )
+                                                                                          ]
+                                                                                     )
+                                                                                ]
+                                                                           )
+                                                                      ]
+                                                                 )
+                                                            ]
+                                                       )
+                                                  ]
+                                             ),
+                                             CComplexObject(
+                                                "INTERVAL_EVENT",
+                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                "at0005",
+                                                attributes=[
+                                                     CSingleAttribute(
+                                                          "data",
+                                                          MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                          children=[
+                                                               ArchetypeInternalRef(
+                                                                "ITEM_TREE",
+                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                "at0003",
+                                                                "/data[at0001]/events[at0002]/data[at0003]"
+                                                               )
+                                                          ]
+                                                     )
+                                                ]
+                                             )
+                                        ]
+                                   )
+                              ]
+                         )
+                    ]
+               )
+          ]
+     )
+
+     assert con.valid_value(obj) == False
+     with pytest.raises(ValueError, match="/data\\[at0001\\]/events\\[at0005\\]/data\\[at0003\\]/name/value: value of 'reading WRONG' was not in the permitted list of strings"):
+          assert con.valid_value(obj, raise_exceptions=True)
+
+def test_attribute_constraint_at_path():
+    child0 = CComplexObject(
+                    "DV_TEXT",
+                    MultiplicityInterval(np.int32(0), np.int32(1)),
+                    node_id="at0003"
+                )
+    child1 = CComplexObject(
+                    "DV_CODED_TEXT",
+                    MultiplicityInterval(np.int32(0), np.int32(1)),
+                    node_id="at0004"
+            )
+    attr = CSingleAttribute(
+        "data",
+        MultiplicityInterval(np.int32(1), np.int32(1)),
+        children=[child0, child1]
+    )
+    assert attr.constraint_at_path("data[at0003]").is_equal(child0)
+    assert attr.constraint_at_path("[at0003]").is_equal(child0)
+    assert attr.constraint_at_path("data[1]").is_equal(child1)
+    with pytest.raises(ValueError, match="No child at index"):
+         attr.constraint_at_path("data[3]")
+    with pytest.raises(ValueError, match="Attribute name mismatch"):
+        attr.constraint_at_path("events[9]")
+    with pytest.raises(ValueError, match="No child with node_id"):
+         attr.constraint_at_path("data[at0009]")
+
+def test_ccomplexobject_constraint_at_path():
+     attr0 = CSingleAttribute(
+          "name",
+          MultiplicityInterval(np.int32(1), np.int32(1))
+     )
+     attr1 = CMultipleAttribute(
+        "items",
+        MultiplicityInterval(np.int32(1), np.int32(1)),
+        Cardinality(False, False, MultiplicityInterval(np.int32(0)))
+     )
+     obj = CComplexObject(
+          "ITEM_TREE",
+          MultiplicityInterval(np.int32(1), np.int32(1)),
+          "at0001",
+          attributes=[attr0, attr1]
+     )
+     assert obj.constraint_at_path("").is_equal(obj)
+     assert obj.constraint_at_path("/").is_equal(obj)
+     assert obj.constraint_at_path("/name").is_equal(attr0)
+     assert obj.constraint_at_path("/items").is_equal(attr1)
+     with pytest.raises(ValueError, match="No attribute with name"):
+          obj.constraint_at_path("/data")
+
+def test_constraint_at_path():
+    it_obj = CComplexObject(
+                "ITEM_TREE",
+                MultiplicityInterval(np.int32(1), np.int32(1)),
+                "at0003",
+                attributes=[
+                    CSingleAttribute(
+                        "name",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        children=[
+                                CComplexObject(
+                                    "DV_TEXT",
+                                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                                    "",
+                                    attributes=[
+                                        CSingleAttribute(
+                                            "value",
+                                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                                            children=[
+                                                    CPrimitiveObject(
+                                                        "STRING",
+                                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                        "",
+                                                        item=CString(list_open=False, list_var=["reading"])
+                                                    )
+                                            ]
+                                        )
+                                    ]
+                                ),
+                        ]
+                    ),
+                    CMultipleAttribute(
+                        "items",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        Cardinality(True, False, MultiplicityInterval(np.int32(1), np.int32(1))),
+                        children=[
+                                CComplexObject(
+                                    "ELEMENT",
+                                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                                    "at0004",
+                                    attributes=[
+                                        CSingleAttribute(
+                                        "value",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        children=[
+                                                CComplexObject(
+                                                    "DV_PROPORTION",
+                                                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                    ""
+                                                )
+                                        ]
+                                        )
+                                    ]
+                                )
+                        ]
+                    )
+                ]
+            )
+    con = CComplexObject(
+          "OBSERVATION",
+          MultiplicityInterval(np.int32(1), np.int32(1)),
+          "at0000",
+          attributes=[
+               CSingleAttribute(
+                    "data",
+                    MultiplicityInterval(np.int32(1), np.int32(1)),
+                    children=[
+                         CComplexObject(
+                              "HISTORY",
+                              MultiplicityInterval(np.int32(1), np.int32(1)),
+                              "at0001",
+                              attributes=[
+                                   CMultipleAttribute(
+                                        "events",
+                                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                                        Cardinality(True, True, MultiplicityInterval(np.int32(2))),
+                                        children=[
+                                             CComplexObject(
+                                                  "POINT_EVENT",
+                                                  MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                  "at0002",
+                                                  attributes=[
+                                                       CSingleAttribute(
+                                                            "data",
+                                                            MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                            children=[
+                                                                    it_obj
+                                                                 ]
+                                                       )
+                                                  ]
+                                             ),
+                                             CComplexObject(
+                                                "INTERVAL_EVENT",
+                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                "at0005",
+                                                attributes=[
+                                                     CSingleAttribute(
+                                                          "data",
+                                                          MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                          children=[
+                                                               ArchetypeInternalRef(
+                                                                "ITEM_TREE",
+                                                                MultiplicityInterval(np.int32(1), np.int32(1)),
+                                                                "at0003",
+                                                                "/data[at0001]/events[at0002]/data[at0003]"
+                                                               )
+                                                          ]
+                                                     )
+                                                ]
+                                             )
+                                        ]
+                                   )
+                              ]
+                         )
+                    ]
+               )
+          ]
+     )
+
+    # normal path
+    assert con.constraint_at_path("/data[at0001]/events[at0002]/data[at0003]").is_equal(it_obj)
+    
+    # path with archetype_internal_ref
+    assert con.constraint_at_path("/data[at0001]/events[at0005]/data[at0003]").is_equal(it_obj)
+    
 
 def test_constraint_ref_throws_unsupported_error():
      con = CComplexObject(

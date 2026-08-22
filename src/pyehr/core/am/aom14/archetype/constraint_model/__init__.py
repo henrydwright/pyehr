@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Optional
+from typing import Optional, Union
 import warnings
 import xml.etree.ElementTree as ET
 
@@ -14,7 +14,7 @@ from pyehr.core.base.foundation_types.interval import Cardinality, Interval, Mul
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.its.json_path_utils import json_has_path
 from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
-from pyehr.core.rm.common.archetyped import Locatable
+from pyehr.core.rm.common.archetyped import Locatable, PyehrInternalPathPredicateType, PyehrInternalProcessedPath
 from pyehr.core.rm.data_types.basic import DVState
 from pyehr.core.rm.data_types.quantity import DVOrdinal, DVQuantity
 from pyehr.core.rm.data_types.text import CodePhrase
@@ -75,9 +75,21 @@ class ArchetypeConstraint(AnyClass, IXMLSupport):
             else:
                 return parent_path + f"/{self._parent_container_attribute_name}{pred}"
 
+    @abstractmethod
+    def _path_eval(self, path: PyehrInternalProcessedPath, check_only: bool, root: 'ArchetypeConstraint') -> Union[bool, 'ArchetypeConstraint']:
+        pass
+
     def has_path(self, a_path: str) -> bool:
         """True if the relative path `a_path` exists at this node."""
-        return json_has_path(self.as_json(), a_path)
+        if a_path != "" and a_path[0] == "/":
+            a_path = a_path[1:]
+        return self._path_eval(PyehrInternalProcessedPath(a_path), True, self)
+
+    def constraint_at_path(self, a_path: str) -> 'ArchetypeConstraint':
+        """Returns the archetype constraint node at the given path"""
+        if a_path != "" and a_path[0] == "/":
+            a_path = a_path[1:]
+        return self._path_eval(PyehrInternalProcessedPath(a_path), False, self)
     
 class CObject(ArchetypeConstraint):
     """Abstract model of constraint on any kind of object node."""
@@ -185,6 +197,12 @@ class CObject(ArchetypeConstraint):
     
     def is_valid(self):
         raise NotImplementedError()
+
+    def _path_eval(self, path: PyehrInternalProcessedPath, check_only, root):
+        if path.is_self_path():
+            return self
+        else:
+            raise NotImplementedError()
     
 class CDefinedObject(CObject):
     """Abstract parent type of C_OBJECT subtypes that are defined by value, i.e. 
@@ -228,7 +246,7 @@ class CDefinedObject(CObject):
                 is_equal_value(self.assumed_value, other.assumed_value))
 
     @abstractmethod
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True) -> bool:
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None) -> bool:
         """True if a_value is valid with respect to constraint expressed in concrete 
         instance of this type."""
         from pyehr.types import get_openehr_type_str
@@ -312,6 +330,7 @@ class CAttribute(ArchetypeConstraint):
     @abstractmethod
     def is_equal(self, other: 'CAttribute'):
         return (
+            type(self) == type(other) and
             is_equal_value(self.rm_attribute_name, other.rm_attribute_name) and
             is_equal_value(self.existence, other.existence) and
             is_equal_value(self.children, other.children)
@@ -374,6 +393,33 @@ class CAttribute(ArchetypeConstraint):
     
     def is_valid(self):
         raise NotImplementedError()
+
+    def _path_eval(self, path: PyehrInternalProcessedPath, check_only, root):
+        if path.is_self_path():
+            return self
+        
+        if path.current_node_attribute != "" and path.current_node_attribute != self.rm_attribute_name:
+            raise ValueError(f"Attribute name mismatch in path navigation: \'{path.current_node_attribute}\' != \'{self.rm_attribute_name}\'")
+
+        if path.current_node_predicate is None:
+            if path.remaining_path is None:
+                return self
+            else:
+                if self.children is None or len(self.children) == 0:
+                    raise ValueError(f"No child existed at {self.rm_attribute_name}")
+                return self.children[0]
+        else:
+            if path.current_node_predicate_type == PyehrInternalPathPredicateType.ARCHETYPE_PATH:
+                for child in self.children:
+                    if child.node_id == path.current_node_predicate:
+                        return child._path_eval(PyehrInternalProcessedPath(path.remaining_path if path.remaining_path is not None else ""), check_only, root)
+                raise ValueError(f"No child with node_id {path.current_node_predicate} existed at {self.rm_attribute_name}")
+            elif path.current_node_predicate_type == PyehrInternalPathPredicateType.POSITIONAL_PARAMETER:
+                if len(self.children) >= (int(path.current_node_predicate) + 1):
+                    return self.children[int(path.current_node_predicate)]._path_eval(PyehrInternalProcessedPath(path.remaining_path if path.remaining_path is not None else ""), check_only, root)
+                raise ValueError(f"No child at index {path.current_node_predicate} existed at {self.rm_attribute_name}")
+            else:
+                raise ValueError(f"Invalid predicate type of {str(path.current_node_predicate_type)}")
 
 class CSingleAttribute(CAttribute):
     """Concrete model of constraint on a single-valued attribute node. The 
@@ -552,14 +598,27 @@ class CComplexObject(CDefinedObject):
     
     def prototype_value(self):
         raise NotImplementedError()
+
+    def _path_eval(self, path, check_only, root):
+        if path.is_self_path():
+            return self
+
+        if self.attributes is None or len(self.attributes) == 0:
+            raise ValueError(f"No attribute existed at {self.node_id}")
+
+        for attribute in self.attributes:
+            if attribute.rm_attribute_name == path.current_node_attribute:
+                return attribute._path_eval(PyehrInternalProcessedPath(f"{f"[{path.current_node_predicate}]/" if path.current_node_predicate is not None else ""}{path.remaining_path if path.remaining_path is not None else ""}"), check_only, root)
+        raise ValueError(f"No attribute with name {path.current_node_attribute} existed at {self.node_id}")
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None):
         if self.node_id != "" and not first_call:
             path += f"[{self.node_id}]"
         if first_call:
             path = "/"
+            root = self
 
-        if not super().valid_value(a_value, raise_exceptions, path, first_call):
+        if not super().valid_value(a_value, raise_exceptions, path, first_call, root):
             return False
 
         from pyehr.types import get_python_attribute_name
@@ -645,9 +704,19 @@ class CComplexObject(CDefinedObject):
                             constraint = constraint_dict[node_id]
                             if isinstance(constraint, CDefinedObject):
                                 for concrete_item in items_dict[node_id]:
-                                    valid = valid and constraint.valid_value(concrete_item, raise_exceptions, path=path+("/" if not first_call else "")+attribute.rm_attribute_name, first_call=False)
+                                    valid = valid and constraint.valid_value(concrete_item, raise_exceptions, path=path+("/" if not first_call else "")+attribute.rm_attribute_name, first_call=False, root=root)
                                     if valid == False:
                                         return valid
+                            elif isinstance(constraint, ArchetypeInternalRef):
+                                cons = root.constraint_at_path(constraint.target_path)
+                                if not isinstance(cons, CDefinedObject):
+                                    raise ValueError(f"{path}: target path \'{constraint.target_path}\' did not point to an C_DEFINED_OBJECT so cannot confirm value valid")
+
+                                for concrete_item in items_dict[node_id]:
+                                    valid = valid and cons.valid_value(concrete_item, raise_exceptions, path=path+("/" if not first_call else "")+attribute.rm_attribute_name, first_call=False, root=root)
+                                    if valid == False:
+                                        return valid
+                                
                             elif isinstance(constraint, ConstraintRef):
                                 raise NotImplementedError("CONSTRAINT_REF not yet supported so cannot confirm value valid.")
 
@@ -702,8 +771,8 @@ class CPrimitiveObject(CDefinedObject):
     def prototype_value(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True):
-        if not super().valid_value(a_value, raise_exceptions, path, first_call):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None):
+        if not super().valid_value(a_value, raise_exceptions, path, first_call, root):
             return False
 
         return self.item.valid_value(a_value, raise_exceptions, path)
@@ -743,8 +812,8 @@ class CDomainType(CDefinedObject):
         """Standard (i.e. C_OBJECT) form of constraint."""
         pass
 
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True):
-        return self.standard_equivalent().valid_value(a_value, raise_exceptions=raise_exceptions, path=path, first_call=first_call)
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None):
+        return self.standard_equivalent().valid_value(a_value, raise_exceptions=raise_exceptions, path=path, first_call=first_call, root=root)
 
 class CCodePhrase(CDomainType):
     """C_CODE_PHRASE as defined in OpenehrProfile.xsd"""
@@ -1019,6 +1088,13 @@ class ArchetypeInternalRef(CReferenceObject):
         rm_typ, occ, nod = CObject.extract_xml_elements(root)
         tgt = root.findtext("./target_path")
         return ArchetypeInternalRef(rm_typ, occ, nod, tgt, parent=kwargs.get("parent"), parent_container_attribute_name=kwargs.get("parent_container_attribute_name"), list_index=kwargs.get("list_index"))
+
+    def _path_eval(self, path, check_only, root: ArchetypeConstraint):
+        if path.is_self_path():
+            return root.constraint_at_path(self.target_path)
+
+        return root.constraint_at_path(self.target_path)._path_eval(path, check_only, root)
+
     
 class ConstraintRef(CReferenceObject):
     """Reference to a constraint described in the same archetype, but outside the 
@@ -1208,7 +1284,7 @@ class CDomainPlaceholder(CDomainType):
     def standard_equivalent(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", root = None):
         raise NotImplementedError()
 
 class CQuantityItem(AnyClass, IXMLSupport):
@@ -2059,7 +2135,7 @@ class CDVState(CDomainType):
     def standard_equivalent(self):
         raise NotImplementedError()
     
-    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = ""):
+    def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", root=None):
         raise NotImplementedError()
 
         

@@ -25,6 +25,9 @@ class _ImplArchetypeConstraint(ArchetypeConstraint):
     def from_xml(root, **kwargs):
         return None
 
+    def _path_eval(self, path, check_only, root):
+        raise NotImplementedError()
+
 def test_archetype_constraint_path():
     iac1 = _ImplArchetypeConstraint(
         parent=None,

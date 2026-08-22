@@ -92,7 +92,8 @@ class PyehrInternalProcessedPath():
 
     def is_self_path(self):
         """Returns true if current node points to self (i.e. == '')"""
-        return self.current_node_attribute == ""
+        # changed for constraint path processing
+        return ((self.current_node_attribute == "" or self.current_node_attribute is None) and self.current_node_predicate is None)
 
 class Pathable(AnyClass):
     """The PATHABLE class defines the pathing capabilities used by nearly all 
