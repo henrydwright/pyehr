@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 import numpy as np
 
 from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeConstraint, CArchetypeRoot, CAttribute, CComplexObject
+from pyehr.core.am.aom14.archetype.constraint_model.external_reference import IArchetypeRetriever, IConstraintResolver
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, CodeDefinitionSet, ConstraintBindingSet, TermBindingItem, TermBindingSet
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, TemplateID
 from pyehr.core.base.foundation_types.any import AnyClass
@@ -13,6 +14,7 @@ from pyehr.core.base.foundation_types.interval import Interval
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.base.resource import ResourceDescription
 from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
+from pyehr.core.rm.common.archetyped import Locatable
 from pyehr.core.rm.common.generic import RevisionHistory
 from pyehr.core.rm.data_types import DataValue
 from pyehr.core.rm.data_types.text import CodePhrase
@@ -473,6 +475,17 @@ class OperationalTemplate(AnyClass, IXMLSupport):
         view = TView.from_xml(view) if view is not None else None
         
         return OperationalTemplate(lang, tid, concept, is_controlled=is_cont, description=desc, uid=uid, definition=definition, view=view, ontology=onto, constraints=cons)
+
+    def instance_valid(self, instance: Locatable, raise_exceptions: bool = False, archetype_retriever: Optional[IArchetypeRetriever] = None, constraint_reference_resolver: Optional[IConstraintResolver] = None) -> bool:
+        """True if `instance` satisfies the constraints of this archetype.
+        
+        `ExternalConstraintNotVerifiedWarning` will occur when an ARCHETYPE_SLOT or CONSTRAINT_REF within the ARCHETYPE cannot be validated at runtime.
+        
+        :param instance: The LOCATABLE to test against the definition within the ARCHETYPE
+        :param raise_exceptions: (Optional) Set to True if an invalid instance should raise a 
+        ValueError with more details around why it was not valid rather than just returning False"""
+        arch = self.definition._create_archetype(self)
+        return self.definition.valid_value(instance, raise_exceptions=raise_exceptions, first_call=True, root=self.definition, archetype=arch, arch_svc=archetype_retriever, cons_svc=constraint_reference_resolver, template=self)
 
     def as_json(self):
         draft = {

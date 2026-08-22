@@ -1,5 +1,7 @@
 # file dedicated to testing that the constraints_met method works in a range of circumstances
 
+import json
+
 import numpy as np
 from pyehr.core.am.aom14.archetype import Archetype
 from pyehr.core.am.aom14.archetype.assertion import Assertion, ExprBinaryOperator, ExprLeaf, OperatorKind
@@ -7,11 +9,14 @@ from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeInternalRef,
 from pyehr.core.am.aom14.archetype.constraint_model.external_reference import IConstraintResolver, PythonArchetypeRetriever
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, CodeDefinitionSet, ConstraintBindingItem, ConstraintBindingSet
+from pyehr.core.am.opt14 import OperationalTemplate
 from pyehr.core.base.base_types.definitions import ValidityKind
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, TerminologyID
 from pyehr.core.base.foundation_types.interval import Cardinality, ISODateTime, MultiplicityInterval, PointInterval, ProperInterval
 from pyehr.core.base.foundation_types.terminology import TerminologyCode
 from pyehr.core.base.foundation_types.time import ISODate, ISODuration, ISOTime
+from pyehr.core.its.json_tools import decode_json
+from pyehr.core.its.xml_tools import decode_xml
 from pyehr.core.rm.common.archetyped import Archetyped
 from pyehr.core.rm.common.generic import PartySelf
 from pyehr.core.rm.composition import Composition
@@ -2344,3 +2349,10 @@ def test_archetype_instance_valid():
     obs_lang.code_string = "en"
     assert obs_arch.instance_valid(obs) == True
 
+def test_template_instance_valid():
+    with open("test/pyehr/core/am/aom14/archetype/constraint_model/simpleTemplate.xml", "r") as f1:
+         with open("test/pyehr/core/am/aom14/archetype/constraint_model/simpleTemplateInstance.json", "r") as f2:
+            template : OperationalTemplate = decode_xml(f1.read())
+            comp : Composition = decode_json(json.loads(f2.read()))
+
+            assert template.instance_valid(comp) == True
