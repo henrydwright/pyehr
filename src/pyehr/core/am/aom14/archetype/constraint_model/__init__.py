@@ -12,6 +12,7 @@ from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeT
 from pyehr.core.base.base_types.identification import ArchetypeID, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.interval import Cardinality, Interval, MultiplicityInterval, ProperInterval
+from pyehr.core.base.foundation_types.primitive_types import Uri
 from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.base.foundation_types.terminology import TerminologyCode
 from pyehr.core.its.json_path_utils import json_has_path
@@ -190,6 +191,8 @@ class CObject(ArchetypeConstraint):
             return ArchetypeSlot.from_xml(root, **kwargs)
         elif typ == "ARCHETYPE_INTERNAL_REF":
             return ArchetypeInternalRef.from_xml(root, **kwargs)
+        elif typ == "C_CODE_REFERENCE":
+            return CCodeReference.from_xml(root, **kwargs)
         else:
             raise RuntimeError(f"Cannot parse C_OBJECT based element as given type \'{typ}\' was not a sub-type of C_OBJECT")
     
@@ -1235,13 +1238,11 @@ class ConstraintRef(CReferenceObject):
             return False
 
         try:
-            valid = cons_svc.valid_value(TerminologyID(term_id), con_bind, a_value)
+            valid = cons_svc.valid_value(con_bind.value, a_value)
             if valid == False:
                 if raise_exceptions:
                     raise ValueError(f"{path}: value of {str(a_value)} does not fulfil constraint {self.reference}")
                 return False
-        except TerminologyUnsupportedError as ex:
-            warnings.warn(ExternalConstraintNotVerifiedWarning(f"Could not verify CONSTRAINT_REF as terminology \'{term_id}\' was not supported by the provided constraint resolver"))
         except ConcreteTypeUnsupportedError as ex:
             warnings.warn(ExternalConstraintNotVerifiedWarning(f"Could not verify CONSTRAINT_REF as the concrete type \'{self.rm_type_name}\' was not supported by the provided constraint resolver"))
 
@@ -2274,4 +2275,62 @@ class CDVState(CDomainType):
     def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None, template = None):
         raise NotImplementedError()
 
-        
+class CCodeReference(CCodePhrase):
+    """C_CODE_REFERENCE as defined in Template.xsd"""
+
+    reference_set_uri : Uri 
+
+    def __init__(self,
+        rm_type_name: str,
+        occurrences: Interval[np.int32],
+        node_id: str,
+        reference_set_uri: Uri,
+        assumed_value: Optional[CodePhrase] = None,
+        terminology_id: Optional[TerminologyID] = None,
+        code_list: Optional[list[str]] = None,
+        parent: Optional['ArchetypeConstraint'] = None,
+        parent_container_attribute_name: Optional[str] = None,
+        list_index: Optional[int] = None,
+        **kwargs):
+        self.reference_set_uri = reference_set_uri
+        super().__init__(rm_type_name, occurrences, node_id, assumed_value, terminology_id, code_list, parent, parent_container_attribute_name, list_index, **kwargs)
+
+    def is_equal(self, other):
+        return (super().is_equal(other) and
+                is_equal_value(self.reference_set_uri, other.reference_set_uri))
+
+    def as_json(self):
+        draft = super().as_json()
+        draft["reference_set_uri"] = self.reference_set_uri
+        draft["_type"] = "C_CODE_REFERENCE"
+        return draft
+
+    def as_xml(self, root_tag=None):
+        draft = super().as_xml(root_tag)
+        rsu_el = ET.Element("referenceSetUri")
+        rsu_el.text = self.reference_set_uri
+        draft.append(rsu_el)
+        draft.attrib["xsi:type"] = "C_CODE_REFERENCE"
+        return draft
+
+    @staticmethod
+    def from_xml(root, **kwargs):
+        sup = CCodePhrase.from_xml(root, **kwargs)
+        rsu = root.findtext("./referenceSetUri")
+        return CCodeReference(sup.rm_type_name, sup.occurrences, sup.node_id, rsu, sup.assumed_value, sup.terminology_id, sup.code_list, sup._parent, sup._parent_container_attribute_name, sup._list_index)
+
+    def valid_value(self, a_value, raise_exceptions = False, path = "", first_call=True, root=None, archetype=None, arch_svc = None, cons_svc = None, template=None):
+        valid = super().valid_value(a_value, raise_exceptions, path, first_call, root, archetype, arch_svc, cons_svc, template)
+
+        if cons_svc is not None:
+            try:
+                valid = valid and cons_svc.valid_value(self.reference_set_uri, a_value)
+                if valid == False:
+                    if raise_exceptions:
+                        raise ValueError(f"{path}: value of {str(a_value)} does not fulfil constraint with uri \'{self.reference_set_uri}\'")
+            except ConcreteTypeUnsupportedError as ex:
+                warnings.warn(ExternalConstraintNotVerifiedWarning(f"Could not verify C_CODE_REFERENCE as the concrete type \'{self.rm_type_name}\' was not supported by the provided constraint resolver"))
+        else:
+            warnings.warn(ExternalConstraintNotVerifiedWarning(f"Could not verify C_CODE_REFERENCE as a constraint resolver was not provided"))
+
+        return valid
