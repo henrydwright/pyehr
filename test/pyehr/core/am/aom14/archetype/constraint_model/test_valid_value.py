@@ -5,7 +5,7 @@ import json
 import numpy as np
 from pyehr.core.am.aom14.archetype import Archetype
 from pyehr.core.am.aom14.archetype.assertion import Assertion, ExprBinaryOperator, ExprLeaf, OperatorKind
-from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeInternalRef, ArchetypeSlot, CCodePhrase, CComplexObject, CDVOrdinal, CDVQuantity, CMultipleAttribute, CPrimitiveObject, CQuantityItem, CSingleAttribute, ConstraintRef, ExternalConstraintNotVerifiedWarning, ExternalConstraintNotVerifiedWarning
+from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeInternalRef, ArchetypeSlot, CCodePhrase, CCodeReference, CComplexObject, CDVOrdinal, CDVQuantity, CMultipleAttribute, CPrimitiveObject, CQuantityItem, CSingleAttribute, ConstraintRef, ExternalConstraintNotVerifiedWarning, ExternalConstraintNotVerifiedWarning
 from pyehr.core.am.aom14.archetype.constraint_model.external_reference import IConstraintResolver, PythonArchetypeRetriever
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ArchetypeTerm, CodeDefinitionSet, ConstraintBindingItem, ConstraintBindingSet
@@ -13,6 +13,7 @@ from pyehr.core.am.opt14 import OperationalTemplate
 from pyehr.core.base.base_types.definitions import ValidityKind
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, TemplateID, TerminologyID
 from pyehr.core.base.foundation_types.interval import Cardinality, ISODateTime, MultiplicityInterval, PointInterval, ProperInterval
+from pyehr.core.base.foundation_types.primitive_types import Uri
 from pyehr.core.base.foundation_types.terminology import TerminologyCode
 from pyehr.core.base.foundation_types.time import ISODate, ISODuration, ISOTime
 from pyehr.core.its.json_tools import decode_json
@@ -2141,7 +2142,18 @@ def test_archetype_slot_constraint_applied():
 @pytest.fixture
 def constraint_resolver() -> IConstraintResolver:
     class TestConstraintResolver(IConstraintResolver):
-        code_set = {'55057002', '106320003', '45050008'}
+        code_set = {
+            "http://snomed.info/sct?fhir_vs=ecl%2F%3C%3C%21106320003%7CChoreographer%20AND%2FOR%20dancer%7C": {'55057002', '106320003', '45050008'},
+            "http://snomed.info/sct?fhir_vs=ecl%2F%5E999003051000000109": {
+                '394923006',
+                '381751000000106',
+                '1064831000000106',
+                '160734000',
+                '266939009',
+                '32911000'
+                # there are more, but this is just a test example
+            }
+        }
 
         def __init__(self):
              super().__init__()
@@ -2149,11 +2161,11 @@ def constraint_resolver() -> IConstraintResolver:
         def supports_terminology(self, terminology_id):
             return terminology_id.value == "SNOMED-CT"
 
-        def valid_value(self, terminology_id, constraint: ConstraintBindingItem, concrete_value: CodePhrase):
-            if terminology_id.value != "SNOMED-CT" or constraint.value != "http://snomed.info/sct?fhir_vs=ecl%2F%3C%3C%21106320003%7CChoreographer%20AND%2FOR%20dancer%7C" or not isinstance(concrete_value, CodePhrase):
+        def valid_value(self, constraint_uri: Uri, concrete_value: CodePhrase):
+            if constraint_uri not in self.code_set or not isinstance(concrete_value, CodePhrase):
                  raise NotImplementedError("boo hiss")
             else:
-                 return concrete_value.code_string in self.code_set
+                 return concrete_value.code_string in self.code_set[constraint_uri]
 
     return TestConstraintResolver()
 
@@ -2373,4 +2385,42 @@ def test_template_instance_valid():
 
             assert template.instance_valid(comp) == False
 
-            
+def test_c_code_reference_valid_value(constraint_resolver):
+    obj = DVCodedText(
+        "Tent",
+        defining_code=CodePhrase("SNOMED-CT", "3201004")
+    )
+    con = CComplexObject(
+        "DV_CODED_TEXT",
+        MultiplicityInterval(np.int32(1), np.int32(1)),
+        "",
+        attributes=[
+            CSingleAttribute(
+                "defining_code",
+                MultiplicityInterval(np.int32(1), np.int32(1)),
+                children=[
+                    CCodeReference(
+                        "CODE_PHRASE",
+                        MultiplicityInterval(np.int32(1), np.int32(1)),
+                        "",
+                        "http://snomed.info/sct?fhir_vs=ecl%2F%5E999003051000000109"
+                    )
+                ]
+            )
+        ]
+    )
+    with pytest.warns(ExternalConstraintNotVerifiedWarning):
+        assert con.valid_value(obj) == True
+
+    with pytest.warns(ExternalConstraintNotVerifiedWarning):
+        assert con.valid_value(obj) == True
+
+    assert con.valid_value(obj, cons_svc=constraint_resolver) == False
+    with pytest.raises(ValueError, match="/defining_code: value of SNOMED-CT\\:\\:3201004 does not fulfil constraint with uri 'http\\://snomed\\.info/sct\\?fhir_vs=ecl%2F%5E999003051000000109'"):
+        con.valid_value(obj, raise_exceptions=True, cons_svc=constraint_resolver)
+
+    obj.value = "Homeless"
+    obj.defining_code = CodePhrase("SNOMED-CT", "32911000")
+
+    assert con.valid_value(obj, cons_svc=constraint_resolver) == True
+

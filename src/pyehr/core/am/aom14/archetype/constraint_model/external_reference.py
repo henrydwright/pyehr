@@ -7,6 +7,8 @@ from typing import Optional, Union
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeOntology, ConstraintBindingItem
 from pyehr.core.base.base_types.identification import ArchetypeID, TerminologyID
 from pyehr.core.base.foundation_types.any import AnyClass
+from pyehr.core.base.foundation_types.primitive_types import Uri
+from pyehr.core.rm.data_types.text import CodePhrase
 
 __all__ = ['IArchetypeRetriever']
 
@@ -38,7 +40,7 @@ class IConstraintResolver(ABC):
         pass
 
     @abstractmethod
-    def valid_value(self, terminology_id: TerminologyID, constraint: ConstraintBindingItem, concrete_value: Union[AnyClass, str]) -> bool:
+    def valid_value(self, constraint_uri: Uri, concrete_value: CodePhrase) -> bool:
         """Returns whether a concrete value is valid under a given constraint.
         
         :raises TerminologyUnsupportedError: If the terminology in terminology_id is not supported by this resolver"""

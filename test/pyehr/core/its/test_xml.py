@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 from pyehr.core.its.xml_tools import decode_xml
 
 from pyehr.core.am.aom14.archetype.assertion import Assertion, AssertionVariable, ExprBinaryOperator, ExprLeaf, ExprUnaryOperator, OperatorKind
-from pyehr.core.am.aom14.archetype.constraint_model import AMNonTerminalState, AMStateMachine, AMTerminalState, AMTransition, CCodePhrase, CComplexObject, CDVOrdinal, CDVQuantity, CDVState, CMultipleAttribute, CQuantityItem, CSingleAttribute
+from pyehr.core.am.aom14.archetype.constraint_model import AMNonTerminalState, AMStateMachine, AMTerminalState, AMTransition, CCodePhrase, CCodeReference, CComplexObject, CDVOrdinal, CDVQuantity, CDVState, CMultipleAttribute, CQuantityItem, CSingleAttribute
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CBoolean, CDate, CDateTime, CDuration, CInteger, CReal, CString, CTime
 from pyehr.core.am.aom14.archetype.ontology import ArchetypeTerm, CodeDefinitionSet, TermBindingItem
 from pyehr.core.base.base_types.definitions import ValidityKind
@@ -659,4 +659,13 @@ def test_its_xml_template_t_view():
 
 # T_COMPLEX_OBJECT
 
-# C_CODE_REFERENCE
+def test_its_xml_c_code_reference():
+    t_ccr = CCodeReference(
+        "CODE_PHRASE",
+        PointInterval(np.int32(1)),
+        "",
+        "http://snomed.info/sct?fhir_vs=ecl%2F%5E999003051000000109"
+    )
+
+    validate(t_ccr, "Template.xsd", "C_CODE_REFERENCE")
+    check_from_xml(t_ccr, CCodeReference)
