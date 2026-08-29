@@ -17,7 +17,7 @@ from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.base.foundation_types.terminology import TerminologyCode
 from pyehr.core.its.json_path_utils import json_has_path
 from pyehr.core.its.xml import IXMLSupport, get_pyehr_type_from_element
-from pyehr.core.rm.common.archetyped import Locatable, PyehrInternalPathPredicateType, PyehrInternalProcessedPath
+from pyehr.core.rm.common.archetyped import Archetyped, Locatable, PyehrInternalPathPredicateType, PyehrInternalProcessedPath
 from pyehr.core.rm.data_types.basic import DVState
 from pyehr.core.rm.data_types.quantity import DVOrdinal, DVQuantity
 from pyehr.core.rm.data_types.text import CodePhrase
@@ -282,6 +282,28 @@ class CDefinedObject(CObject):
     @abstractmethod
     def prototype_value(self) -> AnyClass:
         """Generate a prototype value from this constraint object."""
+        pass
+
+    @abstractmethod
+    def unfilled_json(self, include_optional_elements=True) -> dict:
+        """Generate an ITS JSON dict with empty values for all required primitive values.
+        
+        For example, doing this on an otherwise unconstrained CodePhrase would result in the following
+        invalid (due to the blanks), but with blanks ready to fill, ITS(ish) JSON:
+        ```
+        {
+            '_type': 'CODE_PHRASE',
+            'terminology_id': {
+                'value': '',
+                '_type': 'TERMINOLOGY_ID'
+            },
+            'code_string': ''
+        }
+        ```
+        
+        :param include_optional_elements: (Optional) By default unfilled includes all the optional elements, but this
+                                          may not be desirable in some circumstances (e.g. if getting an unfilled json for
+                                          an RM prototype class)"""
         pass
 
     def has_assumed_value(self) -> bool:
@@ -746,6 +768,65 @@ class CComplexObject(CDefinedObject):
 
         return True
 
+    def unfilled_json(self, include_optional_elements=True):
+        d = dict()
+        from pyehr.core.am.aom14.archetype.constraint_model.prototypes import OPENEHR_TYPE_TO_PROTOTYPE_MAP
+        if self.attributes is None:
+            # fill outselves out from the RM if we can
+            proto = OPENEHR_TYPE_TO_PROTOTYPE_MAP.get(self.rm_type_name)
+            if proto is not None:
+                return proto.unfilled_json(include_optional_elements=False)
+        else:
+            rm_proto = OPENEHR_TYPE_TO_PROTOTYPE_MAP.get(self.rm_type_name)
+            rm_required_attributes = dict() # str -> CAttribute
+            if rm_proto is not None and rm_proto.attributes is not None:
+                for rm_attr in rm_proto.attributes:
+                    if not rm_attr.existence.has(0):
+                        # i.e. mandatory
+                        rm_required_attributes[rm_attr.rm_attribute_name] = rm_attr
+
+            for attribute in self.attributes:
+                if attribute.rm_attribute_name in rm_required_attributes:
+                    del rm_required_attributes[attribute.rm_attribute_name]
+                
+                if attribute.existence.has(0) and not include_optional_elements:
+                    # if this attribute is optional, and we're not including optional elements, skip it
+                    continue
+                if isinstance(attribute, CSingleAttribute):
+                    if attribute.children is not None:
+                        for child in attribute.children:
+                            if isinstance(child, CDefinedObject):
+                                d[attribute.rm_attribute_name] = child.unfilled_json()
+                                break
+                else:
+                    if attribute.children is not None:
+                        lst = []
+                        for child in attribute.children:
+                            if isinstance(child, CDefinedObject):
+                                lst.append(child.unfilled_json())
+                        d[attribute.rm_attribute_name] = lst
+
+            # add any attributes in the RM but missing from template
+            for required_attribute in rm_required_attributes.values():
+                if isinstance(required_attribute, CSingleAttribute):
+                    if required_attribute.children is not None:
+                        for child in required_attribute.children:
+                            if isinstance(child, CDefinedObject):
+                                d[required_attribute.rm_attribute_name] = child.unfilled_json(include_optional_elements=False)
+                                break
+                else:
+                    if required_attribute.children is not None:
+                        lst = []
+                        for child in required_attribute.children:
+                            if isinstance(child, CDefinedObject):
+                                lst.append(child.unfilled_json(include_optional_elements=False))
+                        d[required_attribute.rm_attribute_name] = lst
+
+        if self.node_id != "":
+            d['archetype_node_id'] = self.node_id
+        d['_type'] = self.rm_type_name
+        return d
+
 
 class CPrimitiveObject(CDefinedObject):
     """Constraint on a primitive type."""
@@ -800,6 +881,9 @@ class CPrimitiveObject(CDefinedObject):
             return False
 
         return self.item.valid_value(a_value, raise_exceptions, path)
+
+    def unfilled_json(self, include_optional_elements=True):
+        return self.item.unfilled_value()
     
     def from_xml(root: ET.Element, **kwargs):
         rm_typ, occur, nod = CObject.extract_xml_elements(root)
@@ -838,6 +922,9 @@ class CDomainType(CDefinedObject):
 
     def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None, template = None) :
         return self.standard_equivalent().valid_value(a_value, raise_exceptions=raise_exceptions, path=path, first_call=first_call, root=root, archetype=archetype, arch_svc=arch_svc, cons_svc=cons_svc, template=template)
+
+    def unfilled_json(self, include_optional_elements=True):
+        return self.standard_equivalent().unfilled_json(include_optional_elements)
 
 class CCodePhrase(CDomainType):
     """C_CODE_PHRASE as defined in OpenehrProfile.xsd"""
@@ -1372,6 +1459,14 @@ class CArchetypeRoot(CComplexObject):
             return False
         arch = self._create_archetype(template)
         return super().valid_value(a_value, raise_exceptions, path, first_call, self, arch, arch_svc, cons_svc, template)
+
+    def unfilled_json(self, include_optional_elements=True):
+        d = super().unfilled_json(include_optional_elements)
+        arch_dets = Archetyped(self.archetype_id, "1.1.0", self.template_id)
+        del d["_type"]
+        d["archetype_details"] = arch_dets.as_json()
+        d["_type"] = self.rm_type_name
+        return d
     
 # C_DOMAIN_TYPEs that are defined in OpenehrProfile.xsd. Would be in a separate class
 #  however they are here to avoid headache of circular import errors
@@ -2334,3 +2429,8 @@ class CCodeReference(CCodePhrase):
             warnings.warn(ExternalConstraintNotVerifiedWarning(f"Could not verify C_CODE_REFERENCE as a constraint resolver was not provided"))
 
         return valid
+
+    def unfilled_json(self, include_optional_elements=True):
+        if self.code_list is None and self.terminology_id is None:
+            from pyehr.core.am.aom14.archetype.constraint_model.prototypes import OPENEHR_TYPE_TO_PROTOTYPE_MAP
+            return OPENEHR_TYPE_TO_PROTOTYPE_MAP["CODE_PHRASE"].unfilled_json(include_optional_elements=False)

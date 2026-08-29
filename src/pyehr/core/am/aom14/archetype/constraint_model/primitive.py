@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 import numpy as np
 import re
 
+from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.definitions import ValidityKind
 from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.interval import Interval
@@ -43,6 +44,10 @@ class CPrimitive(AnyClass, IXMLSupport):
         """True if a_value is valid with respect to constraint expressed in concrete 
         instance of this type."""
         pass
+
+    def unfilled_value(self) -> str:
+        """Returns a value representing 'blank' in some sense. Often does not fulfil the constraint."""
+        return ""
 
     @abstractmethod
     def is_equal(self, other):
@@ -128,6 +133,13 @@ class CBoolean(CPrimitive):
                 raise ValueError(f"{path}: is set to False but only [{'True' if self.true_valid else ''}] is valid")
             return False
         return True
+
+    def unfilled_value(self):
+        if self.true_valid:
+            return True
+        if self.false_valid:
+            return False
+        return None
     
 class CString(CPrimitive):
     """Constraint on instances of STRING."""
@@ -239,6 +251,14 @@ class CString(CPrimitive):
 
         return True
 
+    def unfilled_value(self):
+        if self.list_open:
+            return ""
+        if self.list_var is not None:
+            return self.list_var[0]
+
+        return ""
+
 class CInteger(CPrimitive):
     """Constraint on instances of Integer."""
 
@@ -333,6 +353,20 @@ class CInteger(CPrimitive):
 
         return True
 
+    def unfilled_value(self):
+        if self.list_var is not None:
+            return int(self.list_var[0])
+        if self.range is not None:
+            if self.range.lower is not None and self.range.upper is not None:
+                return (int(self.range.upper - self.range.lower)//2)
+            if self.range.lower is not None:
+                return int(self.range.lower)
+            if self.range.upper is not None:
+                return int(self.range.upper)
+
+        return 0
+        
+
 class CReal(CPrimitive):
     """Constraint on instances of Rnteger."""
 
@@ -426,6 +460,17 @@ class CReal(CPrimitive):
                 return False
 
         return True
+
+    def unfilled_value(self):
+        if self.list_var is not None:
+            return float(self.list_var[0])
+        if self.range is not None:
+            if self.range.lower is not None:
+                return float(self.range.lower)
+            if self.range.upper is not None:
+                return float(self.range.upper)
+
+        return 0.0
 
 class CDate(CPrimitive):
     """ISO 8601-compatible constraint on instances of Date in the form either 
@@ -594,6 +639,15 @@ class CDate(CPrimitive):
                 return False
 
         return True
+
+    def unfilled_value(self):
+        now_date = ISODate("1900-01-01")
+        ret_str = now_date.as_string()
+        if self.day_validity == ValidityKind.PROHIBITED:
+            ret_str = ret_str[:6]
+        if self.month_validity == ValidityKind.PROHIBITED:
+            ret_str = ret_str[:4]
+        return ret_str
     
     def validity_is_range(self) -> bool:
         """True if validity is in the form of a range; useful for developers to 
@@ -708,6 +762,15 @@ class CTime(CPrimitive):
         root.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
         root.attrib["xsi:type"] = "C_TIME"
         return root
+
+    def unfilled_value(self):
+        now_time = ISOTime("00:00:01")
+        ret_str = now_time.as_string()
+        if self.second_validity == ValidityKind.PROHIBITED:
+            ret_str = ret_str[:4]
+        if self.minute_validity == ValidityKind.PROHIBITED:
+            ret_str = ret_str[:2]
+        return ret_str
 
     @staticmethod
     def constraint_pattern_to_validity_kinds(pattern: str) -> tuple[ValidityKind, ValidityKind]:
@@ -1165,6 +1228,22 @@ class CDateTime(CPrimitive):
         """True if validity is in the form of a range; useful for developers to 
         check which kind of constraint has been set."""
         return self.range is not None
+
+    def unfilled_value(self):
+        now_date_time = ISODateTime("1900-01-01T00:00:01")
+        ret_str = now_date_time.as_string()
+        # XXXX-XX-XXTHH:MM:SS.zzz
+        if self.second_validity == ValidityKind.PROHIBITED:
+            ret_str = ret_str[:15]
+        if self.minute_validity == ValidityKind.PROHIBITED:
+            ret_str = ret_str[:12]
+        if self.hour_validity == ValidityKind.PROHIBITED:
+            ret_str = ret_str[:9]
+        if self.day_validity == ValidityKind.PROHIBITED:
+            ret_str = ret_str[:6]
+        if self.month_validity == ValidityKind.PROHIBITED:
+            ret_str = ret_str[:4]
+        return ret_str
     
 class CDuration(CPrimitive):
     """ISO 8601-compatible constraint on instances of Duration. In ISO 8601 terms, constraints might are of the 
@@ -1415,5 +1494,25 @@ class CDuration(CPrimitive):
             return False
 
         return True
+
+    def unfilled_value(self):
+        ret_str = "P"
+        if self.years_allowed:
+            ret_str += "0Y"
+        if self.months_allowed:
+            ret_str += "0M"
+        if self.weeks_allowed:
+            ret_str += "0W"
+        if self.days_allowed:
+            ret_str += "0D"
+        if self.hours_allowed or self.minutes_allowed or self.seconds_allowed:
+            ret_str += "T"
+        if self.hours_allowed:
+            ret_str += "0H"
+        if self.minutes_allowed:
+            ret_str += "0M"
+        if self.seconds_allowed:
+            ret_str += "0S"
+        return ret_str
 
     
