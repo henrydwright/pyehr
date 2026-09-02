@@ -204,6 +204,7 @@ class DVDuration(DVAmount):
         
         return DVDuration(value, normal_status, normal_range, other_reference_ranges, 
                          magnitude_status, accuracy, accuracy_is_percent)
+
 class DVTemporal(DVAbsoluteQuantity):
     """Specialised temporal variant of DV_ABSOLUTE_QUANTITY whose diff type is DV_DURATION."""
 
@@ -584,6 +585,7 @@ class DVTime(DVTemporal):
                 other_reference_ranges.append(ReferenceRange.from_xml(ref_range_el))
         
         return DVTime(value, normal_status, normal_range, other_reference_ranges, magnitude_status, accuracy)
+
 class DVDateTime(DVTemporal):
     """Represents an absolute point in time, specified to the second. Semantics defined 
     by ISO 8601.
