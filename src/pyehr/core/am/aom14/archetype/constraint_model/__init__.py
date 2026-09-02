@@ -796,14 +796,14 @@ class CComplexObject(CDefinedObject):
                     if attribute.children is not None:
                         for child in attribute.children:
                             if isinstance(child, CDefinedObject):
-                                d[attribute.rm_attribute_name] = child.unfilled_json()
+                                d[attribute.rm_attribute_name] = child.unfilled_json(include_optional_elements)
                                 break
                 else:
                     if attribute.children is not None:
                         lst = []
                         for child in attribute.children:
                             if isinstance(child, CDefinedObject):
-                                lst.append(child.unfilled_json())
+                                lst.append(child.unfilled_json(include_optional_elements))
                         d[attribute.rm_attribute_name] = lst
 
             # add any attributes in the RM but missing from template
