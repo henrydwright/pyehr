@@ -286,7 +286,7 @@ class CDefinedObject(CObject):
         pass
 
     @abstractmethod
-    def unfilled_json(self, include_optional_elements=True) -> dict:
+    def unfilled_json(self, include_optional_elements=True, root=None) -> dict:
         """Generate an ITS JSON dict with empty values for all required primitive values.
         
         For example, doing this on an otherwise unconstrained CodePhrase would result in the following
@@ -774,14 +774,16 @@ class CComplexObject(CDefinedObject):
 
         return True
 
-    def unfilled_json(self, include_optional_elements=True):
+    def unfilled_json(self, include_optional_elements=True, root=None):
+        if root is None:
+            root = self
         d = dict()
         from pyehr.core.am.aom14.archetype.constraint_model.prototypes import OPENEHR_TYPE_TO_PROTOTYPE_MAP
         if self.attributes is None:
             # fill outselves out from the RM if we can
             proto = OPENEHR_TYPE_TO_PROTOTYPE_MAP.get(self.rm_type_name)
             if proto is not None:
-                return proto.unfilled_json(include_optional_elements=False)
+                return proto.unfilled_json(include_optional_elements=False, root=root)
         else:
             rm_proto = OPENEHR_TYPE_TO_PROTOTYPE_MAP.get(self.rm_type_name)
             rm_required_attributes = dict() # str -> CAttribute
@@ -801,15 +803,15 @@ class CComplexObject(CDefinedObject):
                 if isinstance(attribute, CSingleAttribute):
                     if attribute.children is not None:
                         for child in attribute.children:
-                            if isinstance(child, CDefinedObject):
-                                d[attribute.rm_attribute_name] = child.unfilled_json(include_optional_elements)
+                            if isinstance(child, CDefinedObject) or isinstance(child, ArchetypeInternalRef):
+                                d[attribute.rm_attribute_name] = child.unfilled_json(include_optional_elements, root=root)
                                 break
                 else:
                     if attribute.children is not None:
                         lst = []
                         for child in attribute.children:
-                            if isinstance(child, CDefinedObject):
-                                lst.append(child.unfilled_json(include_optional_elements))
+                            if isinstance(child, CDefinedObject) or isinstance(child, ArchetypeInternalRef):
+                                lst.append(child.unfilled_json(include_optional_elements, root=root))
                         d[attribute.rm_attribute_name] = lst
 
             # add any attributes in the RM but missing from template
@@ -817,15 +819,15 @@ class CComplexObject(CDefinedObject):
                 if isinstance(required_attribute, CSingleAttribute):
                     if required_attribute.children is not None:
                         for child in required_attribute.children:
-                            if isinstance(child, CDefinedObject):
-                                d[required_attribute.rm_attribute_name] = child.unfilled_json(include_optional_elements=False)
+                            if isinstance(child, CDefinedObject) or isinstance(child, ArchetypeInternalRef):
+                                d[required_attribute.rm_attribute_name] = child.unfilled_json(include_optional_elements=False, root=root)
                                 break
                 else:
                     if required_attribute.children is not None:
                         lst = []
                         for child in required_attribute.children:
-                            if isinstance(child, CDefinedObject):
-                                lst.append(child.unfilled_json(include_optional_elements=False))
+                            if isinstance(child, CDefinedObject) or isinstance(child, ArchetypeInternalRef):
+                                lst.append(child.unfilled_json(include_optional_elements=False, root=root))
                         d[required_attribute.rm_attribute_name] = lst
 
         if self.node_id != "":
@@ -888,7 +890,7 @@ class CPrimitiveObject(CDefinedObject):
 
         return self.item.valid_value(a_value, raise_exceptions, path)
 
-    def unfilled_json(self, include_optional_elements=True):
+    def unfilled_json(self, include_optional_elements=True, root=None):
         return self.item.unfilled_value()
     
     def from_xml(root: ET.Element, **kwargs):
@@ -929,7 +931,7 @@ class CDomainType(CDefinedObject):
     def valid_value(self, a_value: AnyClass, raise_exceptions: bool = False, path: str = "", first_call=True, root=None, archetype=None, arch_svc :Optional[IArchetypeRetriever] = None, cons_svc: Optional[IConstraintResolver] = None, template = None) :
         return self.standard_equivalent().valid_value(a_value, raise_exceptions=raise_exceptions, path=path, first_call=first_call, root=root, archetype=archetype, arch_svc=arch_svc, cons_svc=cons_svc, template=template)
 
-    def unfilled_json(self, include_optional_elements=True):
+    def unfilled_json(self, include_optional_elements=True, root=None):
         return self.standard_equivalent().unfilled_json(include_optional_elements)
 
 class CCodePhrase(CDomainType):
@@ -1268,6 +1270,9 @@ class ArchetypeInternalRef(CReferenceObject):
 
         return root.constraint_at_path(self.target_path)._path_eval(path, check_only, root)
 
+    def unfilled_json(self, include_optional_elements=True, root=None):
+        return root.constraint_at_path(self.target_path).unfilled_json(include_optional_elements, root)
+
     
 class ConstraintRef(CReferenceObject):
     """Reference to a constraint described in the same archetype, but outside the 
@@ -1466,8 +1471,8 @@ class CArchetypeRoot(CComplexObject):
         arch = self._create_archetype(template)
         return super().valid_value(a_value, raise_exceptions, path, first_call, self, arch, arch_svc, cons_svc, template)
 
-    def unfilled_json(self, include_optional_elements=True):
-        d = super().unfilled_json(include_optional_elements)
+    def unfilled_json(self, include_optional_elements=True, root=None):
+        d = super().unfilled_json(include_optional_elements, root=self)
         arch_dets = Archetyped(self.archetype_id, "1.1.0", self.template_id)
         del d["_type"]
         d["archetype_details"] = arch_dets.as_json()
@@ -2436,7 +2441,7 @@ class CCodeReference(CCodePhrase):
 
         return valid
 
-    def unfilled_json(self, include_optional_elements=True):
+    def unfilled_json(self, include_optional_elements=True, root=None):
         if self.code_list is None and self.terminology_id is None:
             from pyehr.core.am.aom14.archetype.constraint_model.prototypes import OPENEHR_TYPE_TO_PROTOTYPE_MAP
             return OPENEHR_TYPE_TO_PROTOTYPE_MAP["CODE_PHRASE"].unfilled_json(include_optional_elements=False)
