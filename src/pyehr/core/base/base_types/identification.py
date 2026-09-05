@@ -378,6 +378,10 @@ class ArchetypeID(ObjectID):
         self._version_id = parts[8][1:]
         super().__init__(value, **kwargs)
 
+    @staticmethod
+    def string_matches_archetype_id_format(string: str) -> bool:
+        return (re.match(ArchetypeID.ARCHETYPE_ID_REGEX, string) is not None)
+
     def qualified_rm_entity(self) -> str:
         """Globally qualified reference model entity, e.g. `openehr-EHR-OBSERVATION`."""
         return f"{self._rm_originator}-{self._rm_name}-{self._rm_entity}"

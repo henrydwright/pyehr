@@ -29,6 +29,8 @@ class PyehrInternalPathPredicateType(Enum):
     """e.g. `/data/events[at0001, 'standing']`"""
     POSITIONAL_PARAMETER = 3
     """e.g. `/data/items[1]`"""
+    ARCHETYPE_ID = 4
+    """e.g. `/data/items[openEHR-EHR-CLUSTER.example.v0]"""
     OTHER = 99
     """Unknown type or more complex query string e.g. `/data/events[at0007 AND time >= '24-06-2005T09:30:00']`"""
 
@@ -83,6 +85,9 @@ class PyehrInternalProcessedPath():
             elif len(raw_predicate) > 2 and raw_predicate[:2] == "at":
                 self.current_node_predicate = raw_predicate
                 self.current_node_predicate_type = PyehrInternalPathPredicateType.ARCHETYPE_PATH
+            elif ArchetypeID.string_matches_archetype_id_format(raw_predicate):
+                self.current_node_predicate = raw_predicate
+                self.current_node_predicate_type = PyehrInternalPathPredicateType.ARCHETYPE_ID
             else:
                 self.current_node_predicate = raw_predicate
                 self.current_node_predicate_type = PyehrInternalPathPredicateType.OTHER

@@ -2,6 +2,7 @@ from abc import abstractmethod
 from typing import Optional, Union
 import warnings
 import xml.etree.ElementTree as ET
+from copy import deepcopy, copy
 
 import numpy as np
 
@@ -453,6 +454,11 @@ class CAttribute(ArchetypeConstraint):
                 if len(self.children) >= (int(path.current_node_predicate) + 1):
                     return self.children[int(path.current_node_predicate)]._path_eval(PyehrInternalProcessedPath(path.remaining_path if path.remaining_path is not None else ""), check_only, root)
                 raise ValueError(f"No child at index {path.current_node_predicate} existed at {self.rm_attribute_name}")
+            elif path.current_node_predicate_type == PyehrInternalPathPredicateType.ARCHETYPE_ID:
+                for child in self.children:
+                    if isinstance(child, CArchetypeRoot) and child.archetype_id.value == path.current_node_predicate:
+                        return child._path_eval(PyehrInternalProcessedPath(path.remaining_path if path.remaining_path is not None else ""), check_only, root)
+                raise ValueError(f"No archetype root child with archetype_id {path.current_node_predicate} existed at {self.rm_attribute_name}")
             else:
                 raise ValueError(f"Invalid predicate type of {str(path.current_node_predicate_type)}")
 
@@ -2434,3 +2440,32 @@ class CCodeReference(CCodePhrase):
         if self.code_list is None and self.terminology_id is None:
             from pyehr.core.am.aom14.archetype.constraint_model.prototypes import OPENEHR_TYPE_TO_PROTOTYPE_MAP
             return OPENEHR_TYPE_TO_PROTOTYPE_MAP["CODE_PHRASE"].unfilled_json(include_optional_elements=False)
+
+def _recurse_resolve_archetype_internal_refs(obj: CObject, root: Optional[CObject] = None) -> CObject:
+    if isinstance(obj, CComplexObject):
+        if isinstance(obj, CArchetypeRoot):
+            root = obj
+        if obj.attributes is not None:
+            for attribute in obj.attributes:
+                if attribute.children is not None:
+                    new_children = []
+                    for child in attribute.children:
+                         new_children.append(_recurse_resolve_archetype_internal_refs(child, root))
+                    attribute.children = new_children
+        return obj
+    elif isinstance(obj, ArchetypeInternalRef):
+        new_obj = root.constraint_at_path(obj.target_path)
+        if new_obj is None:
+            raise ValueError(f"ARCHETYPE_INTERNAL_REF pointing to {obj.target_path} could not be resolved.")
+        new_obj = copy(new_obj)
+        new_obj.occurrences = obj.occurrences
+        return _recurse_resolve_archetype_internal_refs(new_obj, root)
+    else:
+        return obj
+
+def resolve_archetype_internal_refs(obj: CObject) -> CObject:
+    """Takes an object constraint, and returns a deep copy of the same object
+    with any internal references resolved to their targets."""
+    new_obj = deepcopy(obj)
+    return _recurse_resolve_archetype_internal_refs(new_obj, new_obj)
+    
