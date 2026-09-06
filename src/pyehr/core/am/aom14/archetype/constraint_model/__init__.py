@@ -2473,4 +2473,56 @@ def resolve_archetype_internal_refs(obj: CObject) -> CObject:
     with any internal references resolved to their targets."""
     new_obj = deepcopy(obj)
     return _recurse_resolve_archetype_internal_refs(new_obj, new_obj)
+
+def _remove_optional_attributes(obj: CComplexObject):
+    new_obj = copy(obj)
+    new_attr_list = []
+    if new_obj.attributes is not None:
+        for attribute in new_obj.attributes:
+            if not attribute.existence.has(0):
+                new_attr_list.append(attribute)
+    new_obj.attributes = new_attr_list
+    return new_obj
+
+def _recurse_add_rm_constraints(obj: CComplexObject):
+    from pyehr.core.am.aom14.archetype.constraint_model.prototypes import OPENEHR_TYPE_TO_PROTOTYPE_MAP
+    if not isinstance(obj, CComplexObject):
+        return obj
+
+
+    required_rm_proto = _remove_optional_attributes(OPENEHR_TYPE_TO_PROTOTYPE_MAP.get(obj.rm_type_name))
+    if obj.attributes is None:
+        obj.attributes = required_rm_proto.attributes
+    else:
+        d = dict()
+        for required_rm_attr in required_rm_proto.attributes:
+            d[required_rm_attr.rm_attribute_name] = required_rm_attr
+        for existing_attr in obj.attributes:
+            if existing_attr.rm_attribute_name in d:
+                del d[existing_attr.rm_attribute_name]
+        for missing_required_attr in d.values():
+            copy_attr = deepcopy(missing_required_attr)
+            if copy_attr.children is not None:
+                for child in copy_attr.children:
+                    child.attributes = None
+            obj.attributes.append(copy_attr)
+
+
+    for attr in obj.attributes:
+        if attr.children is not None:
+            for child in attr.children:
+                child = _recurse_add_rm_constraints(child)
+
+    return obj
+
+def add_rm_constraints(obj: CComplexObject) -> CComplexObject:
+    """Takes an object constraint, and returns a deep copy of the same object
+    with constraints from RM objects added to the constraint model.
+
+    Skips any class not a descendant of C_COMPLEX_OBJECT.
     
+    :param include_optional_elements: (Optional, default=False) If set to True, add all
+                                      the optional fields from the RM to the constraint model
+                                      of the object"""
+    new_obj = deepcopy(obj)
+    return _recurse_add_rm_constraints(new_obj)

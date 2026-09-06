@@ -11,7 +11,7 @@ from copy import deepcopy
 
 INT_ZERO_TO_MANY = MultiplicityInterval(int32(0))
 INT_ONE_TO_MANY = MultiplicityInterval(int32(1))
-INT_OPTIONAL = MultiplicityInterval(int32(0), int32(0))
+INT_OPTIONAL = MultiplicityInterval(int32(0), int32(1))
 INT_REQUIRED = MultiplicityInterval(int32(1), int32(1))
 
 CARD_ZERO_TO_MANY_LIST = Cardinality(True, False, INT_ZERO_TO_MANY)

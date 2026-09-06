@@ -1,8 +1,9 @@
-from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeInternalRef, CArchetypeRoot, CCodePhrase, CComplexObject, CMultipleAttribute, CPrimitiveObject, CSingleAttribute, resolve_archetype_internal_refs
+from pyehr.core.am.aom14.archetype.constraint_model import ArchetypeInternalRef, CArchetypeRoot, CCodePhrase, CComplexObject, CMultipleAttribute, CPrimitiveObject, CSingleAttribute, add_rm_constraints, resolve_archetype_internal_refs
 from pyehr.core.am.aom14.archetype.constraint_model.primitive import CString
 from pyehr.core.base.base_types.identification import ArchetypeID
 from pyehr.core.base.foundation_types.interval import Cardinality, MultiplicityInterval
 import pytest
+import json
 
 from numpy import int32
 
@@ -118,3 +119,96 @@ def test_resolve_archetype_internal_refs():
                                                                             "",
                                                                             code_list=["at0010", "at0011"]
                                                                         ))
+
+
+def test_add_rm_constraints():
+    before = CComplexObject(
+        "ELEMENT",
+        MultiplicityInterval(int32(1), int32(1)),
+        "at0000",
+        attributes=[
+            CSingleAttribute(
+                "value",
+                MultiplicityInterval(int32(1), int32(1)),
+                children=[
+                    CComplexObject(
+                        "DV_TEXT",
+                        MultiplicityInterval(int32(1), int32(1)),
+                        ""
+                    )
+                ]
+            )
+        ]
+    )
+
+    after = CComplexObject(
+        "ELEMENT",
+        MultiplicityInterval(int32(1), int32(1)),
+        "at0000",
+        attributes=[
+            CSingleAttribute(
+                "value",
+                MultiplicityInterval(int32(1), int32(1)),
+                children=[
+                    CComplexObject(
+                        "DV_TEXT",
+                        MultiplicityInterval(int32(1), int32(1)),
+                        "",
+                        attributes=[
+                            CSingleAttribute(
+                                "value",
+                                MultiplicityInterval(int32(1), int32(1)),
+                                children=[
+                                    CPrimitiveObject(
+                                        "STRING",
+                                        MultiplicityInterval(int32(1), int32(1)),
+                                        "",
+                                        item=CString(pattern=".*")
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            ),
+            CSingleAttribute(
+                "name",
+                MultiplicityInterval(int32(1), int32(1)),
+                children=[
+                    CComplexObject(
+                        "DV_TEXT",
+                        MultiplicityInterval(int32(1), int32(1)),
+                        "",
+                        attributes=[
+                            CSingleAttribute(
+                                "value",
+                                MultiplicityInterval(int32(1), int32(1)),
+                                children=[
+                                    CPrimitiveObject(
+                                        "STRING",
+                                        MultiplicityInterval(int32(1), int32(1)),
+                                        "",
+                                        item=CString(pattern=".*")
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            ),
+            CSingleAttribute(
+                "archetype_node_id",
+                MultiplicityInterval(int32(1), int32(1)),
+                children=[
+                    CPrimitiveObject(
+                        "STRING",
+                        MultiplicityInterval(int32(1), int32(1)),
+                        "",
+                        item=CString(pattern=".*")
+                    )
+                ]
+            )
+        ]
+    )
+
+    assert add_rm_constraints(before).is_equal(after)
