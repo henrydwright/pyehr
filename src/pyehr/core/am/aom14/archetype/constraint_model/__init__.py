@@ -2475,6 +2475,8 @@ def resolve_archetype_internal_refs(obj: CObject) -> CObject:
     return _recurse_resolve_archetype_internal_refs(new_obj, new_obj)
 
 def _remove_optional_attributes(obj: CComplexObject):
+    if obj is None:
+        return None
     new_obj = copy(obj)
     new_attr_list = []
     if new_obj.attributes is not None:
@@ -2489,8 +2491,12 @@ def _recurse_add_rm_constraints(obj: CComplexObject):
     if not isinstance(obj, CComplexObject):
         return obj
 
-
-    required_rm_proto = _remove_optional_attributes(OPENEHR_TYPE_TO_PROTOTYPE_MAP.get(obj.rm_type_name))
+    rm_proto = OPENEHR_TYPE_TO_PROTOTYPE_MAP.get(obj.rm_type_name)
+    if rm_proto is None:
+        return obj
+    
+    required_rm_proto = _remove_optional_attributes(rm_proto)
+    
     if obj.attributes is None:
         obj.attributes = required_rm_proto.attributes
     else:

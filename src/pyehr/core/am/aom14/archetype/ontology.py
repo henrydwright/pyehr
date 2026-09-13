@@ -252,6 +252,8 @@ class ArchetypeOntology(AnyClass, IXMLSupport):
       specialisation_depth."""
     # this should be mandatory as per the spec, but makes decoding hard so made optional
     #  for now.
+
+    _code_to_term_def_and_binding_dict : Optional[dict[str, tuple[dict[str, dict[str, str]], dict[str, CodePhrase]]]]
     
     term_attribute_names: Optional[list[str]]
     # This has no explaining in the spec, and doesn't feature in the XML spec so making it
@@ -279,11 +281,16 @@ class ArchetypeOntology(AnyClass, IXMLSupport):
         term_codes = set()
 
         self._term_def_dict = dict()
+        self._code_to_term_def_and_binding_dict = dict()
         for term_def in term_definitions:
             self._term_def_dict[term_def.language] = term_def
             languages_available.add(term_def.language)
             for term_def_item in term_def.items:
                 term_codes.add(term_def_item.code)
+                if term_def_item.code not in self._code_to_term_def_and_binding_dict:
+                    self._code_to_term_def_and_binding_dict[term_def_item.code] = (dict(),dict())
+                self._code_to_term_def_and_binding_dict[term_def_item.code][0][term_def.language] = term_def_item.items
+
 
         if term_bindings is not None:
             self._term_bind_dict = dict()
@@ -292,6 +299,9 @@ class ArchetypeOntology(AnyClass, IXMLSupport):
                 for term_bind_item in term_bind.items:
                     term_codes.add(term_bind_item.code)
                     terminologies_available.add(term_bind_item.value.terminology_id.value)
+                    if term_bind_item.code not in self._code_to_term_def_and_binding_dict:
+                        self._code_to_term_def_and_binding_dict[term_bind_item.code] = (dict(),dict())
+                    self._code_to_term_def_and_binding_dict[term_bind_item.code][1][term_bind.terminology] = term_bind_item.value
 
         self.term_codes = list(term_codes)
 
@@ -354,6 +364,15 @@ class ArchetypeOntology(AnyClass, IXMLSupport):
         
         return term
 
+    def term_definitions_for_code(self, a_code: str) -> dict[str, dict[str, str]]:
+        """Term definitions in all languages for a given code.
+        
+        :returns: Dict mapping from language -> term definition item key (e.g. "text" or "description") -> value"""
+        if a_code not in self._code_to_term_def_and_binding_dict:
+            raise ValueError(f"Code \'{a_code}\' does not exist in this ontology")
+
+        return self._code_to_term_def_and_binding_dict[a_code][0]
+
     def constraint_definition(self, a_code: str, a_lang: str) -> 'ArchetypeTerm':
         """Constraint definition for a code, in a specified language."""
         if self._constraint_def_dict is None:
@@ -388,6 +407,14 @@ class ArchetypeOntology(AnyClass, IXMLSupport):
             raise ValueError(f"Code '{a_code}' was not present in the term bindings for '{a_terminology}'")
         
         return term_bind
+
+    def term_bindings_for_code(self, a_code: str) -> dict[str, CodePhrase]:
+        """Returns all the term bindings for a given code, as a dict mapping from terminology ID
+        to the CODE_PHRASE binding for that terminology_id"""
+        if a_code not in self._code_to_term_def_and_binding_dict:
+            raise ValueError(f"Code {a_code} does not exist in this ontology")
+
+        return self._code_to_term_def_and_binding_dict[a_code][1]
 
     def constraint_binding(self, a_terminology_id: str, a_code: str) -> 'ConstraintBindingItem':
         """Binding of constraint corresponding to a_code in target external 
