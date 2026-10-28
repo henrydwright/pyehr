@@ -15,14 +15,14 @@ from pyehr.core.base.foundation_types.interval import Cardinality, Interval, Mul
 from pyehr.core.base.foundation_types.terminology import TerminologyCode
 from pyehr.core.base.foundation_types.time import ISODate, ISODateTime, ISODuration, ISOTime
 from pyehr.core.base.resource import ResourceDescription, ResourceDescriptionItem, TranslationDetails
-from pyehr.core.its.adl14.grammar.Adl14Lexer import Adl14Lexer
-from pyehr.core.its.adl14.grammar.Adl14Parser import Adl14Parser
-from pyehr.core.its.adl14.grammar.Cadl14Lexer import Cadl14Lexer
-from pyehr.core.its.adl14.grammar.Cadl14Parser import Cadl14Parser
-from pyehr.core.its.adl14.grammar.ElLexer import ElLexer
-from pyehr.core.its.adl14.grammar.ElParser import ElParser
-from pyehr.core.its.adl14.grammar.OdinLexer import OdinLexer
-from pyehr.core.its.adl14.grammar.OdinParser import OdinParser
+from pyehr.core.lang.Adl14Lexer import Adl14Lexer
+from pyehr.core.lang.Adl14Parser import Adl14Parser
+from pyehr.core.lang.Cadl14Lexer import Cadl14Lexer
+from pyehr.core.lang.Cadl14Parser import Cadl14Parser
+from pyehr.core.lang.ElLexer import ElLexer
+from pyehr.core.lang.ElParser import ElParser
+from pyehr.core.lang.OdinLexer import OdinLexer
+from pyehr.core.lang.OdinParser import OdinParser
 from pyehr.core.rm.data_types.quantity import DVOrdinal
 from pyehr.core.rm.data_types.text import CodePhrase, DVCodedText
 

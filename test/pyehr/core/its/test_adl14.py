@@ -4,13 +4,13 @@ from antlr4 import CommonTokenStream, InputStream
 from pyehr.core.am.aom14.archetype import Archetype
 from pyehr.core.am.aom14.archetype.constraint_model import CComplexObject, CDVOrdinal
 from pyehr.core.base.base_types.identification import UUID, ArchetypeID, HierObjectID
-from pyehr.core.its.adl14.grammar.Adl14Lexer import Adl14Lexer
-from pyehr.core.its.adl14.grammar.Adl14Parser import Adl14Parser
+from pyehr.core.lang.Adl14Lexer import Adl14Lexer
+from pyehr.core.lang.Adl14Parser import Adl14Parser
 from pyehr.core.its.adl14 import decode_adl14, _decode_header, _decode_concept, _decode_specialise, _odin_to_raw_json, _odin_to_dict, _decode_description, _decode_terminology, _cadl_to_cobject
-from pyehr.core.its.adl14.grammar.Cadl14Lexer import Cadl14Lexer
-from pyehr.core.its.adl14.grammar.Cadl14Parser import Cadl14Parser
-from pyehr.core.its.adl14.grammar.OdinLexer import OdinLexer
-from pyehr.core.its.adl14.grammar.OdinParser import OdinParser
+from pyehr.core.lang.Cadl14Lexer import Cadl14Lexer
+from pyehr.core.lang.Cadl14Parser import Cadl14Parser
+from pyehr.core.lang.OdinLexer import OdinLexer
+from pyehr.core.lang.OdinParser import OdinParser
 from pyehr.core.its.json_tools import decode_json
 import pytest
 
