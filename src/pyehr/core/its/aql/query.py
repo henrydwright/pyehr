@@ -6,6 +6,7 @@ from types import NoneType
 from typing import Literal, Optional, Union
 
 from pyehr.core.base.base_types.identification import ArchetypeID
+from pyehr.core.base.foundation_types.primitive_types import Uri
 from pyehr.core.base.foundation_types.time import ISODate, ISODateTime, ISOTime
 
 class IAQLQueryNode(ABC):
@@ -52,6 +53,61 @@ class AQLComparisonOperator(StrEnum):
     SMALLER_THAN_OR_EQUAL_TO = "<="
     NOT_EQUAL_TO = "!="
 
+class AQLArithmeticOperator(StrEnum):
+    """AQL arithmetic operators"""
+    POWER = "^"
+    DIVIDE = "/"
+    MULTIPLY = "*"
+    MOD = "%"
+    ADD = "+"
+    SUBTRACT = "-"
+
+class AQLArithmeticExprNode(IAQLQueryNode):
+    """(Abstract) Parent of all nodes in an arithmetic expression"""
+
+    @abstractmethod
+    def __init__(self):
+        super().__init__()
+
+class AQLArithmeticExprBinaryExpr(AQLArithmeticExprNode):
+    """Binary operator node (i.e. ^, /, *, %, + or -)"""
+
+    op1: AQLArithmeticExprNode
+
+    operand: AQLArithmeticOperator
+
+    op2: AQLArithmeticExprNode
+
+    def __init__(self, op1: AQLArithmeticExprNode, operand: AQLArithmeticOperator, op2: AQLArithmeticExprNode):
+        self.op1 = op1
+        self.operand = operand
+        self.op2 = op2
+
+    def as_aql(self):
+        return "("+self.op1.as_aql() + " " + self.operand.value + " " + self.op2.as_aql()+")"
+
+class AQLArithmeticExprLeaf(AQLArithmeticExprNode):
+    """Leaf of an arithmetic expression."""
+
+    value: Union['AQLDataMatchPath', AQLPrimitiveLiteral, 'AQLFunctionCall', AQLParameter]
+
+    def __init__(self, value: Union['AQLDataMatchPath', AQLPrimitiveLiteral, 'AQLFunctionCall', AQLParameter]):
+        self.value = value
+
+    def as_aql(self):
+        return self.value.as_aql()
+
+class AQLComparisonOperand(IAQLQueryNode):
+    """Operand within a comparison operation in a WHERE clause"""
+
+    value: Union['AQLDataMatchPath', AQLPrimitiveLiteral, 'AQLFunctionCall', AQLParameter, AQLArithmeticExprNode]
+
+    def __init__(self, value: Union['AQLDataMatchPath', AQLPrimitiveLiteral, 'AQLFunctionCall', AQLParameter, AQLArithmeticExprNode]):
+        self.value = value
+
+    def as_aql(self):
+        return self.value.as_aql()
+
 class AQLModelPath(IAQLQueryNode):
     """A simple path within a model without any predicates.
     
@@ -97,6 +153,10 @@ class AQLPredicateTreeLeaf(AQLPredicateTreeNode):
     def as_aql(self):
         return self.model_path.as_aql() + self.operator.value + self.comparator_value.as_aql()
 
+    @staticmethod
+    def at_code_shortcut(at_code: str):
+        return AQLPredicateTreeLeaf(AQLModelPath("archetype_node_id"), AQLComparisonOperator.EQUAL, AQLPrimitiveLiteral(f"\'{at_code}\'", at_code))
+
 class AQLPredicateTreeNonLeaf(AQLPredicateTreeNode):
     """Combination of two AQL predicate tree nodes combined with either AND or OR.
     
@@ -120,6 +180,8 @@ class AQLPredicateTreeNonLeaf(AQLPredicateTreeNode):
 
     def as_aql(self):
         return "(" + self.op1.as_aql() + ") " + self.operator + " (" + self.op2.as_aql() + ")"
+
+# FROM clause model type expressions
 
 class AQLModelType(IAQLQueryNode):
     """Represents a single model type.
@@ -218,6 +280,7 @@ class AQLModelTypeTreeConstraint(AQLModelTypeTreeNode):
             ret += " CONTAINS " + self.contains.as_aql()
         return ret
 
+
 class AQLDataMatchPathSegment(IAQLQueryNode):
     """Single segment within a data match path
     
@@ -310,6 +373,127 @@ class AQLColumnSpec(IAQLQueryNode):
             ret += " AS " + self.alias
         return ret
 
+# WHERE clause tree expressions
+class AQLWhereTreeNode(IAQLQueryNode):
+    """(Abstract) Node within a WHERE clause expression tree"""
+
+    @abstractmethod
+    def __init__(self):
+        super().__init__()
+
+class AQLWhereTreeBinaryExpr(AQLWhereTreeNode):
+    """Binary operator AND or OR operator within a where expression tree"""
+
+    op1: AQLWhereTreeNode
+
+    operand: Union[Literal["OR"], Literal["AND"]]
+
+    op2: AQLWhereTreeNode
+
+    def __init__(self, op1: AQLWhereTreeNode, operand: Union[Literal["OR"], Literal["AND"]], op2: AQLWhereTreeNode):
+        self.op1 = op1
+        self.operand = operand
+        self.op2 = op2
+
+    def as_aql(self):
+        return "(" + self.op1.as_aql() + " " + self.operand + " " + self.op2.as_aql() + ")"
+
+class AQLWhereTreeNotExpr(AQLWhereTreeNode):
+    """Represents NOT of an AQL where tree expression"""
+
+    expr: AQLWhereTreeNode
+
+    def __init__(self, expr: AQLWhereTreeNode):
+        self.expr = expr
+
+    def as_aql(self):
+        return "(NOT " + self.expr.as_aql() + ")"
+
+class AQLWhereTreeExistsLeaf(AQLWhereTreeNode):
+    """An EXISTS operator at the leaf of an AQL WHERE tree
+    
+    e.g. `EXISTS c/content[openEHR-EHR-ADMIN_ENTRY.discharge.v1]`"""
+
+    path: AQLDataMatchPath
+
+    def __init__(self, path: AQLDataMatchPath):
+        self.path = path
+
+    def as_aql(self):
+        return "EXISTS " + self.path.as_aql()
+
+class AQLWhereTreeMatchesLeaf(AQLWhereTreeNode):
+    """A MATCHES operator at the leaf of an AQL WHERE tree
+    
+    e.g. `o/data[at0002]/.../name/defining_code/code_string matches {'18919-1', '18961-3', '19000-9'}`"""
+
+    value: AQLComparisonOperand
+
+    matches: Union[list[str, float, int, ISODate, ISOTime, ISODateTime], Uri, AQLParameter, AQLFunctionCall]
+
+    def __init__(self, value: AQLComparisonOperand, matches: Union[list[str, float, int, ISODate, ISOTime, ISODateTime], Uri, AQLParameter]):
+        self.value = value
+        self.matches = matches
+
+    def as_aql(self):
+        ret = "(" + self.value.as_aql() + " matches"
+        if isinstance(self.matches, AQLFunctionCall):
+            ret += " " + self.matches.as_aql()
+        elif isinstance(self.matches, IAQLQueryNode):
+            ret += " {" + self.matches.as_aql() + "}"
+        elif isinstance(self.matches, list):
+            ret += " {"
+            if isinstance(self.matches[0], str) or isinstance(self.matches[0], ISODate) or isinstance(self.matches[0], ISOTime) or isinstance(self.matches[0], ISODate):
+                ret += ",".join(["\"" + item + "\"" for item in self.matches])
+            else:
+                ret += ",".join(self.matches)
+            ret += "}"
+        else:
+            ret += " {" + str(self.matches) + "}"
+        ret += ")"
+        return ret
+
+class AQLWhereTreeLikeLeaf(AQLWhereTreeNode):
+    """A LIKE operator at the leaf of an AQL WHERE tree
+
+    e.g. `c/context/start_time LIKE '2019-0?-*'`"""
+
+    value: AQLComparisonOperand
+
+    like: Union[str, AQLParameter]
+
+    def __init__(self, value: AQLComparisonOperand, like: Union[str, AQLParameter]):
+        self.value = value
+        self.like = like
+
+    def as_aql(self):
+        ret = "(" + self.value.as_aql() + " LIKE"
+        if isinstance(self.like, AQLParameter):
+            ret += " " + self.like.as_aql()
+        else:
+            ret += " \"" + str(self.like) + "\""
+        ret += ")"
+        return ret
+
+class AQLWhereTreeComparisonLeaf(AQLWhereTreeNode):
+    """A boolean comparison between either a function call or path and some comparator"""
+
+    op1: Union[AQLDataMatchPath, AQLFunctionCall]
+
+    operand: AQLComparisonOperator
+
+    op2: AQLComparisonOperand
+
+    def __init__(self, op1: Union[AQLDataMatchPath, AQLFunctionCall], operand: AQLComparisonOperator, op2: AQLComparisonOperand):
+        self.op1 = op1
+        self.operand = operand
+        self.op2 = op2
+
+    def as_aql(self):
+        return "(" + self.op1.as_aql() + " " + self.operand.value + " " + self.op2.as_aql() + ")"
+
+# main query body clauses
+
 class AQLSelectClause(IAQLQueryNode):
     """A SELECT clause specifies what data is to be retrieved by the AQL query. The data can 
     be any types from RM or any built-in data types (see Section 3.12)."""
@@ -373,7 +557,19 @@ class AQLFromClause(IAQLQueryNode):
         return "FROM " + self.model_type_constraint.as_aql()
 
 class AQLWhereClause(IAQLQueryNode):
-    pass
+    """The WHERE clause is used to represent further criteria applied to the data items within 
+    the objects declared in the FROM clause. A WHERE clause expresses the query criteria that 
+    cannot be represented in other AQL clauses, such as criteria on archetype id, composition 
+    committal date/time, and the criteria on in which order the returned results should be listed."""
+
+    where_expression_tree: AQLWhereTreeNode
+    """The where expression contents"""
+
+    def __init__(self, where_expression_tree: AQLWhereTreeNode):
+        self.where_expression_tree = where_expression_tree
+
+    def as_aql(self):
+        return "WHERE " + self.where_expression_tree.as_aql()
 
 class AQLOrderByClause(IAQLQueryNode):
     pass
