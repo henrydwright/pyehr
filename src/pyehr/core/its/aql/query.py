@@ -332,7 +332,7 @@ class AQLDataMatchPath(IAQLQueryNode):
 
 
 class AQLFunctionCall(IAQLQueryNode):
-    """Abstract parent of all AQL function calls"""
+    """A function call within an AQL query"""
 
     name: str
     """The name of the function (part before arguments) in upper-case.
@@ -346,24 +346,69 @@ class AQLFunctionCall(IAQLQueryNode):
         self.name = function_name
         self.args = function_args
 
-    @abstractmethod
-    def evaluate(self) -> AQLPrimitiveLiteral:
-        """Evaluate the function with name and arguments."""
-        pass
-
     def as_aql(self):
         return self.name + "(" + ",".join([arg.as_aql() for arg in self.args]) + ")"
+
+class AQLAggregateFunctionCall(IAQLQueryNode):
+    """(Abstract) An aggregate function call within an AQL query"""
+
+    name: str
+    """The name of the aggregate function (part before the arguments) in upper-case.
+    
+    e.g. for `COUNT(*)` this would be 'COUNT'"""
+
+    @abstractmethod
+    def __init__(self, name: str):
+        self.name = name
+
+class AQLAggregateCountFunction(AQLAggregateFunctionCall):
+    """Aggregate COUNT function within an AQL query.
+    
+    e.g. `COUNT(DISTINCT o/data[at0001]/.../items[at0004]/value/value)`"""
+
+    distinct: bool
+    """Whether to count distinct results in the matched path. Ignored if match_path is None (i.e. COUNT(*))"""
+
+    match_path: Optional[AQLDataMatchPath]
+
+    def __init__(self, match_path: Optional[AQLDataMatchPath] = None, distinct: bool = False):
+        self.distinct = distinct
+        self.match_path = match_path
+        super().__init__("COUNT")
+
+    def as_aql(self):
+        ret = "COUNT("
+        if self.match_path is not None:
+            if self.distinct:
+                ret += "DISTINCT "
+            ret += self.match_path.as_aql()
+        else:
+            ret += "*"
+        ret += ")"
+        return ret
+
+class AQLAggregateMathFunction(AQLAggregateFunctionCall):
+    """One of the four aggregate math functions MIN, MAX, SUM or AVG"""
+
+    data_path: AQLDataMatchPath
+
+    def __init__(self, name: Union[Literal['MIN'], Literal['MAX'], Literal['SUM'], Literal['AVG']], data_path: AQLDataMatchPath):
+        self.data_path = data_path
+        super().__init__(name)
+
+    def as_aql(self):
+        return self.name + "(" + self.data_path.as_aql() + ")"
 
 class AQLColumnSpec(IAQLQueryNode):
     """Specification for a single column to be returned from a SELECT clause"""
 
-    value: Union[AQLDataMatchPath, AQLFunctionCall, AQLPrimitiveLiteral]
+    value: Union[AQLDataMatchPath, AQLFunctionCall, AQLPrimitiveLiteral, AQLAggregateFunctionCall]
     """Value selected out of the data to form each row of this column."""
 
     alias: Optional[str]
     """Optional, human friendly name for the column"""
 
-    def __init__(self, value: Union[AQLDataMatchPath, AQLFunctionCall, AQLPrimitiveLiteral], alias: Optional[str] = None):
+    def __init__(self, value: Union[AQLDataMatchPath, AQLFunctionCall, AQLPrimitiveLiteral, AQLAggregateFunctionCall], alias: Optional[str] = None):
         self.value = value
         self.alias = alias
 
@@ -431,7 +476,7 @@ class AQLWhereTreeMatchesLeaf(AQLWhereTreeNode):
 
     matches: Union[list[str, float, int, ISODate, ISOTime, ISODateTime], Uri, AQLParameter, AQLFunctionCall]
 
-    def __init__(self, value: AQLComparisonOperand, matches: Union[list[str, float, int, ISODate, ISOTime, ISODateTime], Uri, AQLParameter]):
+    def __init__(self, value: AQLComparisonOperand, matches: Union[list[str, float, int, ISODate, ISOTime, ISODateTime], Uri, AQLParameter, AQLFunctionCall]):
         self.value = value
         self.matches = matches
 
@@ -443,10 +488,15 @@ class AQLWhereTreeMatchesLeaf(AQLWhereTreeNode):
             ret += " {" + self.matches.as_aql() + "}"
         elif isinstance(self.matches, list):
             ret += " {"
-            if isinstance(self.matches[0], str) or isinstance(self.matches[0], ISODate) or isinstance(self.matches[0], ISOTime) or isinstance(self.matches[0], ISODate):
-                ret += ",".join(["\"" + item + "\"" for item in self.matches])
-            else:
-                ret += ",".join(self.matches)
+            values = []
+            for item in self.matches:
+                if isinstance(item, str):
+                    values.append("'" + item.replace("\\", "\\\\").replace("'", "\\'") + "'")
+                elif isinstance(item, (ISODate, ISOTime, ISODateTime)):
+                    values.append("'" + str(item) + "'")
+                else:
+                    values.append(str(item))
+            ret += ",".join(values)
             ret += "}"
         else:
             ret += " {" + str(self.matches) + "}"
@@ -638,7 +688,7 @@ class AQLLimitClause(IAQLQueryNode):
     def as_aql(self):
         ret = "LIMIT " + str(self.limit)
         if self.offset is not None:
-            ret += " " + str(self.offset)
+            ret += " OFFSET " + str(self.offset)
         return ret
 
 class AQLQuery(IAQLQueryNode):

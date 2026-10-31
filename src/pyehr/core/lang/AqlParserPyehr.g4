@@ -227,8 +227,8 @@ functionCall:
 functionArgs: '(' ( value ( ',' value )* )? ')' ;
 
 aggregateFunctionCall
-    : name=SYM_COUNT '(' ( SYM_DISTINCT? augmentedAdlPath | '*' ) ')'
-    | aggregateMathFunction '(' augmentedAdlPath ')'
+    : name=SYM_COUNT '(' ( SYM_DISTINCT? dataMatchPath | '*' ) ')'
+    | aggregateMathFunction '(' dataMatchPath ')'
     ;
 
 aggregateMathFunction:
