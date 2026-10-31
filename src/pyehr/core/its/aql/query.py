@@ -492,6 +492,29 @@ class AQLWhereTreeComparisonLeaf(AQLWhereTreeNode):
     def as_aql(self):
         return "(" + self.op1.as_aql() + " " + self.operand.value + " " + self.op2.as_aql() + ")"
 
+class AQLOrderByExpr(IAQLQueryNode):
+    """Single ordering definition as part of an ORDER BY clause.
+    
+    e.g. `c/name/value DESC`"""
+
+    ordering_value_path: AQLDataMatchPath
+    """The path to the value to use for ordering within the variable (e.g. `c/name/value`)"""
+
+    ascending_order: bool
+    """Whether or not the results should be sorted in ascending order (i.e True=ASC, False=DESC)"""
+
+    def __init__(self, ordering_value_path: AQLDataMatchPath, ascending_order: bool = True):
+        self.ordering_value_path = ordering_value_path
+        self.ascending_order = ascending_order
+
+    def as_aql(self):
+        ret = self.ordering_value_path.as_aql()
+        if self.ascending_order:
+            ret += " ASC"
+        else:
+            ret += " DESC"
+        return ret
+
 # main query body clauses
 
 class AQLSelectClause(IAQLQueryNode):
@@ -572,7 +595,19 @@ class AQLWhereClause(IAQLQueryNode):
         return "WHERE " + self.where_expression_tree.as_aql()
 
 class AQLOrderByClause(IAQLQueryNode):
-    pass
+    """The ORDER BY clause is used to sort the returned results.
+    
+    Note: If no ORDER BY clause is specified, then the query result doesn't have any default 
+    ordering criteria defined. Ordering could be random."""
+
+    order_by_expressions: list[AQLOrderByExpr]
+
+    def __init__(self, order_by_expressions: list[AQLOrderByExpr]):
+        self.order_by_expressions = order_by_expressions
+
+    def as_aql(self):
+        return "ORDER BY " + ",".join([ob.as_aql() for ob in self.order_by_expressions])
+    
 
 class AQLLimitClause(IAQLQueryNode):
     pass

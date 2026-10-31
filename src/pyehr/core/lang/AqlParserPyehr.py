@@ -301,7 +301,7 @@ def serializedATN():
         1,0,0,0,477,15,1,0,0,0,478,479,7,0,0,0,479,17,1,0,0,0,480,485,3,
         52,26,0,481,485,3,68,34,0,482,485,3,64,32,0,483,485,3,84,42,0,484,
         480,1,0,0,0,484,481,1,0,0,0,484,482,1,0,0,0,484,483,1,0,0,0,485,
-        19,1,0,0,0,486,488,3,342,171,0,487,489,7,1,0,0,488,487,1,0,0,0,488,
+        19,1,0,0,0,486,488,3,52,26,0,487,489,7,1,0,0,488,487,1,0,0,0,488,
         489,1,0,0,0,489,21,1,0,0,0,490,493,3,30,15,0,491,493,3,24,12,0,492,
         490,1,0,0,0,492,491,1,0,0,0,493,23,1,0,0,0,494,496,3,30,15,0,495,
         497,5,28,0,0,496,495,1,0,0,0,496,497,1,0,0,0,497,498,1,0,0,0,498,
@@ -2059,8 +2059,8 @@ class AqlParserPyehr ( Parser ):
             self.parser = parser
             self.order = None # Token
 
-        def modelPath(self):
-            return self.getTypedRuleContext(AqlParserPyehr.ModelPathContext,0)
+        def dataMatchPath(self):
+            return self.getTypedRuleContext(AqlParserPyehr.DataMatchPathContext,0)
 
 
         def SYM_DESCENDING(self):
@@ -2097,7 +2097,7 @@ class AqlParserPyehr ( Parser ):
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 486
-            self.modelPath()
+            self.dataMatchPath()
             self.state = 488
             self._errHandler.sync(self)
             _la = self._input.LA(1)

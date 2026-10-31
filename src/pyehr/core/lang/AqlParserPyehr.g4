@@ -46,7 +46,7 @@ columnValue:
     | primitiveLiteral
     ;
 
-orderByExpr: modelPath order=( SYM_DESCENDING | SYM_DESC | SYM_ASCENDING | SYM_ASC )? ;
+orderByExpr: dataMatchPath order=( SYM_DESCENDING | SYM_DESC | SYM_ASCENDING | SYM_ASC )? ;
 
 //
 // ------------------------ FROM sub-parts ------------------------
