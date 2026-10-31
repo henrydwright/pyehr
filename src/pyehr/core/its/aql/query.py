@@ -5,6 +5,7 @@ from enum import StrEnum
 from types import NoneType
 from typing import Literal, Optional, Union
 
+from pyehr.core.base.base_types.identification import ArchetypeID
 from pyehr.core.base.foundation_types.time import ISODate, ISODateTime, ISOTime
 
 class IAQLQueryNode(ABC):
@@ -119,6 +120,103 @@ class AQLPredicateTreeNonLeaf(AQLPredicateTreeNode):
 
     def as_aql(self):
         return "(" + self.op1.as_aql() + ") " + self.operator + " (" + self.op2.as_aql() + ")"
+
+class AQLModelType(IAQLQueryNode):
+    """Represents a single model type.
+    
+    e.g. `COMPOSITION c [openEHR-EHR-COMPOSITION.referral.v1]`"""
+
+    type_name: str
+    """Type referred to by the model type, always in upper case (e.g. `COMPOSITION`)"""
+
+    variable_name: Optional[str]
+    """If provided, the variable name associated with the type in the match"""
+
+    archetype_id_predicate: Optional[ArchetypeID]
+    """If provided, the archetype ID that must be matched within the given type"""
+
+    def __init__(self, type_name: str, variable_name: Optional[str] = None, archetype_id_predicate: Optional[ArchetypeID] = None):
+        self.type_name = type_name
+        self.variable_name = variable_name
+        self.archetype_id_predicate = archetype_id_predicate
+
+    def as_aql(self):
+        ret = self.type_name
+        if self.variable_name is not None:
+            ret += " " + self.variable_name
+        if self.archetype_id_predicate is not None:
+            ret += " [" + self.archetype_id_predicate.value + "]"
+        return ret
+
+class AQLModelTypeTreeNode(IAQLQueryNode):
+    """(Abstract) Represents a node in an AQL model type expression tree"""
+
+    @abstractmethod
+    def __init__(self):
+        super().__init__()
+
+class AQLModelTypeTreeBinaryExpr(AQLModelTypeTreeNode):
+    """A binary operator within an AQL model type expression tree (either AND or OR)
+    
+    e.g. `(...) AND (...)`"""
+
+    expr1: AQLModelTypeTreeNode
+    """First operand"""
+
+    operator: Union[Literal['AND'], Literal['OR']]
+    """Either the value 'AND' or 'OR'"""
+
+    expr2: AQLModelTypeTreeNode
+    """Second operand"""
+
+    def __init__(self, expr1: AQLModelTypeTreeNode, operator: Union[Literal['AND'], Literal['OR']], expr2: AQLModelTypeTreeNode):
+        self.expr1 = expr1
+        self.operator = operator
+        self.expr2 = expr2
+
+    def as_aql(self):
+        return "(" + self.expr1.as_aql() + " " + self.operator + " " + self.expr2.as_aql() + ")"
+
+class AQLModelTypeTreeNotExpr(AQLModelTypeTreeNode):
+    """Represents NOT of an AQL model type tree expression
+    
+    e.g. `NOT (...)`"""
+
+    expr: AQLModelTypeTreeNode
+    """Expression being negated"""
+
+    def __init__(self, expr: AQLModelTypeTreeNode):
+        self.expr = expr
+
+    def as_aql(self):
+        return "(NOT " + self.expr.as_aql() + ")"
+
+class AQLModelTypeTreeConstraint(AQLModelTypeTreeNode):
+    """Represents the leaf of an expression constraint tree (either a model type or chain thereof)
+    
+    e.g. `EHR e CONTAINS (...)`"""
+
+    model_type: AQLModelType
+    """The model type (at the start of the chain, if this is a chain)"""
+
+    negate_contains: bool
+    """If there is a contains clause, is it negated"""
+
+    contains: Optional[AQLModelTypeTreeNode]
+    """The contained model type (expression) that must be matched"""
+
+    def __init__(self, model_type: AQLModelType, negate_contains: bool = False, contains: Optional[AQLModelTypeTreeNode] = None):
+        self.model_type = model_type
+        self.negate_contains = negate_contains
+        self.contains = contains
+
+    def as_aql(self):
+        ret = self.model_type.as_aql()
+        if self.negate_contains:
+            ret += " NOT"
+        if self.contains is not None:
+            ret += " CONTAINS " + self.contains.as_aql()
+        return ret
 
 class AQLDataMatchPathSegment(IAQLQueryNode):
     """Single segment within a data match path
@@ -265,7 +363,14 @@ class AQLFromClause(IAQLQueryNode):
     that will be available for the rest of the clauses to filter and return specific data (WHERE, 
     SELECT, etc)."""
 
-    
+    model_type_constraint: AQLModelTypeTreeConstraint
+    """The constraint on model type, including variable bindings, to be applied."""
+
+    def __init__(self, model_type_constraint: AQLModelTypeTreeConstraint):
+        self.model_type_constraint = model_type_constraint
+
+    def as_aql(self):
+        return "FROM " + self.model_type_constraint.as_aql()
 
 class AQLWhereClause(IAQLQueryNode):
     pass
@@ -275,6 +380,41 @@ class AQLOrderByClause(IAQLQueryNode):
 
 class AQLLimitClause(IAQLQueryNode):
     pass
+
+class AQLQuery(IAQLQueryNode):
+    """A valid AQL query that can be executed"""
+
+    select_clause: AQLSelectClause
+
+    from_clause: AQLFromClause
+
+    where_clause: Optional[AQLWhereClause]
+
+    orderby_clause: Optional[AQLOrderByClause]
+
+    limit_clause: Optional[AQLLimitClause]
+
+    def __init__(self, 
+                 select_clause: AQLSelectClause, 
+                 from_clause: AQLFromClause, 
+                 where_clause: Optional[AQLWhereClause] = None,
+                 orderby_clause: Optional[AQLOrderByClause] = None,
+                 limit_clause: Optional[AQLLimitClause] = None):
+        self.select_clause = select_clause
+        self.from_clause = from_clause
+        self.where_clause = where_clause
+        self.orderby_clause = orderby_clause
+        self.limit_clause = limit_clause
+
+    def as_aql(self):
+        ret = self.select_clause.as_aql() + "\n" + self.from_clause.as_aql()
+        if self.where_clause is not None:
+            ret += "\n" + self.where_clause.as_aql()
+        if self.orderby_clause is not None:
+            ret += "\n" + self.orderby_clause.as_aql()
+        if self.limit_clause is not None:
+            ret += "\n" + self.limit_clause.as_aql()
+        return ret
 
 def select() -> AQLSelectClause:
     pass
