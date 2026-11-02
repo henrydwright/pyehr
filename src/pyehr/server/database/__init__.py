@@ -5,6 +5,8 @@ from typing import Optional, Union
 
 from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import ArchetypeID, HierObjectID, ObjectID, ObjectRef, ObjectVersionID, PartyRef, UIDBasedID
+from pyehr.core.its.aql import AQLResultSet
+from pyehr.core.its.aql.query import AQLQuery
 from pyehr.core.its.json_path_utils import json_get_path
 from pyehr.core.rm.common.archetyped import PyehrInternalPathPredicateType, PyehrInternalProcessedPath
 from pyehr.core.rm.common.change_control import Contribution, Version, VersionedObject
@@ -27,6 +29,12 @@ class ObjectDoesNotExistError(ValueError):
 class IncorrectVersionTypeError(ValueError):
     """Raised when ORIGINAL_VERSION was expected but an IMPORTED_VERSION was found (or vice versa)"""
     pass
+
+class AQLNotSupportedError(NotImplementedError):
+    """Raised when the database engine does not support some part of the input AQL query"""
+
+class AQLExecuteFailure(RuntimeError):
+    """Raised when the database engine knew how to execute a query, but the execution of that query failed"""
 
 class DBActionType(StrEnum):
     """Type of database action performed"""
@@ -206,6 +214,14 @@ class IDatabaseEngine(ABC):
         :param archetype_id: Archetype ID after which the object is modelled (e.g. 'pyEHR-DEMOGRAPHIC-PERSON.nhs_patient.v1'). Leave as None only for EHR classes.
         :param query_dict: OpenEHR path for target attribute and list of possible values (e.g. {'details/items[at0002]/value/id': ['9449305552']})
         :param reader: If provided, this is stored in an audit trail of database actions associated with users."""
+        pass
+
+    @abstractmethod
+    def execute_aql_query(self, aql_query: AQLQuery) -> AQLResultSet:
+        """Execute a parsed AQL query on the database and return the result.
+        
+        :param aql_query: The AQL query to run.
+        :raises AQLNotSupportedError: If some part of the AQL query is not supported by this database engine"""
         pass
 
     @abstractmethod

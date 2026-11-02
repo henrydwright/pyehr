@@ -12,7 +12,7 @@ from pyehr.utils import get_uid_from_object_if_exists
 
 from pyehr.core.base.base_types.builtins import Env
 from pyehr.core.base.base_types.identification import HierObjectID, ObjectRef, PartyRef, UIDBasedID
-from pyehr.server.database import DBActionItem, DBActionType, IDatabaseEngine, DBMetadata, IncorrectVersionTypeError, ObjectAlreadyExistsError, ObjectDoesNotExistError
+from pyehr.server.database import AQLNotSupportedError, DBActionItem, DBActionType, IDatabaseEngine, DBMetadata, IncorrectVersionTypeError, ObjectAlreadyExistsError, ObjectDoesNotExistError
 
 from uuid import uuid4
 
@@ -362,4 +362,7 @@ class InMemoryDB(IDatabaseEngine):
         
         meta.action_history.append(DBActionItem(DBActionType.UPDATE, party=adder))
         self._log.info(f"{ehr_id.value}:Added reference to {addition.ref_type} to EHR.")
+
+    def execute_aql_query(self, aql_query):
+        raise AQLNotSupportedError("Local database engine cannot run AQL")
         

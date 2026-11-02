@@ -8,7 +8,9 @@ from antlr4.error.ErrorListener import ErrorListener
 from antlr4.tree.Tree import TerminalNode
 
 from pyehr.core.base.base_types.identification import ArchetypeID
+from pyehr.core.base.foundation_types.any import AnyClass
 from pyehr.core.base.foundation_types.primitive_types import Uri
+from pyehr.core.base.foundation_types.structure import is_equal_value
 from pyehr.core.base.foundation_types.time import ISODate, ISODateTime, ISOTime
 from pyehr.core.its.aql.query import (
     AQLArithmeticExprBinaryExpr,
@@ -571,3 +573,94 @@ def parse_aql(aql_string: str) -> AQLQuery:
         raise
     except ValueError as exc:
         raise AQLParseError(f"Invalid AQL string: {exc}") from exc
+
+class AQLResultSetMetadata(AnyClass):
+    """Metadata contained within a RESULT_SET"""
+
+    href: Optional[str]
+    """URL of the executed query (only for GET endpoint)."""
+
+    created: ISODateTime
+    """Result creation time (in the extended ISO 8601 format)."""
+
+    generator: str
+    """Some identifier of the application that generated the result, useful for 
+    debugging."""
+
+    executed_aql: Optional[str]
+    """The actual AQL query that was executed by the server, after replacing the 
+    query parameters. This attribute is not mandatory, but is useful for 
+    debugging."""
+
+    def __init__(self, created: ISODateTime, generator: str, href: Optional[str] = None, executed_aql: Optional[str] = None):
+        self.href = href
+        self.created = created
+        self.generator = generator
+        self.executed_aql = executed_aql
+
+    def as_json(self):
+        draft = {
+            "_schema_version": "1.1.0",
+            "_type": "RESULT_SET",
+            "_created": self.created.value,
+            "_generator": self.generator,
+        }
+        if self.href is not None:
+            draft["_href"] = self.href
+        if self.executed_aql is not None:
+            draft["_executed_aql"] = self.executed_aql
+        return draft
+
+    def is_equal(self, other):
+        return (type(self) == type(other) and
+                is_equal_value(self.href, other.href) and
+                is_equal_value(self.created, other.created) and
+                is_equal_value(self.generator, other.generator) and
+                is_equal_value(self.executed_aql, other.executed_aql))
+        
+
+class AQLResultSet(AnyClass):
+    """Represents the result of running an AQL query. Defined in the REST Query API."""
+
+    meta: AQLResultSetMetadata
+    """RESULT_SET metadata"""
+
+    q: AQLQuery
+    """The given AQL query"""
+
+    name: Optional[str]
+    """The (fully qualified) name of the query (when is registered as a stored
+      query), in a format of [{namespace}::]{query-name}."""
+
+    columns: list[tuple[str, str]]
+    """List of column definitions as a name, path pair"""
+
+    rows: list[list[Union[str, int, object]]]
+    """List of individual rows, as lists of values (in same order as the column definitions)"""
+
+    def __init__(self, q: AQLQuery, meta: AQLResultSetMetadata, columns: list[tuple[str, str]], rows: list[list[Union[str, int, AnyClass]]], name: Optional[str] = None):
+        self.meta = meta
+        self.q = q
+        self.name = name
+        self.columns = columns
+        self.rows = rows
+
+    def is_equal(self, other):
+        return (type(self) == type(other) and
+                self.meta.is_equal(other.meta) and
+                is_equal_value(self.q.as_aql(), other.q.as_aql()) and
+                is_equal_value(self.name, other.name) and
+                is_equal_value(self.columns, other.columns) and
+                is_equal_value(self.rows, other.rows))
+
+    def as_json(self):
+        draft = {
+            "meta": self.meta.as_json(),
+            "q": self.q.as_aql(),
+            "columns": [{"name": p[0], "path":p[1]} for p in self.columns],
+            "rows": self.rows
+        }
+        if self.name is not None:
+            draft["name"] = self.name
+        return draft
+

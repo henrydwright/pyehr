@@ -2,6 +2,7 @@ import pytest
 
 from pyehr.core.base.foundation_types.time import ISODate
 from pyehr.core.its.aql import AQLParseError, parse_aql
+from pyehr.core.its.aql.process import CONTAINS_RM_MAP
 from pyehr.core.its.aql.query import (
     AQLAggregateCountFunction,
     AQLAggregateMathFunction,
@@ -11,6 +12,62 @@ from pyehr.core.its.aql.query import (
     AQLWhereTreeComparisonLeaf,
     AQLWhereTreeMatchesLeaf,
 )
+
+
+def test_contains_rm_map_uses_json_attributes():
+    assert CONTAINS_RM_MAP["COMPOSITION"] == {
+        "CONTENT_ITEM": ("content", False, False),
+        "SECTION": ("content", False, False),
+        "ENTRY": ("content", False, False),
+        "ADMIN_ENTRY": ("content", False, False),
+        "CARE_ENTRY": ("content", False, False),
+        "OBSERVATION": ("content", False, False),
+        "EVALUATION": ("content", False, False),
+        "INSTRUCTION": ("content", False, False),
+        "ACTION": ("content", False, False),
+    }
+    assert CONTAINS_RM_MAP["EHR"]["CONTRIBUTION"] == ("contributions", True, False)
+    assert CONTAINS_RM_MAP["EHR"]["VERSIONED_EHR_STATUS"] == ("ehr_status", True, False)
+    assert CONTAINS_RM_MAP["EHR"]["VERSIONED_EHR_ACCESS"] == ("ehr_access", True, False)
+    assert CONTAINS_RM_MAP["EHR"]["VERSIONED_FOLDER"] == ("folders", True, False)
+    assert CONTAINS_RM_MAP["SECTION"]["SECTION"] == ("items", False, False)
+    assert CONTAINS_RM_MAP["INSTRUCTION"]["ACTIVITY"] == ("activities", False, False)
+
+    party_children = {
+        "PARTY_IDENTITY": ("identities", False, False),
+        "CONTACT": ("contacts", False, False),
+        "ITEM_STRUCTURE": ("details", False, False),
+        "PARTY_RELATIONSHIP": ("relationships", False, False),
+    }
+    for actor_type in ("ACTOR", "PERSON", "ORGANISATION", "GROUP", "AGENT"):
+        assert all(
+            CONTAINS_RM_MAP[actor_type][child_type] == containment
+            for child_type, containment in party_children.items()
+        )
+        assert CONTAINS_RM_MAP[actor_type]["ROLE"] == ("roles", True, True)
+        assert CONTAINS_RM_MAP[actor_type]["VERSIONED_PARTY"] == ("roles", True, False)
+    assert CONTAINS_RM_MAP["ROLE"]["CAPABILITY"] == ("capabilities", False, False)
+
+
+def test_contains_rm_map_covers_nested_locatables():
+    containment_edges = (
+        ("ADMIN_ENTRY", "ITEM_TREE", "data"),
+        ("OBSERVATION", "HISTORY", "data"),
+        ("HISTORY", "POINT_EVENT", "events"),
+        ("EVENT", "ITEM_TREE", "data"),
+        ("ITEM_TABLE", "CLUSTER", "rows"),
+        ("CLUSTER", "ELEMENT", "items"),
+        ("FOLDER", "FOLDER", "folders"),
+        ("CONTACT", "ADDRESS", "addresses"),
+        ("CAPABILITY", "ITEM_TREE", "credentials"),
+        ("EHR_STATUS", "ITEM_TREE", "other_details"),
+    )
+    for parent_type, child_type, attribute in containment_edges:
+        assert CONTAINS_RM_MAP[parent_type][child_type] == (
+            attribute,
+            False,
+            False,
+        )
 
 
 def test_parse_aql_clauses_and_round_trip():

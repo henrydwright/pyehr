@@ -4,6 +4,8 @@ from typing import Optional, Union
 from uuid import uuid4
 from warnings import warn
 
+from pyehr.core.its.aql.process import CONTAINS_RM_MAP
+from pyehr.core.its.aql.query import AQLDataMatchPath, AQLFromClause, AQLModelTypeTreeConstraint, AQLModelTypeTreeNode, AQLQuery
 from pyehr.core.rm.ehr import EHR
 from pymongo import MongoClient
 from pymongo.database import Database
@@ -16,7 +18,7 @@ from pyehr.core.rm.common.archetyped import Locatable, PyehrInternalProcessedPat
 from pyehr.core.rm.common.change_control import OriginalVersion, VersionedObject
 from pyehr.core.rm.common.generic import RevisionHistoryItem
 from pyehr.core.rm.data_types.quantity.date_time import DVDateTime
-from pyehr.server.database import DBActionItem, DBActionType, DBMetadata, IDatabaseEngine, IncorrectVersionTypeError, ObjectAlreadyExistsError, ObjectDoesNotExistError
+from pyehr.server.database import AQLExecuteFailure, AQLNotSupportedError, DBActionItem, DBActionType, DBMetadata, IDatabaseEngine, IncorrectVersionTypeError, ObjectAlreadyExistsError, ObjectDoesNotExistError
 from pyehr.types import get_openehr_type_str
 from pyehr.utils import get_uid_from_object_if_exists
 
@@ -509,4 +511,166 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
         
         self._meta_add_db_action_item(ehr_id, DBActionItem(DBActionType.UPDATE, party=adder))
         self._log.info(f"{ehr_id.value}:Added reference to {addition.ref_type} to EHR.")
+
+    def _process_from_clause_recurse(self, parent_type: str, parent_var: str, node: AQLModelTypeTreeNode, pipeline: list, path_dict: dict[str, str]):
+        if node is None:
+            return
+        elif isinstance(node, AQLModelTypeTreeConstraint):
+            parent_map = CONTAINS_RM_MAP.get(parent_type)
+            if parent_map is None:
+                raise AQLExecuteFailure(f"No possible CONTAINS relationship exists for type \'{parent_type}\'")
+            container = parent_map.get(node.model_type.type_name)
+            if container is None:
+                raise AQLExecuteFailure(f"No CONTAINS relationship possible between \'{parent_type}\' and \'{node.model_type}\'")
+
+            parent_path = path_dict[parent_var]
+            attr_name = container[0]
+            is_ref = container[1]
+            is_versioned_obj = container[2]
+
+            if node.model_type.archetype_id_predicate is not None:
+                raise AQLNotSupportedError("MongoDB/AQL/FROM: engine does not support archetype predicates in FROM clause")
+
+            if is_ref:
+                if is_versioned_obj:
+                    self._log.info(f"pipeline: add REF/VO at {parent_path}.{attr_name}.id.value AS {node.model_type.variable_name}")
+                    pipeline.append({
+                        "$lookup": {
+                            "from": "VERSIONED_OBJECT",
+                            "localField": f"{parent_path}.{attr_name}.id.value",
+                            "foreignField": "uid.value",
+                            "as": f"{node.model_type.variable_name}_vo",
+                            "pipeline": [
+                                {
+                                    "$project": {
+                                        "_id": 0,
+                                        "latest_revision_history_item": {
+                                            "$last": "$revision_history.items"
+                                        }
+                                    }
+                                },
+                                {
+                                    "$project": {
+                                        "latest_version_id": "$latest_revision_history_item.version_id.value"
+                                    }
+                                }
+                            ]
+                        }
+                    })
+                    pipeline.append({
+                        "$unwind": f"${node.model_type.variable_name}_vo"
+                    })
+                    pipeline.append({
+                        "$lookup": {
+                            "from": f"VERSION<{node.model_type.type_name}>",
+                            "localField": f"{node.model_type.variable_name}_vo.latest_version_id",
+                            "foreignField": "_id",
+                            "as": node.model_type.variable_name,
+                            "pipeline": [
+                                {
+                                    "$project": {
+                                        "_id": 0,
+                                        "data": 1
+                                    }
+                                },
+                                {
+                                    "$replaceRoot": {
+                                        "newRoot": "$data"
+                                    }
+                                }
+                            ]
+                        }
+                    })
+                    pipeline.append({
+                        "$unwind": f"${node.model_type.variable_name}"
+                    })
+                    path_dict[node.model_type.variable_name] = node.model_type.variable_name
+                else:
+                    self._log.info(f"pipeline: add REF at {parent_path}.{attr_name}.id.value AS {node.model_type.variable_name}")
+                    pipeline.append({
+                        "$lookup": {
+                            "from": f"{node.model_type}",
+                            "localField": f"{parent_path}.{attr_name}.id.value",
+                            "foreignField": "_id",
+                            "as": node.model_type.variable_name
+                        }
+                    })
+                    pipeline.append({
+                        "$unwind": {
+                            "path": f"${node.model_type.variable_name}"
+                        }
+                    })
+                    path_dict[node.model_type.variable_name] = node.model_type.variable_name
+            else:
+                self._log.info(f"pipeline: add PATH at {parent_path}.{attr_name} AS {node.model_type.variable_name} (no db op)")
+                path_dict[node.model_type.variable_name] = f"{parent_path}.{attr_name}"
+
+            self._process_from_clause_recurse(node.model_type.type_name, node.model_type.variable_name, node.contains, pipeline, path_dict)
+        else:
+            raise AQLNotSupportedError("MongoDB/AQL/FROM: engine does not support OR, AND or NOT in FROM clause")
+
+    
+    def _process_from_clause(self, from_clause: AQLFromClause) -> tuple[str, list[object], dict[str, str]]:
+        """Takes contents of a FROM clause and produces aggregation pipeline stages plus a mapping
+        between named FROM clause variables and their path within the object created by the pipeline
+        stage.
+        
+        :returns: Tuple with 0: collection to selection from, 1: aggergation pipeline, 2: mapping from
+                  variable name to path within the object at the end of the pipeline.
+        :raises AQLExecuteFailure: If an invalid CONTAINS is given.
+        :raises AQLNotSupportedError: If an archetype predicate, AND, OR or NOT is found."""
+        t = from_clause.model_type_constraint
+        if t.model_type.archetype_id_predicate is not None:
+            raise AQLNotSupportedError("MongoDB/AQL/FROM: MongoDB engine does not support predicates in FROM clause")
+
+        root_type = t.model_type.type_name
+        root_var = t.model_type.variable_name
+
+        path_dict = {
+            root_var: root_var
+        }
+        pipeline = [{
+            "$project" : {
+                "_id": 0,
+                root_var: "$$ROOT"
+            }
+        }]
+
+        self._process_from_clause_recurse(root_type, root_var, t.contains, pipeline, path_dict)
+
+        return (root_type, pipeline, path_dict)
+
+
+    def execute_aql_query(self, aql_query: AQLQuery):
+        self._log.info("Executing AQL query: " + aql_query.as_aql())
+
+        # build the base lookup model from the FROM clause before refining
+        top_type, pipeline, path_dict = self._process_from_clause(aql_query.from_clause)
+
+        top_collect = self._database.get_collection(top_type)
+
+        # project out paths from the SELECT clause
+        top_projects = {"_id": 0}
+        for i in range(len(aql_query.select_clause.result_columns)):
+            col = aql_query.select_clause.result_columns[i]
+            col_val = col.value
+            col_nm = col.alias if col.alias is not None else f"#{str(i)}"
+            if isinstance(col_val, AQLDataMatchPath):
+                path_val = "".join([ps.as_aql() for ps in col_val.path_segments])
+                path_val = path_val[1:].replace("/", ".")
+                path_val = path_dict[col_val.variable_name] + "." + path_val
+                self._log.info(f"Will set {col_nm} to {path_val}")
+                top_projects[col_nm] = f"${path_val}"
+            else:
+                raise AQLNotSupportedError("MongoDB/AQL/SELECT: Only data match column specifications are supported (not parameters nor function calls)")
+
+        pipeline.append(
+            {
+                "$project": top_projects
+            }
+        )
+        self._log.info("Will run pipeline: " + str(pipeline) + "\n\n")
+        r = top_collect.aggregate(pipeline).to_list()
+
+        print(r)
 
