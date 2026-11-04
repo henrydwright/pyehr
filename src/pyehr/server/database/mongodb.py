@@ -527,10 +527,9 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             attr_name = container[0]
             is_ref = container[1]
             is_versioned_obj = container[2]
+            is_multiple = container[3]
 
-            if node.model_type.archetype_id_predicate is not None:
-                raise AQLNotSupportedError("MongoDB/AQL/FROM: engine does not support archetype predicates in FROM clause")
-
+            # lookup/join relevant data
             if is_ref:
                 if is_versioned_obj:
                     self._log.info(f"pipeline: add REF/VO at {parent_path}.{attr_name}.id.value AS {node.model_type.variable_name}")
@@ -602,8 +601,39 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
                     })
                     path_dict[node.model_type.variable_name] = node.model_type.variable_name
             else:
-                self._log.info(f"pipeline: add PATH at {parent_path}.{attr_name} AS {node.model_type.variable_name} (no db op)")
-                path_dict[node.model_type.variable_name] = f"{parent_path}.{attr_name}"
+                if is_multiple:
+                    self._log.info(f"pipeline: add MULTPATH at {parent_path}.{attr_name} AS {node.model_type.variable_name}")
+                    pipeline.append({
+                        "$set": {
+                            node.model_type.variable_name: f"${parent_path}.{attr_name}"
+                        }
+                    })
+                    pipeline.append({
+                        "$unwind": {
+                            "path": ("$" + node.model_type.variable_name)
+                        }
+                    })
+                else:
+                    self._log.info(f"pipeline: add SINGPATH at {parent_path}.{attr_name} AS {node.model_type.variable_name}")
+                
+                # match on type
+                # TODO: this will fail for inherited types and will need fixing later on
+                pipeline.append({
+                    "$match": {
+                        f"{node.model_type.variable_name}._type": node.model_type.type_name
+                    }
+                })
+                path_dict[node.model_type.variable_name] = node.model_type.variable_name
+                
+
+            if node.model_type.archetype_id_predicate is not None:
+                pipeline.append({
+                    "$match": {
+                        f"{path_dict[node.model_type.variable_name]}.archetype_details.archetype_id.value" : {
+                            "$eq": node.model_type.archetype_id_predicate.value
+                        }
+                    }
+                })
 
             self._process_from_clause_recurse(node.model_type.type_name, node.model_type.variable_name, node.contains, pipeline, path_dict)
         else:
@@ -620,8 +650,6 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
         :raises AQLExecuteFailure: If an invalid CONTAINS is given.
         :raises AQLNotSupportedError: If an archetype predicate, AND, OR or NOT is found."""
         t = from_clause.model_type_constraint
-        if t.model_type.archetype_id_predicate is not None:
-            raise AQLNotSupportedError("MongoDB/AQL/FROM: MongoDB engine does not support predicates in FROM clause")
 
         root_type = t.model_type.type_name
         root_var = t.model_type.variable_name
@@ -629,12 +657,23 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
         path_dict = {
             root_var: root_var
         }
-        pipeline = [{
+        pipeline = []
+
+        if t.model_type.archetype_id_predicate is not None:
+            pipeline.append({
+                "$match" : {
+                    "archetype_details.archetype_id.value": {
+                        "$eq": t.model_type.archetype_id_predicate.value
+                    }
+                }
+            })
+
+        pipeline.append({
             "$project" : {
                 "_id": 0,
                 root_var: "$$ROOT"
             }
-        }]
+        })
 
         self._process_from_clause_recurse(root_type, root_var, t.contains, pipeline, path_dict)
 
@@ -672,5 +711,7 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
         self._log.info("Will run pipeline: " + str(pipeline) + "\n\n")
         r = top_collect.aggregate(pipeline).to_list()
 
-        print(r)
+        self._log.info(f"Result has {len(r)} rows")
+
+        return r
 

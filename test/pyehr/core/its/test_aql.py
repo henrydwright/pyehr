@@ -175,3 +175,4 @@ def test_parse_aql_functions_aggregates_and_top():
 def test_parse_aql_rejects_malformed_input():
     with pytest.raises(AQLParseError, match="Invalid AQL string"):
         parse_aql("SELECT FROM COMPOSITION c")
+
