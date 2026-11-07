@@ -638,7 +638,7 @@ class AQLResultSet(AnyClass):
     rows: list[list[Union[str, int, object]]]
     """List of individual rows, as lists of values (in same order as the column definitions)"""
 
-    def __init__(self, q: AQLQuery, meta: AQLResultSetMetadata, columns: list[tuple[str, str]], rows: list[list[Union[str, int, AnyClass]]], name: Optional[str] = None):
+    def __init__(self, q: AQLQuery, meta: AQLResultSetMetadata, columns: list[tuple[str, str]], rows: list[list[Union[str, int, object]]], name: Optional[str] = None):
         self.meta = meta
         self.q = q
         self.name = name

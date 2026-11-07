@@ -4,6 +4,7 @@ from typing import Optional, Union
 from uuid import uuid4
 from warnings import warn
 
+from pyehr.core.its.aql import AQLResultSet, AQLResultSetMetadata
 from pyehr.core.its.aql.process import CONTAINS_RM_MAP
 from pyehr.core.its.aql.query import AQLDataMatchPath, AQLFromClause, AQLModelTypeTreeConstraint, AQLModelTypeTreeNode, AQLQuery
 from pyehr.core.rm.ehr import EHR
@@ -680,7 +681,7 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
         return (root_type, pipeline, path_dict)
 
 
-    def execute_aql_query(self, aql_query: AQLQuery):
+    def execute_aql_query(self, aql_query: AQLQuery, _mongomock_compatibility_fixes=False) -> AQLResultSet:
         self._log.info("Executing AQL query: " + aql_query.as_aql())
 
         # build the base lookup model from the FROM clause before refining
@@ -690,16 +691,19 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
 
         # project out paths from the SELECT clause
         top_projects = {"_id": 0}
+        result_cols = []
         for i in range(len(aql_query.select_clause.result_columns)):
             col = aql_query.select_clause.result_columns[i]
             col_val = col.value
             col_nm = col.alias if col.alias is not None else f"#{str(i)}"
             if isinstance(col_val, AQLDataMatchPath):
                 path_val = "".join([ps.as_aql() for ps in col_val.path_segments])
+                result_path = path_val
                 path_val = path_val[1:].replace("/", ".")
                 path_val = path_dict[col_val.variable_name] + "." + path_val
                 self._log.info(f"Will set {col_nm} to {path_val}")
                 top_projects[col_nm] = f"${path_val}"
+                result_cols.append((col_nm, result_path))
             else:
                 raise AQLNotSupportedError("MongoDB/AQL/SELECT: Only data match column specifications are supported (not parameters nor function calls)")
 
@@ -709,9 +713,23 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             }
         )
         self._log.info("Will run pipeline: " + str(pipeline) + "\n\n")
-        r = top_collect.aggregate(pipeline).to_list()
+        if _mongomock_compatibility_fixes:
+            r = list(top_collect.aggregate(pipeline))
+        else:
+            r = top_collect.aggregate(pipeline).to_list()
 
         self._log.info(f"Result has {len(r)} rows")
+
+        # process the list of objects that MongoDB returns into a list of lists
+        result_rows = []
+        for doc in r:
+            result_rows.append(list(doc.values()))
+
+        r = AQLResultSet(
+            q=aql_query,
+            meta=AQLResultSetMetadata(created=Env.current_date_time(), generator="pyehr.server.database.mongodb", executed_aql=aql_query.as_aql()),
+            columns=result_cols,
+            rows=result_rows)
 
         return r
 

@@ -16,57 +16,58 @@ from pyehr.core.its.aql.query import (
 
 def test_contains_rm_map_uses_json_attributes():
     assert CONTAINS_RM_MAP["COMPOSITION"] == {
-        "CONTENT_ITEM": ("content", False, False),
-        "SECTION": ("content", False, False),
-        "ENTRY": ("content", False, False),
-        "ADMIN_ENTRY": ("content", False, False),
-        "CARE_ENTRY": ("content", False, False),
-        "OBSERVATION": ("content", False, False),
-        "EVALUATION": ("content", False, False),
-        "INSTRUCTION": ("content", False, False),
-        "ACTION": ("content", False, False),
+        "CONTENT_ITEM": ("content", False, False, True),
+        "SECTION": ("content", False, False, True),
+        "ENTRY": ("content", False, False, True),
+        "ADMIN_ENTRY": ("content", False, False, True),
+        "CARE_ENTRY": ("content", False, False, True),
+        "OBSERVATION": ("content", False, False, True),
+        "EVALUATION": ("content", False, False, True),
+        "INSTRUCTION": ("content", False, False, True),
+        "ACTION": ("content", False, False, True),
     }
-    assert CONTAINS_RM_MAP["EHR"]["CONTRIBUTION"] == ("contributions", True, False)
-    assert CONTAINS_RM_MAP["EHR"]["VERSIONED_EHR_STATUS"] == ("ehr_status", True, False)
-    assert CONTAINS_RM_MAP["EHR"]["VERSIONED_EHR_ACCESS"] == ("ehr_access", True, False)
-    assert CONTAINS_RM_MAP["EHR"]["VERSIONED_FOLDER"] == ("folders", True, False)
-    assert CONTAINS_RM_MAP["SECTION"]["SECTION"] == ("items", False, False)
-    assert CONTAINS_RM_MAP["INSTRUCTION"]["ACTIVITY"] == ("activities", False, False)
+    assert CONTAINS_RM_MAP["EHR"]["CONTRIBUTION"] == ("contributions", True, False, True)
+    assert CONTAINS_RM_MAP["EHR"]["VERSIONED_EHR_STATUS"] == ("ehr_status", True, False, False)
+    assert CONTAINS_RM_MAP["EHR"]["VERSIONED_EHR_ACCESS"] == ("ehr_access", True, False, False)
+    assert CONTAINS_RM_MAP["EHR"]["VERSIONED_FOLDER"] == ("folders", True, False, True)
+    assert CONTAINS_RM_MAP["SECTION"]["SECTION"] == ("items", False, False, True)
+    assert CONTAINS_RM_MAP["INSTRUCTION"]["ACTIVITY"] == ("activities", False, False, True)
 
     party_children = {
-        "PARTY_IDENTITY": ("identities", False, False),
-        "CONTACT": ("contacts", False, False),
-        "ITEM_STRUCTURE": ("details", False, False),
-        "PARTY_RELATIONSHIP": ("relationships", False, False),
+        "PARTY_IDENTITY": ("identities", False, False, True),
+        "CONTACT": ("contacts", False, False, True),
+        "ITEM_STRUCTURE": ("details", False, False, False),
+        "PARTY_RELATIONSHIP": ("relationships", False, False, True),
     }
     for actor_type in ("ACTOR", "PERSON", "ORGANISATION", "GROUP", "AGENT"):
         assert all(
             CONTAINS_RM_MAP[actor_type][child_type] == containment
             for child_type, containment in party_children.items()
         )
-        assert CONTAINS_RM_MAP[actor_type]["ROLE"] == ("roles", True, True)
-        assert CONTAINS_RM_MAP[actor_type]["VERSIONED_PARTY"] == ("roles", True, False)
-    assert CONTAINS_RM_MAP["ROLE"]["CAPABILITY"] == ("capabilities", False, False)
+        assert CONTAINS_RM_MAP[actor_type]["ROLE"] == ("roles", True, True, True)
+        assert CONTAINS_RM_MAP[actor_type]["VERSIONED_PARTY"] == ("roles", True, False, True)
+    assert CONTAINS_RM_MAP["ROLE"]["CAPABILITY"] == ("capabilities", False, False, True)
 
 
 def test_contains_rm_map_covers_nested_locatables():
     containment_edges = (
-        ("ADMIN_ENTRY", "ITEM_TREE", "data"),
-        ("OBSERVATION", "HISTORY", "data"),
-        ("HISTORY", "POINT_EVENT", "events"),
-        ("EVENT", "ITEM_TREE", "data"),
-        ("ITEM_TABLE", "CLUSTER", "rows"),
-        ("CLUSTER", "ELEMENT", "items"),
-        ("FOLDER", "FOLDER", "folders"),
-        ("CONTACT", "ADDRESS", "addresses"),
-        ("CAPABILITY", "ITEM_TREE", "credentials"),
-        ("EHR_STATUS", "ITEM_TREE", "other_details"),
+        ("ADMIN_ENTRY", "ITEM_TREE", "data", False),
+        ("OBSERVATION", "HISTORY", "data", False),
+        ("HISTORY", "POINT_EVENT", "events", True),
+        ("EVENT", "ITEM_TREE", "data", False),
+        ("ITEM_TABLE", "CLUSTER", "rows", True),
+        ("CLUSTER", "ELEMENT", "items", True),
+        ("FOLDER", "FOLDER", "folders", True),
+        ("CONTACT", "ADDRESS", "addresses", True),
+        ("CAPABILITY", "ITEM_TREE", "credentials", False),
+        ("EHR_STATUS", "ITEM_TREE", "other_details", False),
     )
-    for parent_type, child_type, attribute in containment_edges:
+    for parent_type, child_type, attribute, multiple in containment_edges:
         assert CONTAINS_RM_MAP[parent_type][child_type] == (
             attribute,
             False,
             False,
+            multiple
         )
 
 

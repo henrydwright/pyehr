@@ -1,8 +1,10 @@
+from os import getenv
 from uuid import uuid4
 from pyehr.core.am.opt14 import OperationalTemplate
 from pyehr.core.its.xml_tools import decode_xml
 from pyehr.core.rm.common.directory import Folder, VersionedFolder
 from pyehr.core.rm.ehr import EHR
+from pymongo import MongoClient
 import pytest
 import mongomock
 
@@ -22,8 +24,10 @@ from pyehr.server.database import IDatabaseEngine
 from pyehr.server.database.local import InMemoryDB
 from pyehr.server.database.mongodb import MongoDBDatabaseEngine
 from pyehr.term import PyehrGlobalTerminologyService
+from dotenv import load_dotenv
 
-USE_REAL_MONGODB = False
+load_dotenv()
+USE_REAL_MONGODB = (getenv("PYEHR_TEST_USE_REAL_MONGODB") is not None)
 
 def _generate_hier_object_ids(db: IDatabaseEngine):
     hid_set = set()
@@ -31,14 +35,22 @@ def _generate_hier_object_ids(db: IDatabaseEngine):
         hid_set.add(db.generate_hier_object_id().value)
     return hid_set
 
-def _get_local_db_engine() -> IDatabaseEngine:
-    return InMemoryDB()
-
-def _get_mongodb_engine():
-    if USE_REAL_MONGODB:
-        return MongoDBDatabaseEngine("mongodb://localhost:27017/?directConnection=true", f"testdb-{str(uuid4())}")
+@pytest.fixture(scope="module")
+def db(request: pytest.FixtureRequest) -> IDatabaseEngine:
+    db_type = request.param
+    if db_type == "local":
+        return InMemoryDB()
+    elif db_type == "mongodb":
+        if USE_REAL_MONGODB:
+            client = MongoClient("mongodb://localhost:27017/?directConnection=true")
+            db_name = f"testdb-{str(uuid4())}"
+            db = MongoDBDatabaseEngine("mongodb://localhost:27017/?directConnection=true", db_name, mongo_client=client)
+            request.addfinalizer(lambda: client.drop_database(db_name))
+            return db
+        else:
+            return MongoDBDatabaseEngine("mongodb://localhost:27017/?directConnection=true", f"testdb-{str(uuid4())}", mongo_client=mongomock.MongoClient("mongodb://localhost:27017/?directConnection=true"))
     else:
-        return MongoDBDatabaseEngine("mongodb://localhost:27017/?directConnection=true", f"testdb-{str(uuid4())}", mongo_client=mongomock.MongoClient("mongodb://localhost:27017/?directConnection=true"))
+        raise RuntimeError("Test attempted to use an unsupported database type")
         
 def _get_test_person() -> Person:
     return Person(
@@ -232,14 +244,8 @@ def _get_versioned_object_contribution() -> tuple[VersionedObject, Contribution]
     )
     return (vo, cont)
 
-dbs_under_test = [
-    pytest.param(_get_local_db_engine, id="local"),
-    pytest.param(_get_mongodb_engine, id="mongodb")
-]
-
-@pytest.mark.parametrize("get_db_func", dbs_under_test)
-def test_generate_hier_object_id(get_db_func):
-    db = get_db_func()
+@pytest.mark.parametrize("db", ["local", "mongodb"], indirect=True)
+def test_generate_hier_object_id(db):
     hid_set = _generate_hier_object_ids(db)
     
     # uniqueness
@@ -252,9 +258,8 @@ def test_generate_hier_object_id(get_db_func):
     assert met1.obj_type is None
     assert len(met1.action_history) == 2
 
-@pytest.mark.parametrize("get_db_func", dbs_under_test)
-def test_create_and_retrieve_uid_object(get_db_func):
-    db = get_db_func()
+@pytest.mark.parametrize("db", ["local", "mongodb"], indirect=True)
+def test_create_and_retrieve_uid_object(db):
     per = _get_test_person()
 
     db.create_uid_object(per)
@@ -273,9 +278,8 @@ def test_create_and_retrieve_uid_object(get_db_func):
 
     assert per.is_equal(per2)
 
-@pytest.mark.parametrize("get_db_func", dbs_under_test)
-def test_update_uid_object(get_db_func):
-    db = get_db_func()
+@pytest.mark.parametrize("db", ["local", "mongodb"], indirect=True)
+def test_update_uid_object(db):
     per = _get_test_person()
 
     db.create_uid_object(per)
@@ -295,9 +299,8 @@ def test_update_uid_object(get_db_func):
     assert per_updated.is_equal(per_updated2)
 
 
-@pytest.mark.parametrize("get_db_func", dbs_under_test)
-def test_retrieve_query_match_object(get_db_func):    
-    db = get_db_func()
+@pytest.mark.parametrize("db", ["local", "mongodb"], indirect=True)
+def test_retrieve_query_match_object(db):    
 
     if not USE_REAL_MONGODB and isinstance(db, MongoDBDatabaseEngine):
         pytest.skip("mongomock does not support a method used by retrieve_query_match_object")
@@ -326,9 +329,8 @@ def test_retrieve_query_match_object(get_db_func):
     
     assert len(per_res2) == 0
 
-@pytest.mark.parametrize("get_db_func", dbs_under_test)
-def test_create_and_retrieve_versioned_object(get_db_func):
-    db = get_db_func()
+@pytest.mark.parametrize("db", ["local", "mongodb"], indirect=True)
+def test_create_and_retrieve_versioned_object(db):
 
     vo, cont = _get_versioned_object_contribution()
 
@@ -343,9 +345,8 @@ def test_create_and_retrieve_versioned_object(get_db_func):
     vo_ret, rhis_ret = db.retrieve_versioned_object(vo.uid, metadata_only_versioned_object=False)
     assert vo.is_equal(vo_ret)
 
-@pytest.mark.parametrize("get_db_func", dbs_under_test)
-def test_add_to_ehr_list_contribution(get_db_func):
-    db : IDatabaseEngine = get_db_func()
+@pytest.mark.parametrize("db", ["local", "mongodb"], indirect=True)
+def test_add_to_ehr_list_contribution(db):
 
     ehr_id = HierObjectID("cdd513dc-d9d4-43c8-b874-82de4924e56d")
 
