@@ -34,6 +34,8 @@ def mongodb(request: pytest.FixtureRequest):
     
 
 def test_single_no_predicate_from(mongodb: MongoDBDatabaseEngine):
+    if not USE_REAL_MONGODB:
+        pytest.skip("Mongomock doesn't implement the required '$getField' expression so this can't be tested")
     r = mongodb.execute_aql_query(parse_aql("SELECT e/system_id/value AS sys_id, e/ehr_id/value AS ehr_id FROM EHR e"), _mongomock_compatibility_fixes=(not USE_REAL_MONGODB))
 
     assert (len(r.rows)==5)
@@ -52,7 +54,26 @@ def test_single_no_predicate_from(mongodb: MongoDBDatabaseEngine):
 
     assert is_equal_value(expected_ehr_id_set, actual_ehr_id_set)
 
+def test_select_fills_nulls_if_not_found(mongodb: MongoDBDatabaseEngine):
+    if not USE_REAL_MONGODB:
+        pytest.skip("Mongomock doesn't implement the required '$getField' expression so this can't be tested")
+    r = mongodb.execute_aql_query(parse_aql("SELECT e/system_id/value AS sys_id, e/ehr_id/value/wontexist FROM EHR e"), _mongomock_compatibility_fixes=(not USE_REAL_MONGODB))
+
+    assert (len(r.rows)==5)
+    assert r.columns[0][0] == "sys_id"
+    assert r.columns[0][1] == "/system_id/value"
+    assert r.columns[1][0] == "#1"
+    assert r.columns[1][1] == "/ehr_id/value/wontexist"
+
+    for row in r.rows:
+        assert row[0] == "8addce0e-2289-420e-adf8-3400907c0d3e"
+        assert len(row) == 2
+        assert row[1] is None
+
+
 def test_single_with_predicate_from(mongodb: MongoDBDatabaseEngine):
+    if not USE_REAL_MONGODB:
+        pytest.skip("Mongomock doesn't implement the required '$getField' expression so this can't be tested")
     r = mongodb.execute_aql_query(parse_aql("SELECT p/uid/value FROM PERSON p [pyehr-DEMOGRAPHIC-PERSON.nhs_patient.v0]"), _mongomock_compatibility_fixes=(not USE_REAL_MONGODB))
 
     assert (len(r.rows)==3)
@@ -122,3 +143,35 @@ def test_contains_chain_from(mongodb: MongoDBDatabaseEngine):
 
     r3 = mongodb.execute_aql_query(parse_aql("SELECT e/ehr_id/value AS p_id, c/uid/value AS c_id FROM EHR e CONTAINS COMPOSITION c CONTAINS ACTION act [openEHR-EHR-ACTION.other.v1]"))
     assert len(r3.rows) == 0
+
+def test_select_has_predicate(mongodb: MongoDBDatabaseEngine):
+    if not USE_REAL_MONGODB:
+        pytest.skip("Mongomock doesn't implement the required 'pipeline' operator within $lookup so this can't be tested")
+    
+    r = mongodb.execute_aql_query(parse_aql("SELECT e/ehr_id/value AS p_id, prob/data/items[at0002]/value/value AS problem FROM EHR e CONTAINS COMPOSITION c [openEHR-EHR-COMPOSITION.problem_list.v2] CONTAINS EVALUATION prob [openEHR-EHR-EVALUATION.problem_diagnosis.v1]"))
+    assert len(r.rows) == 5
+    expected_row_tuples = set([(
+        "8d7f36c1-c2d0-4332-895c-4a3cab3446b6",
+        "Allergic asthma"
+        ),
+        (
+        "a2906af1-cc9f-4ef2-879b-9a3c22737b23",
+        "Chronic obstructive pulmonary disease"
+        ),
+        (
+        "a2906af1-cc9f-4ef2-879b-9a3c22737b23",
+        "Arthritis of finger of left hand"
+        ),
+        (
+        "726f23bb-5b8d-4b24-bb7e-545fc698b068",
+        "Cocaine dependence"
+        ),
+        (
+        "def83fa8-3c37-4fd4-89ec-143de9401563",
+        "Heart failure"
+        )])
+    actual_row_tuples = set()
+    for row in r.rows:
+        actual_row_tuples.add((row[0], row[1]))
+
+    assert is_equal_value(expected_row_tuples, actual_row_tuples)

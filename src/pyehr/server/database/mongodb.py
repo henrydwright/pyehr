@@ -697,12 +697,39 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             col_val = col.value
             col_nm = col.alias if col.alias is not None else f"#{str(i)}"
             if isinstance(col_val, AQLDataMatchPath):
-                path_val = "".join([ps.as_aql() for ps in col_val.path_segments])
-                result_path = path_val
-                path_val = path_val[1:].replace("/", ".")
-                path_val = path_dict[col_val.variable_name] + "." + path_val
-                self._log.info(f"Will set {col_nm} to {path_val}")
-                top_projects[col_nm] = f"${path_val}"
+                project_obj = {}
+                current_project_obj = project_obj
+                last_project_obj = {}
+                for path_seg in reversed(col_val.path_segments):
+                    if path_seg.predicate_string is not None and path_seg.predicate_string[:2] == "at" and len(path_seg.predicate_string) == 6:
+                        current_project_obj["$arrayElemAt"] = [
+                                    {"$map": 
+                                     {"input": {
+                                         "$filter": {
+                                             "input": {
+                                                 "$getField": {
+                                                     "field": path_seg.attribute_id,
+                                                     "input": {}
+                                                 }
+                                             },
+                                             "as": "map_field",
+                                             "cond": {"$eq": ["$$map_field.archetype_node_id", path_seg.predicate_string]}
+                                         }
+                                     }, 
+                                     "as": "map_field",
+                                     "in": "$$map_field"}},0]
+                        last_project_obj = current_project_obj["$arrayElemAt"][0]["$map"]["input"]["$filter"]["input"]["$getField"]
+                        current_project_obj = current_project_obj["$arrayElemAt"][0]["$map"]["input"]["$filter"]["input"]["$getField"]["input"]
+                    elif path_seg.predicate_tree is not None:
+                        raise AQLNotSupportedError("MongoDB/AQL/SELECT: Only [atXXXX] predicates are supported in SELECT paths, not more complex predicates")
+                    else:
+                        current_project_obj["$getField"] = {"field": path_seg.attribute_id, "input": {}}
+                        last_project_obj = current_project_obj["$getField"]
+                        current_project_obj = current_project_obj["$getField"]["input"]
+                last_project_obj["input"] = f"${col_val.variable_name}"
+                result_path = "".join([ps.as_aql() for ps in col_val.path_segments])
+                self._log.info(f"Will set {col_nm} to {str(project_obj)}")
+                top_projects[col_nm] = {"$ifNull": [project_obj, None]} # project_obj
                 result_cols.append((col_nm, result_path))
             else:
                 raise AQLNotSupportedError("MongoDB/AQL/SELECT: Only data match column specifications are supported (not parameters nor function calls)")
