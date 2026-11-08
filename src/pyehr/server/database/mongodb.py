@@ -6,7 +6,7 @@ from warnings import warn
 
 from pyehr.core.its.aql import AQLResultSet, AQLResultSetMetadata
 from pyehr.core.its.aql.process import CONTAINS_RM_MAP
-from pyehr.core.its.aql.query import AQLComparisonOperator, AQLDataMatchPath, AQLFromClause, AQLModelTypeTreeConstraint, AQLModelTypeTreeNode, AQLPrimitiveLiteral, AQLQuery, AQLSelectClause, AQLWhereClause, AQLWhereTreeComparisonLeaf
+from pyehr.core.its.aql.query import AQLComparisonOperator, AQLDataMatchPath, AQLFromClause, AQLModelTypeTreeConstraint, AQLModelTypeTreeNode, AQLPrimitiveLiteral, AQLQuery, AQLSelectClause, AQLWhereClause, AQLWhereTreeBinaryExpr, AQLWhereTreeComparisonLeaf, AQLWhereTreeNode
 from pyehr.core.rm.ehr import EHR
 from pymongo import MongoClient
 from pymongo.database import Database
@@ -744,33 +744,64 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
         AQLComparisonOperator.SMALLER_THAN_OR_EQUAL_TO: "$lte"
     }
 
+    def _process_where_clause_recurse(self, node: AQLWhereTreeNode, add_field_dict: object, add_field_map: dict[str, str]) -> object:
+        """Recurses down a where node tree and returns the contents of the $match expression for this
+        part of the tree. Adds to the add_field_dict as it goes, using add_field_map to lookup the temporary
+        field name for a given path needed in the WHERE clause"""
+        t = node
+        if isinstance(t, AQLWhereTreeComparisonLeaf):
+            if isinstance(t.op1, AQLDataMatchPath):
+                if isinstance(t.op2.value, AQLPrimitiveLiteral):
+                    if t.op1.as_aql() not in add_field_map:
+                        new_field_name = f"pyehr-where-{str(uuid4())}"
+                        add_field_map[t.op1.as_aql()] = new_field_name
+                        add_field_dict[new_field_name] = self._aql_data_match_path_to_mdb_expression(t.op1)
+                    
+                    where_field_name = add_field_map[t.op1.as_aql()]
+                    
+                    self._log.info(f"Will set {where_field_name} to path {t.op1.as_aql()} and match with {str(t.op2.value.value)}")
+                    return {
+                        where_field_name: {self._AQL_COMPARISON_TO_MDB[t.operand]: str(t.op2.value.value)}
+                    }
+                else:
+                    raise AQLNotSupportedError("MongoDB/AQL/WHERE: Only literal values are supported as right operand for comparison expression in WHERE clause.")
+            else:
+                raise AQLNotSupportedError("MongoDB/AQL/WHERE: Only data match paths are supported as left operand for comparison expression in WHERE clause.")
+        elif isinstance(t, AQLWhereTreeBinaryExpr):
+            if t.operand == "OR":
+                return {
+                    "$or": [
+                        self._process_where_clause_recurse(t.op1, add_field_dict, add_field_map),
+                        self._process_where_clause_recurse(t.op2, add_field_dict, add_field_map)
+                    ]
+                }
+            else:
+                return {
+                    "$and": [
+                        self._process_where_clause_recurse(t.op1, add_field_dict, add_field_map),
+                        self._process_where_clause_recurse(t.op2, add_field_dict, add_field_map)
+                    ]
+                }
+        else:
+            raise AQLNotSupportedError("MongoDB/AQL/WHERE: Only singular comparison is supported.")
+
+
+
     def _process_where_clause(self, where_clause: Optional[AQLWhereClause], pipeline: list):
         """Takes the contents of a WHERE clause plus a pipeline produced by the FROM clause and adds
         relevant pipeline stages to meet the filters of the where clause. Does not return a value."""
         if where_clause is None:
             return
         t = where_clause.where_expression_tree
-        if isinstance(t, AQLWhereTreeComparisonLeaf):
-            if isinstance(t.op1, AQLDataMatchPath):
-                if isinstance(t.op2.value, AQLPrimitiveLiteral):
-                    where_field_name = f"pyehr-where-{str(uuid4())}"
-                    self._log.info(f"Will set {where_field_name} to path {t.op1.as_aql()} and match with {str(t.op2.value.value)}")
-                    pipeline.append({
-                        "$addFields" : {
-                           where_field_name : self._aql_data_match_path_to_mdb_expression(t.op1)
-                        }
-                    })
-                    pipeline.append({
-                        "$match": {
-                            where_field_name: {self._AQL_COMPARISON_TO_MDB[t.operand]: str(t.op2.value.value)}
-                        }
-                    })
-                else:
-                    raise AQLNotSupportedError("MongoDB/AQL/WHERE: Only literal values are supported as right operand for comparison expression in WHERE clause.")
-            else:
-                raise AQLNotSupportedError("MongoDB/AQL/WHERE: Only data match paths are supported as left operand for comparison expression in WHERE clause.")
-        else:
-            raise AQLNotSupportedError("MongoDB/AQL/WHERE: Only singular comparison is supported.")
+        add_field_dict = {}
+        field_map = {}
+        match_obj = {
+            "$match": self._process_where_clause_recurse(t, add_field_dict, field_map)
+        }
+        pipeline.append({
+            "$addFields": add_field_dict
+        })
+        pipeline.append(match_obj)
 
     def execute_aql_query(self, aql_query: AQLQuery, _mongomock_compatibility_fixes=False) -> AQLResultSet:
         self._log.info("Executing AQL query: " + aql_query.as_aql())

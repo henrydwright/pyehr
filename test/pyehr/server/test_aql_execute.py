@@ -220,3 +220,25 @@ def test_single_where_data_match_path_no_predicate_not_equal(mongodb: MongoDBDat
         actual_row_set.add((row[0], row[1]))
 
     assert is_equal_value(expected_row_set, actual_row_set)
+
+def test_where_with_binary_expr_or(mongodb: MongoDBDatabaseEngine):
+    if not USE_REAL_MONGODB:
+        pytest.skip("Mongomock doesn't implement the required 'pipeline' operator within $lookup so this can't be tested")
+
+    r = mongodb.execute_aql_query(parse_aql("SELECT e/ehr_id/value AS ehr_id, prob/data/items[at0002]/value/value AS prob_name FROM EHR e CONTAINS COMPOSITION c CONTAINS EVALUATION prob [openEHR-EHR-EVALUATION.problem_diagnosis.v1] WHERE prob/data/items[at0002]/value/defining_code/code_string='31956009' OR prob/data/items[at0002]/value/defining_code/code_string='84114007'"))
+
+    assert len(r.rows) == 2
+    expected_row_tuples = [(
+        "726f23bb-5b8d-4b24-bb7e-545fc698b068",
+        "Cocaine dependence"
+        ),
+        (
+        "def83fa8-3c37-4fd4-89ec-143de9401563",
+        "Heart failure"
+        )]
+    expected_row_set = set(expected_row_tuples)
+    actual_row_set = set()
+    for row in r.rows:
+        actual_row_set.add((row[0], row[1]))
+
+    assert is_equal_value(expected_row_set, actual_row_set)
