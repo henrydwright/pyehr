@@ -6,7 +6,7 @@ from warnings import warn
 
 from pyehr.core.its.aql import AQLResultSet, AQLResultSetMetadata
 from pyehr.core.its.aql.process import CONTAINS_RM_MAP
-from pyehr.core.its.aql.query import AQLDataMatchPath, AQLFromClause, AQLModelTypeTreeConstraint, AQLModelTypeTreeNode, AQLQuery
+from pyehr.core.its.aql.query import AQLComparisonOperator, AQLDataMatchPath, AQLFromClause, AQLModelTypeTreeConstraint, AQLModelTypeTreeNode, AQLPrimitiveLiteral, AQLQuery, AQLSelectClause, AQLWhereClause, AQLWhereTreeComparisonLeaf
 from pyehr.core.rm.ehr import EHR
 from pymongo import MongoClient
 from pymongo.database import Database
@@ -680,6 +680,97 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
 
         return (root_type, pipeline, path_dict)
 
+    def _aql_data_match_path_to_mdb_expression(self, dmp: AQLDataMatchPath) -> object:
+        project_obj = {}
+        current_project_obj = project_obj
+        last_project_obj = {}
+        for path_seg in reversed(dmp.path_segments):
+            if path_seg.predicate_string is not None and path_seg.predicate_string[:2] == "at" and len(path_seg.predicate_string) == 6:
+                current_project_obj["$arrayElemAt"] = [
+                            {"$map": 
+                                {"input": {
+                                    "$filter": {
+                                        "input": {
+                                            "$getField": {
+                                                "field": path_seg.attribute_id,
+                                                "input": {}
+                                            }
+                                        },
+                                        "as": "map_field",
+                                        "cond": {"$eq": ["$$map_field.archetype_node_id", path_seg.predicate_string]}
+                                    }
+                                }, 
+                                "as": "map_field",
+                                "in": "$$map_field"}},0]
+                last_project_obj = current_project_obj["$arrayElemAt"][0]["$map"]["input"]["$filter"]["input"]["$getField"]
+                current_project_obj = current_project_obj["$arrayElemAt"][0]["$map"]["input"]["$filter"]["input"]["$getField"]["input"]
+            elif path_seg.predicate_tree is not None:
+                raise AQLNotSupportedError("MongoDB/AQL/SELECT: Only [atXXXX] predicates are supported in SELECT paths, not more complex predicates")
+            else:
+                current_project_obj["$getField"] = {"field": path_seg.attribute_id, "input": {}}
+                last_project_obj = current_project_obj["$getField"]
+                current_project_obj = current_project_obj["$getField"]["input"]
+        last_project_obj["input"] = f"${dmp.variable_name}"
+        return project_obj
+
+
+    def _process_select_clause(self, select_clause: AQLSelectClause) -> tuple[object, list[tuple[str, str]]]:
+        """Takes the contents of a SELECT clause and produces the contents of a $project operation
+        plus the required column specifications for the return of an AQL RESULT_SET
+        :returns: Tuple with 0: contents of $project operation, 1: list of columns in RESULT_SET format"""
+        top_projects = {"_id": 0}
+        result_cols = []
+        for i in range(len(select_clause.result_columns)):
+            col = select_clause.result_columns[i]
+            col_val = col.value
+            col_nm = col.alias if col.alias is not None else f"#{str(i)}"
+            if isinstance(col_val, AQLDataMatchPath):
+                project_obj = self._aql_data_match_path_to_mdb_expression(col_val)
+                result_path = "".join([ps.as_aql() for ps in col_val.path_segments])
+                self._log.info(f"Will set {col_nm} to {str(project_obj)}")
+                top_projects[col_nm] = {"$ifNull": [project_obj, None]} # project_obj
+                result_cols.append((col_nm, result_path))
+            else:
+                raise AQLNotSupportedError("MongoDB/AQL/SELECT: Only data match column specifications are supported (not parameters nor function calls)")
+
+        return (top_projects, result_cols)
+
+    _AQL_COMPARISON_TO_MDB = {
+        AQLComparisonOperator.EQUAL : "$eq",
+        AQLComparisonOperator.GREATER_THAN : "$gt",
+        AQLComparisonOperator.GREATER_THAN_OR_EQUAL_TO: "$gte",
+        AQLComparisonOperator.NOT_EQUAL_TO: "$ne",
+        AQLComparisonOperator.SMALLER_THAN: "$lt",
+        AQLComparisonOperator.SMALLER_THAN_OR_EQUAL_TO: "$lte"
+    }
+
+    def _process_where_clause(self, where_clause: Optional[AQLWhereClause], pipeline: list):
+        """Takes the contents of a WHERE clause plus a pipeline produced by the FROM clause and adds
+        relevant pipeline stages to meet the filters of the where clause. Does not return a value."""
+        if where_clause is None:
+            return
+        t = where_clause.where_expression_tree
+        if isinstance(t, AQLWhereTreeComparisonLeaf):
+            if isinstance(t.op1, AQLDataMatchPath):
+                if isinstance(t.op2.value, AQLPrimitiveLiteral):
+                    where_field_name = f"pyehr-where-{str(uuid4())}"
+                    self._log.info(f"Will set {where_field_name} to path {t.op1.as_aql()} and match with {str(t.op2.value.value)}")
+                    pipeline.append({
+                        "$addFields" : {
+                           where_field_name : self._aql_data_match_path_to_mdb_expression(t.op1)
+                        }
+                    })
+                    pipeline.append({
+                        "$match": {
+                            where_field_name: {self._AQL_COMPARISON_TO_MDB[t.operand]: str(t.op2.value.value)}
+                        }
+                    })
+                else:
+                    raise AQLNotSupportedError("MongoDB/AQL/WHERE: Only literal values are supported as right operand for comparison expression in WHERE clause.")
+            else:
+                raise AQLNotSupportedError("MongoDB/AQL/WHERE: Only data match paths are supported as left operand for comparison expression in WHERE clause.")
+        else:
+            raise AQLNotSupportedError("MongoDB/AQL/WHERE: Only singular comparison is supported.")
 
     def execute_aql_query(self, aql_query: AQLQuery, _mongomock_compatibility_fixes=False) -> AQLResultSet:
         self._log.info("Executing AQL query: " + aql_query.as_aql())
@@ -689,50 +780,10 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
 
         top_collect = self._database.get_collection(top_type)
 
+        self._process_where_clause(aql_query.where_clause, pipeline)
+
         # project out paths from the SELECT clause
-        top_projects = {"_id": 0}
-        result_cols = []
-        for i in range(len(aql_query.select_clause.result_columns)):
-            col = aql_query.select_clause.result_columns[i]
-            col_val = col.value
-            col_nm = col.alias if col.alias is not None else f"#{str(i)}"
-            if isinstance(col_val, AQLDataMatchPath):
-                project_obj = {}
-                current_project_obj = project_obj
-                last_project_obj = {}
-                for path_seg in reversed(col_val.path_segments):
-                    if path_seg.predicate_string is not None and path_seg.predicate_string[:2] == "at" and len(path_seg.predicate_string) == 6:
-                        current_project_obj["$arrayElemAt"] = [
-                                    {"$map": 
-                                     {"input": {
-                                         "$filter": {
-                                             "input": {
-                                                 "$getField": {
-                                                     "field": path_seg.attribute_id,
-                                                     "input": {}
-                                                 }
-                                             },
-                                             "as": "map_field",
-                                             "cond": {"$eq": ["$$map_field.archetype_node_id", path_seg.predicate_string]}
-                                         }
-                                     }, 
-                                     "as": "map_field",
-                                     "in": "$$map_field"}},0]
-                        last_project_obj = current_project_obj["$arrayElemAt"][0]["$map"]["input"]["$filter"]["input"]["$getField"]
-                        current_project_obj = current_project_obj["$arrayElemAt"][0]["$map"]["input"]["$filter"]["input"]["$getField"]["input"]
-                    elif path_seg.predicate_tree is not None:
-                        raise AQLNotSupportedError("MongoDB/AQL/SELECT: Only [atXXXX] predicates are supported in SELECT paths, not more complex predicates")
-                    else:
-                        current_project_obj["$getField"] = {"field": path_seg.attribute_id, "input": {}}
-                        last_project_obj = current_project_obj["$getField"]
-                        current_project_obj = current_project_obj["$getField"]["input"]
-                last_project_obj["input"] = f"${col_val.variable_name}"
-                result_path = "".join([ps.as_aql() for ps in col_val.path_segments])
-                self._log.info(f"Will set {col_nm} to {str(project_obj)}")
-                top_projects[col_nm] = {"$ifNull": [project_obj, None]} # project_obj
-                result_cols.append((col_nm, result_path))
-            else:
-                raise AQLNotSupportedError("MongoDB/AQL/SELECT: Only data match column specifications are supported (not parameters nor function calls)")
+        top_projects, result_cols = self._process_select_clause(aql_query.select_clause)
 
         pipeline.append(
             {
