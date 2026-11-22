@@ -6,7 +6,7 @@ from warnings import warn
 
 from pyehr.core.its.aql import AQLResultSet, AQLResultSetMetadata
 from pyehr.core.its.aql.process import CONTAINS_RM_MAP
-from pyehr.core.its.aql.query import AQLComparisonOperator, AQLDataMatchPath, AQLFromClause, AQLModelTypeTreeConstraint, AQLModelTypeTreeNode, AQLPrimitiveLiteral, AQLQuery, AQLSelectClause, AQLWhereClause, AQLWhereTreeBinaryExpr, AQLWhereTreeComparisonLeaf, AQLWhereTreeNode
+from pyehr.core.its.aql.query import AQLComparisonOperator, AQLDataMatchPath, AQLFromClause, AQLModelTypeTreeBinaryExpr, AQLModelTypeTreeConstraint, AQLModelTypeTreeNode, AQLPrimitiveLiteral, AQLQuery, AQLSelectClause, AQLWhereClause, AQLWhereTreeBinaryExpr, AQLWhereTreeComparisonLeaf, AQLWhereTreeNode
 from pyehr.core.rm.ehr import EHR
 from pymongo import MongoClient
 from pymongo.database import Database
@@ -513,9 +513,21 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
         self._meta_add_db_action_item(ehr_id, DBActionItem(DBActionType.UPDATE, party=adder))
         self._log.info(f"{ehr_id.value}:Added reference to {addition.ref_type} to EHR.")
 
-    def _process_from_clause_recurse(self, parent_type: str, parent_var: str, node: AQLModelTypeTreeNode, pipeline: list, path_dict: dict[str, str]):
+    def _process_from_clause_recurse(self, parent_type: str, parent_var: str, node: AQLModelTypeTreeNode, pipeline: list, match_step: dict, path_dict: dict[str, str]):
         if node is None:
             return
+        elif isinstance(node, AQLModelTypeTreeBinaryExpr):
+            match_step_1 = {}
+            match_step_2 = {}
+            if node.operator == "AND":
+                match_step["$and"] = [match_step_1, match_step_2]
+            elif node.operator == "OR":
+                match_step["$or"] = [match_step_1, match_step_2]
+            else:
+                raise AQLExecuteFailure(f"Invalid binary operator \'{node.operator}\' encountered")
+            self._process_from_clause_recurse(parent_type, parent_var, node.expr1, pipeline, match_step_1, path_dict)
+            self._process_from_clause_recurse(parent_type, parent_var, node.expr2, pipeline, match_step_2, path_dict)
+
         elif isinstance(node, AQLModelTypeTreeConstraint):
             parent_map = CONTAINS_RM_MAP.get(parent_type)
             if parent_map is None:
@@ -529,6 +541,8 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             is_ref = container[1]
             is_versioned_obj = container[2]
             is_multiple = container[3]
+
+            node_match_criteria = []
 
             # lookup/join relevant data
             if is_ref:
@@ -557,16 +571,7 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
                             ]
                         }
                     })
-                    pipeline.append({
-                        "$unwind": f"${node.model_type.variable_name}_vo"
-                    })
-                    pipeline.append({
-                        "$lookup": {
-                            "from": f"VERSION<{node.model_type.type_name}>",
-                            "localField": f"{node.model_type.variable_name}_vo.latest_version_id",
-                            "foreignField": "_id",
-                            "as": node.model_type.variable_name,
-                            "pipeline": [
+                    inner_pipeline = [
                                 {
                                     "$project": {
                                         "_id": 0,
@@ -579,10 +584,28 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
                                     }
                                 }
                             ]
+                    if node.model_type.archetype_id_predicate is not None:
+                        inner_pipeline.append({
+                            "$match": {
+                                f"archetype_details.archetype_id.value" : {
+                                        "$eq": node.model_type.archetype_id_predicate.value
+                                }
+                            }
+                        })
+                    pipeline.append({
+                        "$lookup": {
+                            "from": f"VERSION<{node.model_type.type_name}>",
+                            "localField": f"{node.model_type.variable_name}_vo.latest_version_id",
+                            "foreignField": "_id",
+                            "as": node.model_type.variable_name,
+                            "pipeline": inner_pipeline
                         }
                     })
                     pipeline.append({
-                        "$unwind": f"${node.model_type.variable_name}"
+                        "$unwind": {
+                            "path": f"${node.model_type.variable_name}",
+                            "preserveNullAndEmptyArrays": True
+                        }
                     })
                     path_dict[node.model_type.variable_name] = node.model_type.variable_name
                 else:
@@ -619,26 +642,29 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
                 
                 # match on type
                 # TODO: this will fail for inherited types and will need fixing later on
-                pipeline.append({
-                    "$match": {
-                        f"{node.model_type.variable_name}._type": node.model_type.type_name
-                    }
+                node_match_criteria.append({
+                    f"{node.model_type.variable_name}._type": node.model_type.type_name
                 })
                 path_dict[node.model_type.variable_name] = node.model_type.variable_name
                 
-
-            if node.model_type.archetype_id_predicate is not None:
-                pipeline.append({
-                    "$match": {
+                if node.model_type.archetype_id_predicate is not None:
+                    node_match_criteria.append({
                         f"{path_dict[node.model_type.variable_name]}.archetype_details.archetype_id.value" : {
-                            "$eq": node.model_type.archetype_id_predicate.value
-                        }
-                    }
-                })
+                                "$eq": node.model_type.archetype_id_predicate.value
+                        }})
 
-            self._process_from_clause_recurse(node.model_type.type_name, node.model_type.variable_name, node.contains, pipeline, path_dict)
+            node_match_criteria.append({
+                f"{node.model_type.variable_name}": {"$ne": None}
+            })
+
+            next_node_step = {}
+            node_match_criteria.append(next_node_step)
+
+            match_step["$and"] = node_match_criteria
+
+            self._process_from_clause_recurse(node.model_type.type_name, node.model_type.variable_name, node.contains, pipeline, next_node_step, path_dict)
         else:
-            raise AQLNotSupportedError("MongoDB/AQL/FROM: engine does not support OR, AND or NOT in FROM clause")
+            raise AQLNotSupportedError("MongoDB/AQL/FROM: engine does not support NOT in FROM clause")
 
     
     def _process_from_clause(self, from_clause: AQLFromClause) -> tuple[str, list[object], dict[str, str]]:
@@ -659,6 +685,7 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             root_var: root_var
         }
         pipeline = []
+        match_step = {}
 
         if t.model_type.archetype_id_predicate is not None:
             pipeline.append({
@@ -676,7 +703,11 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             }
         })
 
-        self._process_from_clause_recurse(root_type, root_var, t.contains, pipeline, path_dict)
+        self._process_from_clause_recurse(root_type, root_var, t.contains, pipeline, match_step, path_dict)
+
+        pipeline.append({
+            "$match": match_step
+        })
 
         return (root_type, pipeline, path_dict)
 
@@ -836,7 +867,7 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
 
         r = AQLResultSet(
             q=aql_query,
-            meta=AQLResultSetMetadata(created=Env.current_date_time(), generator="pyehr.server.database.mongodb", executed_aql=aql_query.as_aql()),
+            meta=AQLResultSetMetadata(created=Env.current_date_time(), generator="pyehr.server.database.mongodb", executed_aql=aql_query.as_aql(), other_metadata={"mongodb_pipeline": pipeline}),
             columns=result_cols,
             rows=result_rows)
 

@@ -242,3 +242,61 @@ def test_where_with_binary_expr_or(mongodb: MongoDBDatabaseEngine):
         actual_row_set.add((row[0], row[1]))
 
     assert is_equal_value(expected_row_set, actual_row_set)
+
+def test_contains_or(mongodb: MongoDBDatabaseEngine):
+    if not USE_REAL_MONGODB:
+        pytest.skip("Mongomock doesn't implement the required 'pipeline' operator within $lookup so this can't be tested")
+
+    r = mongodb.execute_aql_query(parse_aql("SELECT e/ehr_id/value AS ehr_id, c1/archetype_details/archetype_id/value, c2/archetype_details/archetype_id/value FROM EHR e CONTAINS (COMPOSITION c1 [openEHR-EHR-COMPOSITION.problem_list.v2] OR COMPOSITION c2 [openEHR-EHR-COMPOSITION.medication_list.v1])"))
+
+    assert len(r.rows) == 4
+    expected_row_tuples = [
+        (
+            "8d7f36c1-c2d0-4332-895c-4a3cab3446b6",
+            "openEHR-EHR-COMPOSITION.problem_list.v2",
+            "openEHR-EHR-COMPOSITION.medication_list.v1"
+        ),
+        (
+            "a2906af1-cc9f-4ef2-879b-9a3c22737b23",
+            "openEHR-EHR-COMPOSITION.problem_list.v2",
+            None
+        ),
+        (
+            "726f23bb-5b8d-4b24-bb7e-545fc698b068",
+            "openEHR-EHR-COMPOSITION.problem_list.v2",
+            None
+        ), 
+        (
+            "def83fa8-3c37-4fd4-89ec-143de9401563",
+            "openEHR-EHR-COMPOSITION.problem_list.v2",
+            None
+        )
+    ]
+    expected_row_set = set(expected_row_tuples)
+    actual_row_set = set()
+    for row in r.rows:
+        actual_row_set.add((row[0], row[1], row[2]))
+    
+    assert is_equal_value(expected_row_set, actual_row_set)
+
+def test_contains_and(mongodb: MongoDBDatabaseEngine):
+    if not USE_REAL_MONGODB:
+        pytest.skip("Mongomock doesn't implement the required 'pipeline' operator within $lookup so this can't be tested")
+
+    r = mongodb.execute_aql_query(parse_aql("SELECT e/ehr_id/value AS ehr_id, c1/archetype_details/archetype_id/value, c2/archetype_details/archetype_id/value FROM EHR e CONTAINS (COMPOSITION c1 [openEHR-EHR-COMPOSITION.problem_list.v2] AND COMPOSITION c2 [openEHR-EHR-COMPOSITION.medication_list.v1])"))
+
+    assert len(r.rows) == 1
+    expected_row_tuples = [
+        (
+            "8d7f36c1-c2d0-4332-895c-4a3cab3446b6",
+            "openEHR-EHR-COMPOSITION.problem_list.v2",
+            "openEHR-EHR-COMPOSITION.medication_list.v1"
+        )
+    ]
+    expected_row_set = set(expected_row_tuples)
+    actual_row_set = set()
+    for row in r.rows:
+        actual_row_set.add((row[0], row[1], row[2]))
+    
+    assert is_equal_value(expected_row_set, actual_row_set)
+    
