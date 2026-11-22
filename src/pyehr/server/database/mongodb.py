@@ -6,7 +6,7 @@ from warnings import warn
 
 from pyehr.core.its.aql import AQLResultSet, AQLResultSetMetadata
 from pyehr.core.its.aql.process import CONTAINS_RM_MAP
-from pyehr.core.its.aql.query import AQLComparisonOperator, AQLDataMatchPath, AQLFromClause, AQLModelTypeTreeBinaryExpr, AQLModelTypeTreeConstraint, AQLModelTypeTreeNode, AQLPrimitiveLiteral, AQLQuery, AQLSelectClause, AQLWhereClause, AQLWhereTreeBinaryExpr, AQLWhereTreeComparisonLeaf, AQLWhereTreeNode
+from pyehr.core.its.aql.query import AQLComparisonOperator, AQLDataMatchPath, AQLFromClause, AQLModelTypeTreeBinaryExpr, AQLModelTypeTreeConstraint, AQLModelTypeTreeNode, AQLModelTypeTreeNotExpr, AQLPrimitiveLiteral, AQLQuery, AQLSelectClause, AQLWhereClause, AQLWhereTreeBinaryExpr, AQLWhereTreeComparisonLeaf, AQLWhereTreeNode
 from pyehr.core.rm.ehr import EHR
 from pymongo import MongoClient
 from pymongo.database import Database
@@ -527,7 +527,10 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
                 raise AQLExecuteFailure(f"Invalid binary operator \'{node.operator}\' encountered")
             self._process_from_clause_recurse(parent_type, parent_var, node.expr1, pipeline, match_step_1, path_dict)
             self._process_from_clause_recurse(parent_type, parent_var, node.expr2, pipeline, match_step_2, path_dict)
-
+        elif isinstance(node, AQLModelTypeTreeNotExpr):
+            not_match_step = {}
+            match_step["$nor"] = [not_match_step]
+            self._process_from_clause_recurse(parent_type, parent_var, node.expr, pipeline, not_match_step, path_dict)
         elif isinstance(node, AQLModelTypeTreeConstraint):
             parent_map = CONTAINS_RM_MAP.get(parent_type)
             if parent_map is None:
@@ -660,11 +663,14 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
             next_node_step = {}
             node_match_criteria.append(next_node_step)
 
-            match_step["$and"] = node_match_criteria
+            if node.negate_contains:
+                match_step["$nor"] = [{"$and": node_match_criteria}]
+            else:
+                match_step["$and"] = node_match_criteria
 
             self._process_from_clause_recurse(node.model_type.type_name, node.model_type.variable_name, node.contains, pipeline, next_node_step, path_dict)
         else:
-            raise AQLNotSupportedError("MongoDB/AQL/FROM: engine does not support NOT in FROM clause")
+            raise AQLNotSupportedError("MongoDB/AQL/FROM: unsupported clause within FROM statement")
 
     
     def _process_from_clause(self, from_clause: AQLFromClause) -> tuple[str, list[object], dict[str, str]]:
@@ -705,9 +711,15 @@ class MongoDBDatabaseEngine(IDatabaseEngine):
 
         self._process_from_clause_recurse(root_type, root_var, t.contains, pipeline, match_step, path_dict)
 
-        pipeline.append({
-            "$match": match_step
-        })
+        if t.negate_contains:
+            pipeline.append({
+                "$match": { "$nor": [match_step] }
+                }
+            )
+        else:
+            pipeline.append({
+                "$match": match_step
+            })
 
         return (root_type, pipeline, path_dict)
 
